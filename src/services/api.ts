@@ -1,0 +1,264 @@
+import type {
+  BulletPoints,
+  CollectionDetail,
+  CollectionStats,
+  CollectionSummary,
+  DocumentItem,
+  DueFlashcard,
+  DuplicateGroup,
+  Flashcard,
+  GenerationOptions,
+  MindMapDetail,
+  MindMapSummary,
+  PomodoroMode,
+  PomodoroTask,
+  SearchResults,
+  StatsData,
+  StudyResult,
+  Summary,
+  SummaryMode,
+  User,
+} from '../types';
+
+class ApiError extends Error {}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    credentials: 'include',
+    headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
+    ...init,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new ApiError(data?.error ?? 'Algo deu errado. Tente novamente.');
+  }
+  return data as T;
+}
+
+export { ApiError };
+
+export const authApi = {
+  register: (name: string, email: string, password: string) =>
+    request<{ user: User }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password }),
+    }),
+  login: (email: string, password: string) =>
+    request<{ user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  logout: () => request<{ success: true }>('/auth/logout', { method: 'POST' }),
+  me: () => request<{ user: User }>('/auth/me'),
+  updateProfile: (name: string, email: string) =>
+    request<{ user: User }>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify({ name, email }),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ success: true }>('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+};
+
+export const collectionsApi = {
+  list: () => request<{ collections: CollectionSummary[] }>('/collections'),
+  create: (input: { name: string; subject: string; description: string; category: string }) =>
+    request<{ collection: CollectionSummary }>('/collections', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  get: (id: string) =>
+    request<{ collection: CollectionDetail; documents: DocumentItem[]; flashcards: Flashcard[] }>(
+      `/collections/${id}`,
+    ),
+  update: (id: string, input: { name?: string; subject?: string; description?: string; category?: string }) =>
+    request<{ collection: CollectionSummary }>(`/collections/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  remove: (id: string) => request<{ success: true }>(`/collections/${id}`, { method: 'DELETE' }),
+  stats: (id: string) => request<CollectionStats>(`/collections/${id}/stats`),
+};
+
+type GenerationResult = { document: DocumentItem; flashcards: Flashcard[] };
+
+export const documentsApi = {
+  fromFile: (collectionId: string, file: File, options: GenerationOptions) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('quantity', String(options.quantity));
+    form.append('difficulty', options.difficulty);
+    form.append('cardType', options.cardType);
+    form.append('depth', options.depth);
+    form.append('focus', options.focus);
+    return request<GenerationResult>(`/collections/${collectionId}/documents/file`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+  fromTopic: (collectionId: string, topic: string, options: GenerationOptions) =>
+    request<GenerationResult>(`/collections/${collectionId}/documents/topic`, {
+      method: 'POST',
+      body: JSON.stringify({ topic, ...options }),
+    }),
+  fromText: (collectionId: string, text: string, options: GenerationOptions) =>
+    request<GenerationResult>(`/collections/${collectionId}/documents/text`, {
+      method: 'POST',
+      body: JSON.stringify({ text, ...options }),
+    }),
+  fromYoutube: (collectionId: string, url: string, options: GenerationOptions) =>
+    request<GenerationResult>(`/collections/${collectionId}/documents/youtube`, {
+      method: 'POST',
+      body: JSON.stringify({ url, ...options }),
+    }),
+};
+
+export const transcribeApi = {
+  fromFile: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ text: string }>('/transcribe/file', { method: 'POST', body: form });
+  },
+  fromYoutube: (url: string) =>
+    request<{ text: string }>('/transcribe/youtube', { method: 'POST', body: JSON.stringify({ url }) }),
+};
+
+export const flashcardsApi = {
+  create: (collectionId: string, input: { question: string; answer: string; difficulty: string }) =>
+    request<{ flashcard: Flashcard }>('/flashcards', {
+      method: 'POST',
+      body: JSON.stringify({ collectionId, ...input }),
+    }),
+  update: (
+    id: string,
+    input: { question?: string; answer?: string; format?: string; difficulty?: string; favorite?: boolean },
+  ) =>
+    request<{ flashcard: Flashcard }>(`/flashcards/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  remove: (id: string) => request<{ success: true }>(`/flashcards/${id}`, { method: 'DELETE' }),
+  favorites: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/favorites'),
+  study: (id: string, result: StudyResult) =>
+    request<{ success: true }>(`/flashcards/${id}/study`, {
+      method: 'POST',
+      body: JSON.stringify({ result }),
+    }),
+  due: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/due'),
+  copyToCollection: (flashcardIds: string[], targetCollectionId: string, mode: 'copy' | 'move' = 'copy') =>
+    request<{ flashcards: Flashcard[]; count: number; skippedDuplicates: number }>('/flashcards/copy', {
+      method: 'POST',
+      body: JSON.stringify({ flashcardIds, targetCollectionId, mode }),
+    }),
+  findDuplicates: () => request<{ groups: DuplicateGroup[]; totalDuplicates: number }>('/flashcards/duplicates'),
+};
+
+export const statsApi = {
+  get: () => request<StatsData>('/stats'),
+};
+
+export const pomodoroApi = {
+  logTask: (input: {
+    mode: PomodoroMode;
+    phase: string;
+    discipline: string;
+    subject: string;
+    durationSec: number;
+    startedAt: string;
+    endedAt: string;
+  }) => request<{ task: PomodoroTask }>('/pomodoro/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  listTasks: (from: string, to: string) =>
+    request<{ tasks: PomodoroTask[] }>(`/pomodoro/tasks?from=${from}&to=${to}`),
+  removeTask: (id: string) => request<{ success: true }>(`/pomodoro/tasks/${id}`, { method: 'DELETE' }),
+  getNote: (date: string) => request<{ date: string; text: string }>(`/pomodoro/notes?date=${date}`),
+  saveNote: (date: string, text: string) =>
+    request<{ date: string; text: string }>('/pomodoro/notes', {
+      method: 'PUT',
+      body: JSON.stringify({ date, text }),
+    }),
+};
+
+export const mindMapsApi = {
+  list: () => request<{ mindMaps: MindMapSummary[] }>('/mindmaps'),
+  get: (id: string) => request<{ mindMap: MindMapDetail }>(`/mindmaps/${id}`),
+  remove: (id: string) => request<{ success: true }>(`/mindmaps/${id}`, { method: 'DELETE' }),
+  rename: (id: string, title: string) =>
+    request<{ mindMap: MindMapDetail }>(`/mindmaps/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
+  fromTopic: (topic: string, title?: string) =>
+    request<{ mindMap: MindMapDetail }>('/mindmaps/generate/topic', {
+      method: 'POST',
+      body: JSON.stringify({ topic, title }),
+    }),
+  fromText: (text: string, title?: string) =>
+    request<{ mindMap: MindMapDetail }>('/mindmaps/generate/text', {
+      method: 'POST',
+      body: JSON.stringify({ text, title }),
+    }),
+  fromYoutube: (url: string, title?: string) =>
+    request<{ mindMap: MindMapDetail }>('/mindmaps/generate/youtube', {
+      method: 'POST',
+      body: JSON.stringify({ url, title }),
+    }),
+  fromFile: (file: File, title?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (title) form.append('title', title);
+    return request<{ mindMap: MindMapDetail }>('/mindmaps/generate/file', { method: 'POST', body: form });
+  },
+};
+
+export const summariesApi = {
+  list: () => request<{ summaries: Summary[] }>('/summaries'),
+  generate: (text: string, mode: SummaryMode) =>
+    request<{ summary: Summary }>('/summaries/generate', {
+      method: 'POST',
+      body: JSON.stringify({ text, mode }),
+    }),
+  remove: (id: string) => request<{ success: true }>(`/summaries/${id}`, { method: 'DELETE' }),
+};
+
+export const bulletPointsApi = {
+  list: () => request<{ bulletPoints: BulletPoints[] }>('/bulletpoints'),
+  generate: (text: string) =>
+    request<{ bulletPoints: BulletPoints }>('/bulletpoints/generate', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  remove: (id: string) => request<{ success: true }>(`/bulletpoints/${id}`, { method: 'DELETE' }),
+};
+
+export const searchApi = {
+  search: (q: string) => request<SearchResults>(`/search?q=${encodeURIComponent(q)}`),
+};
+
+async function downloadExport(path: string, filename: string, collectionId: string, flashcardIds?: string[]) {
+  const res = await fetch(`/api${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collectionId, flashcardIds }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(data?.error ?? 'Não foi possível exportar.');
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function exportAnki(collectionId: string, name: string, flashcardIds?: string[]) {
+  return downloadExport('/exports/anki', `${name}.apkg`, collectionId, flashcardIds);
+}
+
+export function exportPdf(collectionId: string, name: string, flashcardIds?: string[]) {
+  return downloadExport('/exports/pdf', `${name}.pdf`, collectionId, flashcardIds);
+}
