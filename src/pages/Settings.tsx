@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { Check, Monitor, Moon, MousePointerClick, Sun, Volume2 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
+import { AiUsagePanel } from '../components/AiUsagePanel';
 import { useTheme, type ThemeMode } from '../contexts/ThemeContext';
 import { useStudySettings } from '../contexts/StudySettingsContext';
 import { paletteSwatchHex, THEME_COLOR_LABELS, THEME_COLORS } from '../theme/palettes';
@@ -13,11 +16,20 @@ const MODE_OPTIONS: { mode: ThemeMode; label: string; icon: typeof Sun }[] = [
 export function Settings() {
   const { mode, color, setMode, setColor } = useTheme();
   const { autoPlaySpeech, setAutoPlaySpeech } = useStudySettings();
+  const { hash } = useLocation();
+
+  // O link "Tokens de IA" do menu lateral aponta pra cá com #uso-ia — o
+  // react-router não rola até a âncora sozinho.
+  useEffect(() => {
+    if (hash === '#uso-ia') document.getElementById('uso-ia')?.scrollIntoView();
+  }, [hash]);
 
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">Configurações</h1>
-      <p className="mb-8 text-sm text-neutral-500 dark:text-neutral-400">Personalize a aparência do app.</p>
+      <p className="mb-8 text-sm text-neutral-500 dark:text-neutral-400">
+        Personalize o app e acompanhe o uso de IA.
+      </p>
 
       <div className="card mb-6 p-6">
         <h2 className="mb-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">Tema</h2>
@@ -100,6 +112,8 @@ export function Settings() {
           </button>
         </div>
       </div>
+
+      <AiUsagePanel />
     </div>
   );
 }

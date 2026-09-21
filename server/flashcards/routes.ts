@@ -4,6 +4,7 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { duplicateKey } from '../duplicates';
 import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 import { nextSrsState, type StudyResult } from '../srs';
@@ -22,32 +23,7 @@ function loadOwnedFlashcard(userId: string, flashcardId: string): FlashcardRow |
   return row ?? null;
 }
 
-// Normaliza pergunta/resposta pra comparação de duplicidade: remove tags
-// (um cartão em HTML e o mesmo cartão em texto simples devem contar como
-// duplicados), colapsa espaços e ignora maiúsculas/minúsculas. Só quebras de
-// bloco (</p>, </div>, </li>, <br>) viram espaço — tags inline (<b>, <span>
-// etc.) somem sem deixar espaço, senão "<b>phishing</b>?" normalizaria
-// diferente de "phishing?" só por causa do espaço da tag removida colado à
-// pontuação.
-function normalizeForDuplicateCheck(value: string): string {
-  return value
-    .replace(/<\/(p|div|li)>/gi, ' ')
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-// A "chave" de duplicidade é só a resposta, de propósito — a mesma pergunta
-// pode legitimamente se repetir (ex.: formulada diferente em cada coleção),
-// mas duas respostas idênticas significam conteúdo redundante de verdade,
-// mesmo que a pergunta que leva até ela seja outra.
-function duplicateKey(answer: string): string {
-  return normalizeForDuplicateCheck(answer);
-}
-
-flashcardsRouter.post('/', (req: AuthedRequest, res: Response) => {
+flashcardsRouter.post('/',(req: AuthedRequest, res: Response) => {
   const { collectionId, question, answer, difficulty } = req.body ?? {};
   if (typeof collectionId !== 'string') {
     res.status(400).json({ success: false, error: 'Coleção inválida.' });

@@ -5,6 +5,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { generateBulletPoints } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
 import { mapBulletPoints, type BulletPointsRow } from '../mappers';
 
 export const bulletPointsRouter = express.Router();
@@ -25,7 +26,9 @@ bulletPointsRouter.post('/generate', async (req: AuthedRequest, res: Response) =
   }
 
   try {
-    const { title, points } = await generateBulletPoints(text);
+    const { title, points } = await withUsageContext({ userId: req.userId!, feature: 'bulletpoints' }, () =>
+      generateBulletPoints(text),
+    );
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare(

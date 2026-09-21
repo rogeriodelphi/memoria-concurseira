@@ -8,6 +8,7 @@ import type {
   MindMapNode,
   SummaryMode,
 } from './gemini';
+import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 
 // gpt-4o-mini: barato e rápido, com suporte a saída estruturada (JSON
 // Schema) e visão (imagem) — suficiente pra tópico/texto/imagem. PDF e
@@ -58,13 +59,30 @@ function friendlyOpenAIError(err: unknown): Error {
 
 const MAX_ATTEMPTS = 3;
 
+function providerStatusFor(err: APIError): ProviderStatus | null {
+  if (err.status === 429) return isInsufficientQuota(err) ? 'no_credits' : 'rate_limited';
+  if (err.status === 401) return 'invalid_key';
+  if (typeof err.status === 'number' && err.status >= 500) return 'unavailable';
+  return null;
+}
+
+function trackOpenAISuccess(response: OpenAI.Chat.ChatCompletion): void {
+  const usage = response.usage;
+  const input = usage?.prompt_tokens ?? 0;
+  const output = usage?.completion_tokens ?? 0;
+  recordUsage('openai', { input, output, total: usage?.total_tokens ?? input + output });
+  reportProviderOutcome('openai', 'ok');
+}
+
 async function chatCompletionWithRetry(
   client: OpenAI,
   params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
 ): Promise<OpenAI.Chat.ChatCompletion> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await client.chat.completions.create(params);
+      const response = await client.chat.completions.create(params);
+      trackOpenAISuccess(response);
+      return response;
     } catch (err) {
       if (!(err instanceof APIError)) throw err;
       // Sem créditos não se resolve tentando de novo — falha rápido em vez
@@ -72,7 +90,11 @@ async function chatCompletionWithRetry(
       const retryable =
         !isInsufficientQuota(err) &&
         (err.status === 429 || (typeof err.status === 'number' && err.status >= 500));
-      if (!retryable || attempt === MAX_ATTEMPTS) throw friendlyOpenAIError(err);
+      if (!retryable || attempt === MAX_ATTEMPTS) {
+        const outcome = providerStatusFor(err);
+        if (outcome) reportProviderOutcome('openai', outcome);
+        throw friendlyOpenAIError(err);
+      }
       const retryAfterHeader = err.headers?.get?.('retry-after');
       const delayMs = retryAfterHeader ? Math.min(Number(retryAfterHeader) * 1000, 30000) : 2000 * attempt;
       await new Promise((resolve) => setTimeout(resolve, delayMs));

@@ -1,4 +1,7 @@
 import type {
+  AiUsage,
+  AnkiImportPreview,
+  AnkiImportResult,
   BulletPoints,
   CollectionDetail,
   CollectionStats,
@@ -22,17 +25,31 @@ import type {
 
 class ApiError extends Error {}
 
+export const AI_USAGE_EVENT = 'ai-usage-changed';
+
+// Toda rota que dispara uma chamada de IA (gerar flashcards, resumo, mapa,
+// bullet points, transcrever) — depois dela o contador de tokens mudou, então
+// quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
+// erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\//;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    credentials: 'include',
-    headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
-    ...init,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data?.success === false) {
-    throw new ApiError(data?.error ?? 'Algo deu errado. Tente novamente.');
+  try {
+    const res = await fetch(`/api${path}`, {
+      credentials: 'include',
+      headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
+      ...init,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.success === false) {
+      throw new ApiError(data?.error ?? 'Algo deu errado. Tente novamente.');
+    }
+    return data as T;
+  } finally {
+    if (init?.method === 'POST' && AI_GENERATION_PATH.test(path)) {
+      window.dispatchEvent(new Event(AI_USAGE_EVENT));
+    }
   }
-  return data as T;
 }
 
 export { ApiError };
@@ -227,6 +244,35 @@ export const bulletPointsApi = {
       body: JSON.stringify({ text }),
     }),
   remove: (id: string) => request<{ success: true }>(`/bulletpoints/${id}`, { method: 'DELETE' }),
+};
+
+export const ankiImportApi = {
+  preview: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<AnkiImportPreview>('/anki-import/preview', { method: 'POST', body: form });
+  },
+  import: (file: File, target: { collectionId: string } | { newCollectionName: string }) => {
+    const form = new FormData();
+    form.append('file', file);
+    if ('collectionId' in target) form.append('collectionId', target.collectionId);
+    else form.append('newCollectionName', target.newCollectionName);
+    return request<AnkiImportResult>('/anki-import/import', { method: 'POST', body: form });
+  },
+};
+
+export const aiUsageApi = {
+  get: () => request<AiUsage>('/ai-usage'),
+  setBudget: async (monthlyTokenBudget: number | null) => {
+    const result = await request<{ budget: number | null }>('/ai-usage/budget', {
+      method: 'PUT',
+      body: JSON.stringify({ monthlyTokenBudget }),
+    });
+    // O menu lateral e o painel de Configurações mostram o "restante" —
+    // ambos precisam recarregar quando o orçamento muda.
+    window.dispatchEvent(new Event(AI_USAGE_EVENT));
+    return result;
+  },
 };
 
 export const searchApi = {

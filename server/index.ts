@@ -18,6 +18,8 @@ import { mindMapsRouter } from './mindmaps/routes';
 import { summariesRouter } from './summaries/routes';
 import { bulletPointsRouter } from './bulletpoints/routes';
 import { searchRouter } from './search/routes';
+import { aiUsageRouter } from './aiusage/routes';
+import { ankiImportRouter } from './anki/routes';
 import { startBackupSchedule } from './backup';
 
 process.on('unhandledRejection', (reason) => {
@@ -55,6 +57,8 @@ app.use('/api/mindmaps', mindMapsRouter);
 app.use('/api/summaries', summariesRouter);
 app.use('/api/bulletpoints', bulletPointsRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/ai-usage', aiUsageRouter);
+app.use('/api/anki-import', ankiImportRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, ok: true });

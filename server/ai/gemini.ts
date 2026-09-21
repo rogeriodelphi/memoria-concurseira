@@ -1,6 +1,8 @@
 import { GoogleGenAI, Type, FileState, ApiError, createPartFromUri, createUserContent } from '@google/genai';
 import type { GenerateContentParameters, GenerateContentResponse } from '@google/genai';
 
+import { recordUsage, reportProviderOutcome } from './usage';
+
 export interface GenerationOptions {
   quantity: 'auto' | number;
   difficulty: 'facil' | 'medio' | 'dificil' | 'misto';
@@ -124,6 +126,20 @@ function sharedInstructions(options: GenerationOptions): string {
     .join('\n');
 }
 
+export function hasGemini(): boolean {
+  return !!process.env.GEMINI_API_KEY;
+}
+
+function trackGeminiSuccess(response: GenerateContentResponse): void {
+  const usage = response.usageMetadata;
+  const input = usage?.promptTokenCount ?? 0;
+  // totalTokenCount já inclui tokens de "raciocínio" do modelo, que
+  // candidatesTokenCount sozinho não conta — por isso a saída é derivada do total.
+  const total = usage?.totalTokenCount ?? input + (usage?.candidatesTokenCount ?? 0);
+  recordUsage('gemini', { input, output: Math.max(total - input, 0), total });
+  reportProviderOutcome('gemini', 'ok');
+}
+
 function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -192,7 +208,9 @@ async function generateContentWithRetry(
   let quotaRetryUsed = false;
   for (let attempt = 1; attempt <= MAX_OVERLOAD_ATTEMPTS; attempt++) {
     try {
-      return await client.models.generateContent(params);
+      const response = await client.models.generateContent(params);
+      trackGeminiSuccess(response);
+      return response;
     } catch (err) {
       if (!(err instanceof ApiError)) throw err;
       const parsed = parseGeminiError(err);
@@ -204,11 +222,17 @@ async function generateContentWithRetry(
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
+        reportProviderOutcome('gemini', 'quota_exhausted');
         throw friendlyGeminiError(err, parsed);
       }
 
       const overloaded = err.status === 503;
       if (!overloaded || attempt === MAX_OVERLOAD_ATTEMPTS) {
+        if (overloaded) {
+          reportProviderOutcome('gemini', 'unavailable');
+        } else if (err.status === 401 || err.status === 403 || err.message.includes('API_KEY_INVALID')) {
+          reportProviderOutcome('gemini', 'invalid_key');
+        }
         throw friendlyGeminiError(err, parsed);
       }
       await new Promise((resolve) => setTimeout(resolve, OVERLOAD_RETRY_BASE_DELAY_MS * attempt));

@@ -31,7 +31,7 @@ export interface CollectionDetail {
   updatedAt: string;
 }
 
-export type DocumentSourceType = 'file' | 'topic' | 'text' | 'youtube';
+export type DocumentSourceType = 'file' | 'topic' | 'text' | 'youtube' | 'anki';
 
 export interface DocumentItem {
   id: string;
@@ -163,6 +163,56 @@ export interface BulletPoints {
   points: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AnkiImportPreview {
+  suggestedName: string;
+  totalNotes: number;
+  importable: number;
+  duplicatesExisting: number;
+  duplicatesInFile: number;
+  empty: number;
+  clozeConverted: number;
+  images: { embedded: number; skipped: number };
+  duplicateSamples: { question: string; existsIn: string | null }[];
+  sample: { question: string; answer: string }[];
+}
+
+export interface AnkiImportResult {
+  imported: number;
+  duplicates: number;
+  empty: number;
+  collection: { id: string; name: string } | null;
+}
+
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription';
+export type AiProvider = 'gemini' | 'openai';
+export type AiProviderStatus =
+  | 'ok'
+  | 'quota_exhausted'
+  | 'no_credits'
+  | 'rate_limited'
+  | 'invalid_key'
+  | 'unavailable';
+
+export interface AiUsageTotals {
+  tokens: number;
+  requests: number;
+}
+
+export interface AiUsage {
+  today: AiUsageTotals;
+  month: AiUsageTotals;
+  budget: number | null;
+  remaining: number | null;
+  byFeature: (AiUsageTotals & { feature: AiFeature })[];
+  byProvider: (AiUsageTotals & { provider: AiProvider })[];
+  providers: {
+    provider: AiProvider;
+    configured: boolean;
+    status: AiProviderStatus | null;
+    updatedAt: string | null;
+  }[];
 }
 
 export interface SearchResultItem {

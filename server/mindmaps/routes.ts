@@ -7,6 +7,7 @@ import type { Request } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { generateMindMap, type GenerationSource } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
 import { mapMindMapDetail, mapMindMapSummary, type MindMapRow } from '../mappers';
 import { isYoutubeUrl } from '../urlValidation';
 
@@ -31,7 +32,7 @@ const upload = multer({
 
 async function saveMindMap(userId: string, requestedTitle: string | undefined, source: GenerationSource, res: Response) {
   try {
-    const root = await generateMindMap(source);
+    const root = await withUsageContext({ userId, feature: 'mindmap' }, () => generateMindMap(source));
     const title = requestedTitle?.trim() || root.title || 'Mapa mental';
     const now = new Date().toISOString();
     const id = crypto.randomUUID();

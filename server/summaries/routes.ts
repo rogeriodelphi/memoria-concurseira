@@ -5,6 +5,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { generateSummary, type SummaryMode } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
 import { mapSummary, type SummaryRow } from '../mappers';
 
 export const summariesRouter = express.Router();
@@ -30,7 +31,9 @@ summariesRouter.post('/generate', async (req: AuthedRequest, res: Response) => {
   const mode = parseMode(req.body?.mode);
 
   try {
-    const { title, content } = await generateSummary(text, mode);
+    const { title, content } = await withUsageContext({ userId: req.userId!, feature: 'summary' }, () =>
+      generateSummary(text, mode),
+    );
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare(

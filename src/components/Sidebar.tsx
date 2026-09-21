@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
+import { AiUsageWidget } from './AiUsageWidget';
 import { useAuth } from '../contexts/AuthContext';
 import { getInitials } from '../utils/initials';
 
@@ -44,7 +45,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col justify-between bg-brand-800 px-4 py-6 text-brand-50 transition-transform duration-200 ease-out print:hidden md:static md:z-auto md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col justify-between overflow-y-auto bg-brand-800 px-4 py-6 text-brand-50 transition-transform duration-200 ease-out print:hidden md:static md:z-auto md:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -165,6 +166,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <div className="border-t border-brand-700 pt-4">
+          <AiUsageWidget onNavigate={onClose} />
           <NavLink
             to="/perfil"
             onClick={onClose}

@@ -11,6 +11,7 @@ import {
   Plus,
   Star,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 
@@ -224,10 +225,16 @@ export function Collections() {
             Envie um arquivo, cole um texto ou um link do YouTube e deixe a IA transformar em flashcards.
           </p>
         </div>
-        <Link to="/colecoes/nova" className="btn-primary self-start sm:self-auto">
-          <Plus size={16} />
-          Gerar flashcards
-        </Link>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <Link to="/importar-anki" className="btn-secondary">
+            <Upload size={16} />
+            Importar do Anki
+          </Link>
+          <Link to="/colecoes/nova" className="btn-primary">
+            <Plus size={16} />
+            Gerar flashcards
+          </Link>
+        </div>
       </div>
 
       {totalDue > 0 && (

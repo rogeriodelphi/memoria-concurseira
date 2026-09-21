@@ -135,6 +135,25 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_bullet_points_user ON bullet_points(user_id);
+
+  CREATE TABLE IF NOT EXISTS ai_usage (
+    id            TEXT PRIMARY KEY,
+    user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider      TEXT NOT NULL,
+    feature       TEXT NOT NULL,
+    input_tokens  INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens  INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_ai_usage_user_date ON ai_usage(user_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS ai_provider_status (
+    provider   TEXT PRIMARY KEY,
+    status     TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `);
 
 // Migração para bancos criados antes da coluna "subject" existir — o
@@ -171,6 +190,13 @@ if (!flashcardsColumnsForSrs.some((c) => c.name === 'ease_factor')) {
     ALTER TABLE flashcards ADD COLUMN repetitions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE flashcards ADD COLUMN due_at TEXT;
   `);
+}
+
+// Orçamento mensal de tokens de IA (opcional, só informativo — nunca bloqueia
+// geração). NULL = sem orçamento definido.
+const usersColumns = db.prepare('PRAGMA table_info(users)').all() as unknown as { name: string }[];
+if (!usersColumns.some((c) => c.name === 'monthly_token_budget')) {
+  db.exec('ALTER TABLE users ADD COLUMN monthly_token_budget INTEGER');
 }
 
 // Migração para "favorite" em flashcards — marca manual do usuário pra

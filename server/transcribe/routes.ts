@@ -4,6 +4,7 @@ import type { Request } from 'express';
 
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { transcribeMedia } from '../ai/gemini';
+import { withUsageContext } from '../ai/usage';
 import { isYoutubeUrl } from '../urlValidation';
 
 export const transcribeRouter = express.Router();
@@ -30,7 +31,10 @@ transcribeRouter.post('/file', upload.single('file'), async (req: AuthedRequest,
     return;
   }
   try {
-    const text = await transcribeMedia({ type: 'file', buffer: req.file.buffer, mimeType: req.file.mimetype });
+    const file = req.file;
+    const text = await withUsageContext({ userId: req.userId!, feature: 'transcription' }, () =>
+      transcribeMedia({ type: 'file', buffer: file.buffer, mimeType: file.mimetype }),
+    );
     res.json({ success: true, text });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Falha ao transcrever o arquivo.';
@@ -45,7 +49,9 @@ transcribeRouter.post('/youtube', async (req: AuthedRequest, res: Response) => {
     return;
   }
   try {
-    const text = await transcribeMedia({ type: 'youtube', url });
+    const text = await withUsageContext({ userId: req.userId!, feature: 'transcription' }, () =>
+      transcribeMedia({ type: 'youtube', url }),
+    );
     res.json({ success: true, text });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Falha ao transcrever o vídeo.';

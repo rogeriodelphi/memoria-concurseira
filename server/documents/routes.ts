@@ -8,6 +8,7 @@ import pdfParse from 'pdf-parse';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { generateFlashcards, type GenerationOptions, type GenerationSource } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
 import { mapDocument, mapFlashcard, type DocumentRow, type FlashcardRow } from '../mappers';
 import { isYoutubeUrl } from '../urlValidation';
 
@@ -110,7 +111,9 @@ async function runGeneration(req: AuthedRequest, res: Response, params: RunGener
           .catch(() => 0)
       : 0;
 
-    const { flashcards } = await generateFlashcards(params.source, options);
+    const { flashcards } = await withUsageContext({ userId: req.userId!, feature: 'flashcards' }, () =>
+      generateFlashcards(params.source, options),
+    );
 
     const insertFlashcard = db.prepare(
       'INSERT INTO flashcards (id, collection_id, document_id, question, answer, difficulty, source_page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',

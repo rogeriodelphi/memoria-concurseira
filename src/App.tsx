@@ -31,6 +31,7 @@ import { BulletPointsHub } from './pages/BulletPointsHub';
 import { BulletPointsNew } from './pages/BulletPointsNew';
 import { BulletPointsList } from './pages/BulletPointsList';
 import { GlobalSearch } from './pages/GlobalSearch';
+import { AnkiImport } from './pages/AnkiImport';
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
                       <Route path="/revisar" element={<GlobalReview />} />
                       <Route path="/favoritos" element={<FavoritesReview />} />
                       <Route path="/buscar" element={<GlobalSearch />} />
+                      <Route path="/importar-anki" element={<AnkiImport />} />
                       <Route path="/configuracoes" element={<Settings />} />
                       <Route path="/estatisticas" element={<Stats />} />
                       <Route path="/perfil" element={<Profile />} />
