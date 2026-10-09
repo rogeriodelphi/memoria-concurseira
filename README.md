@@ -42,6 +42,39 @@ npm run dev
 - Frontend: http://localhost:5173
 - API: http://localhost:3000 (o Vite faz proxy de `/api` para cá)
 
+## Rodando em segundo plano (Windows)
+
+Para o app ficar no ar sem terminal aberto, ele roda como tarefa agendada do
+Windows (`BaseConcurseira`): sobe sozinho quando você entra no Windows e volta
+sozinho se o processo cair (num teste de queda forçada, voltou em ~2 minutos).
+É a versão de **produção** (um
+processo só serve a interface e a API), numa porta própria para não colidir com
+o `npm run dev`:
+
+- Neste PC: http://localhost:3200
+- Outros aparelhos da mesma rede: `http://<IP-do-PC>:3200` (veja o IP com `ipconfig`)
+
+```bash
+npm run service:install   # registra a tarefa (uma vez; não exige administrador)
+npm run deploy            # depois de mudar o código: typecheck + build + reinicia
+```
+
+A versão de produção é uma "foto" do código: mudanças só aparecem depois de
+`npm run deploy`. O `npm run dev` continua funcionando ao lado (portas
+3000/5173) e usa o mesmo banco.
+
+Como a tarefa se religa sozinha, parar o app exige desabilitá-la antes:
+
+```bash
+schtasks /change /tn BaseConcurseira /disable   # impede de religar
+schtasks /end /tn BaseConcurseira               # derruba o processo atual
+schtasks /change /tn BaseConcurseira /enable    # volta ao normal
+schtasks /run /tn BaseConcurseira               # sobe agora
+```
+
+Não defina `NODE_ENV=production` nessa tarefa: o cookie de sessão passaria a
+ser `secure` e deixaria de funcionar em HTTP pelo IP da rede.
+
 ## Backup do banco
 
 O servidor tira um backup do banco (`backups/app-AAAAMMDD-HHMMSS.db`) assim
@@ -56,7 +89,8 @@ esses arquivos para a nuvem sem precisar de nenhuma configuração extra
 (diferente do `data/app.db` ao vivo, que fica sendo escrito o tempo todo e é
 um péssimo candidato a sincronização confiável).
 
-**Para restaurar um backup:** pare o servidor, substitua `data/app.db` pelo
+**Para restaurar um backup:** pare o servidor (se estiver como tarefa agendada,
+desabilite e encerre a tarefa, como descrito acima), substitua `data/app.db` pelo
 arquivo de backup desejado (renomeando-o para `app.db`), apague eventuais
 `data/app.db-wal` e `data/app.db-shm` residuais, e suba o servidor de novo.
 
@@ -65,7 +99,9 @@ arquivo de backup desejado (renomeando-o para `app.db`), apague eventuais
 - `npm run dev` — frontend + API em modo desenvolvimento.
 - `npm run typecheck` — checagem de tipos.
 - `npm run build` — build de produção (frontend + servidor).
-- `npm start` — roda o build de produção.
+- `npm start` — roda o build de produção (em primeiro plano).
+- `npm run service:install` — registra o app como tarefa agendada do Windows.
+- `npm run deploy` — typecheck, build e reinício do app em segundo plano.
 
 ## Fluxo do MVP
 

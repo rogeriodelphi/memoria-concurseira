@@ -13,6 +13,8 @@
     "build": "vite build && npm run build:server",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist-server/server.cjs --external:express --external:pdf-parse --external:anki-apkg-export --external:sql.js --external:pdfkit --external:sanitize-html --external:openai",
     "start": "node dist-server/server.cjs",
+    "service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
+    "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "preview": "vite preview"
   },
   "dependencies": {
