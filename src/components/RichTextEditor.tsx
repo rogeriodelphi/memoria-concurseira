@@ -15,12 +15,24 @@ import {
   Superscript,
   Underline,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
+
+import { CARD_TEXT_STYLE, type CardTextRole } from '../utils/cardTextStyle';
+import { alignImage, getSelectedImage, imageAlignForCommand, selectImage } from '../utils/editorImage';
 
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  /** Mostra o campo com o mesmo padrão visual que ele terá no cartão. */
+  role?: CardTextRole;
 }
 
 const SIMPLE_COMMANDS: { command: string; icon: typeof Bold; label: string }[] = [
@@ -178,7 +190,7 @@ function ColorDropdown({
  * fixo de comandos é muito mais simples e leve do que trazer uma biblioteca
  * de editor completa.
  */
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, placeholder, role }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -193,6 +205,18 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
   function exec(command: string, arg?: string) {
     ref.current?.focus();
+
+    // Com uma imagem selecionada, o alinhamento vai pras margens dela — o
+    // comando nativo grava `text-align` na <img>, onde não faz efeito algum.
+    const align = imageAlignForCommand(command);
+    const image = align && ref.current ? getSelectedImage(ref.current) : null;
+    if (align && image && ref.current) {
+      alignImage(image, align);
+      selectImage(image);
+      onChange(ref.current.innerHTML);
+      return;
+    }
+
     // Sem isso, o Chrome produz <font color="..."> (tag legada, fora da
     // allow-list do sanitizador) em vez de `style="color:..."` — com
     // styleWithCSS ligado, os comandos de cor saem como CSS de verdade.
@@ -218,6 +242,17 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     const file = e.target.files?.[0];
     e.target.value = '';
     if (file) insertImageFile(file);
+  }
+
+  // Clicar numa imagem não move a seleção do editor (o cursor fica no texto
+  // de antes), então os botões de formatação nunca chegariam nela. Selecionar
+  // a imagem no clique é o que permite alinhá-la. Fica no `click` e não no
+  // `mousedown` pra não atrapalhar arrastar a imagem pra outro lugar.
+  function handleClick(e: ReactMouseEvent<HTMLDivElement>) {
+    if (e.target instanceof HTMLImageElement) {
+      ref.current?.focus();
+      selectImage(e.target);
+    }
   }
 
   function handlePaste(e: ClipboardEvent<HTMLDivElement>) {
@@ -279,8 +314,9 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         contentEditable
         onInput={() => ref.current && onChange(ref.current.innerHTML)}
         onPaste={handlePaste}
+        onClick={handleClick}
         data-placeholder={placeholder}
-        className="min-h-[4.5rem] px-3.5 py-2.5 text-sm text-neutral-900 focus:outline-none dark:text-neutral-100 [&_div]:min-h-[1em] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]"
+        className={`min-h-[4.5rem] px-3.5 py-2.5 text-sm text-neutral-900 focus:outline-none ${role ? CARD_TEXT_STYLE[role] : ''} dark:text-neutral-100 [&_div]:min-h-[1em] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:cursor-pointer [&_img]:rounded-md empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]`}
       />
     </div>
   );

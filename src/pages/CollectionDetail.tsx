@@ -1056,11 +1056,11 @@ export function CollectionDetail() {
                   <div className="space-y-3">
                     <div>
                       <label className="label-field">Pergunta</label>
-                      <RichTextEditor value={editQuestion} onChange={setEditQuestion} />
+                      <RichTextEditor value={editQuestion} onChange={setEditQuestion} role="question" />
                     </div>
                     <div>
                       <label className="label-field">Resposta</label>
-                      <RichTextEditor value={editAnswer} onChange={setEditAnswer} />
+                      <RichTextEditor value={editAnswer} onChange={setEditAnswer} role="answer" />
                     </div>
                     <div className="flex gap-2">
                       <button className="btn-primary" onClick={() => saveEdit(fc.id)}>
@@ -1094,12 +1094,14 @@ export function CollectionDetail() {
                       <FormattedText
                         value={fc.question}
                         format={fc.format}
-                        className="font-medium text-neutral-900 dark:text-neutral-100"
+                        role="question"
+                        className="text-neutral-900 dark:text-neutral-100"
                       />
                       {isRevealed && (
                         <FormattedText
                           value={fc.answer}
                           format={fc.format}
+                          role="answer"
                           className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
                         />
                       )}
@@ -1238,11 +1240,11 @@ export function CollectionDetail() {
 
             <div>
               <label className="label-field">Pergunta</label>
-              <RichTextEditor value={newCardQuestion} onChange={setNewCardQuestion} />
+              <RichTextEditor value={newCardQuestion} onChange={setNewCardQuestion} role="question" />
             </div>
             <div>
               <label className="label-field">Resposta</label>
-              <RichTextEditor value={newCardAnswer} onChange={setNewCardAnswer} />
+              <RichTextEditor value={newCardAnswer} onChange={setNewCardAnswer} role="answer" />
             </div>
             <div>
               <label className="label-field">Dificuldade</label>

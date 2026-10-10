@@ -41,6 +41,14 @@ export function sanitizeFlashcardHtml(html: string): string {
         color: HEX_OR_RGB,
         'background-color': HEX_OR_RGB,
       },
+      // Alinhamento de imagem: o editor centraliza/encosta à direita uma <img>
+      // (que é um bloco) pelas margens dela. Só esses valores exatos — nada de
+      // medidas livres nem de outros `display`.
+      img: {
+        display: [/^block$/],
+        'margin-left': [/^auto$/, /^0(px)?$/],
+        'margin-right': [/^auto$/, /^0(px)?$/],
+      },
     },
     // Sem isso, sanitize-html troca cada tag desconhecida (ex.: um <script>
     // colado) pelo texto do conteúdo em vez de simplesmente descartá-la —

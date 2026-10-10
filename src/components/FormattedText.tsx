@@ -1,4 +1,5 @@
 import type { Flashcard } from '../types';
+import { CARD_TEXT_STYLE, type CardTextRole } from '../utils/cardTextStyle';
 
 /**
  * Renderiza o texto de um flashcard respeitando seu formato: HTML
@@ -10,12 +11,16 @@ import type { Flashcard } from '../types';
 export function FormattedText({
   value,
   format,
+  role,
   className,
 }: {
   value: string;
   format: Flashcard['format'];
+  role: CardTextRole;
   className: string;
 }) {
+  const classes = `${className} ${CARD_TEXT_STYLE[role]}`;
+
   // O editor produz <div style="text-align:..."> pro alinhamento — um bloco
   // desses dentro de um <p> seria HTML inválido (o navegador pode
   // reestruturar de formas diferentes entre engines), por isso o wrapper é
@@ -23,10 +28,10 @@ export function FormattedText({
   if (format === 'html') {
     return (
       <div
-        className={`${className} [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md`}
+        className={`${classes} [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md`}
         dangerouslySetInnerHTML={{ __html: value }}
       />
     );
   }
-  return <p className={className}>{value}</p>;
+  return <p className={classes}>{value}</p>;
 }

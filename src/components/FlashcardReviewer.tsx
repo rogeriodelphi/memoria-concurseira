@@ -162,11 +162,11 @@ export function FlashcardReviewer({
         )}
         <div>
           <label className="label-field">Pergunta</label>
-          <RichTextEditor value={editQuestion} onChange={setEditQuestion} />
+          <RichTextEditor value={editQuestion} onChange={setEditQuestion} role="question" />
         </div>
         <div>
           <label className="label-field">Resposta</label>
-          <RichTextEditor value={editAnswer} onChange={setEditAnswer} />
+          <RichTextEditor value={editAnswer} onChange={setEditAnswer} role="answer" />
         </div>
         {editError && <p className="text-sm text-red-600">{editError}</p>}
         <div className="flex gap-2">
@@ -221,7 +221,8 @@ export function FlashcardReviewer({
         <FormattedText
           value={current.question}
           format={current.format}
-          className="text-lg font-medium text-neutral-900 dark:text-neutral-100"
+          role="question"
+          className="text-lg text-neutral-900 dark:text-neutral-100"
         />
         {speechSupported && (
           <button
@@ -239,6 +240,7 @@ export function FlashcardReviewer({
             <FormattedText
               value={current.answer}
               format={current.format}
+              role="answer"
               className="text-neutral-600 dark:text-neutral-400"
             />
             {speechSupported && (
