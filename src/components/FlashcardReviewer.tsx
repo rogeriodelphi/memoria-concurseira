@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Star, Volume2, VolumeX } from 'lucide-react';
+import { Pencil, Star, Volume2, VolumeX } from 'lucide-react';
 
 import { FormattedText } from './FormattedText';
+import { RichTextEditor } from './RichTextEditor';
 import { useStudySettings } from '../contexts/StudySettingsContext';
+import { ApiError, flashcardsApi } from '../services/api';
+import { editorHasContent, toEditorHtml } from '../utils/flashcardEditor';
 import type { Flashcard, StudyResult } from '../types';
 
 // A leitura em voz alta usa o texto puro — ler as tags de um cartão em HTML
@@ -45,11 +48,26 @@ interface FlashcardReviewerProps {
   onReveal: () => void;
   onRate: (result: StudyResult) => void;
   onToggleFavorite?: () => void;
+  // Quando informado, o cartão ganha um botão pra editar pergunta e resposta
+  // ali mesmo. A tela só precisa trocar o cartão na fila pelo atualizado.
+  onUpdated?: (updated: Flashcard) => void;
 }
 
-export function FlashcardReviewer({ current, revealed, onReveal, onRate, onToggleFavorite }: FlashcardReviewerProps) {
+export function FlashcardReviewer({
+  current,
+  revealed,
+  onReveal,
+  onRate,
+  onToggleFavorite,
+  onUpdated,
+}: FlashcardReviewerProps) {
   const { autoPlaySpeech } = useStudySettings();
   const [speaking, setSpeaking] = useState<'question' | 'answer' | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editQuestion, setEditQuestion] = useState('');
+  const [editAnswer, setEditAnswer] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Some a fala ao sair da revisão (troca de página ou fim da sessão) —
   // nunca deixa voz tocando sozinha em segundo plano.
@@ -79,10 +97,12 @@ export function FlashcardReviewer({ current, revealed, onReveal, onRate, onToggl
     speak(rawText, format, field);
   }
 
-  // Ao trocar de cartão, para qualquer fala pendente do cartão anterior.
+  // Ao trocar de cartão, para qualquer fala pendente do cartão anterior e
+  // descarta uma edição que estivesse aberta.
   useEffect(() => {
     if (speechSupported) window.speechSynthesis.cancel();
     setSpeaking(null);
+    setEditing(false);
   }, [current.id]);
 
   // Modo automático: lê a pergunta assim que um novo cartão aparece.
@@ -97,21 +117,100 @@ export function FlashcardReviewer({ current, revealed, onReveal, onRate, onToggl
     speak(current.answer, current.format, 'answer');
   }, [revealed, autoPlaySpeech]);
 
+  function startEditing() {
+    // A voz do cartão que está sendo reescrito não faz mais sentido.
+    if (speechSupported) window.speechSynthesis.cancel();
+    setSpeaking(null);
+    setEditQuestion(toEditorHtml(current.question, current.format));
+    setEditAnswer(toEditorHtml(current.answer, current.format));
+    setEditError(null);
+    setEditing(true);
+  }
+
+  async function saveEditing() {
+    // O editor devolve HTML mesmo "vazio" (<br>), e o servidor ignora em
+    // silêncio um campo em branco — por isso a checagem é feita aqui, pra o
+    // usuário não achar que salvou algo que não foi salvo.
+    if (!editorHasContent(editQuestion) || !editorHasContent(editAnswer)) {
+      setEditError('Preencha a pergunta e a resposta.');
+      return;
+    }
+    setSaving(true);
+    setEditError(null);
+    try {
+      const { flashcard } = await flashcardsApi.update(current.id, {
+        question: editQuestion,
+        answer: editAnswer,
+        format: 'html',
+      });
+      onUpdated?.(flashcard);
+      setEditing(false);
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Não foi possível salvar as alterações.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="card space-y-4 p-6">
+        {current.collectionName && (
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            {current.collectionName}
+          </p>
+        )}
+        <div>
+          <label className="label-field">Pergunta</label>
+          <RichTextEditor value={editQuestion} onChange={setEditQuestion} />
+        </div>
+        <div>
+          <label className="label-field">Resposta</label>
+          <RichTextEditor value={editAnswer} onChange={setEditAnswer} />
+        </div>
+        {editError && <p className="text-sm text-red-600">{editError}</p>}
+        <div className="flex gap-2">
+          <button type="button" className="btn-primary" onClick={saveEditing} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => setEditing(false)} disabled={saving}>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card relative flex min-h-[320px] flex-col justify-between p-8">
-      {onToggleFavorite && (
-        <button
-          type="button"
-          onClick={onToggleFavorite}
-          className={`absolute right-4 top-4 transition-colors ${
-            current.favorite
-              ? 'text-amber-500 hover:text-amber-600'
-              : 'text-neutral-300 hover:text-amber-500 dark:text-neutral-600 dark:hover:text-amber-400'
-          }`}
-          title={current.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-        >
-          <Star size={18} fill={current.favorite ? 'currentColor' : 'none'} />
-        </button>
+      {(onUpdated || onToggleFavorite) && (
+        <div className="absolute right-4 top-4 flex items-center gap-2.5">
+          {onUpdated && (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+              title="Editar pergunta e resposta"
+              aria-label="Editar pergunta e resposta"
+            >
+              <Pencil size={17} />
+            </button>
+          )}
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              className={`transition-colors ${
+                current.favorite
+                  ? 'text-amber-500 hover:text-amber-600'
+                  : 'text-neutral-300 hover:text-amber-500 dark:text-neutral-600 dark:hover:text-amber-400'
+              }`}
+              title={current.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+            >
+              <Star size={18} fill={current.favorite ? 'currentColor' : 'none'} />
+            </button>
+          )}
+        </div>
       )}
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         {current.collectionName && (

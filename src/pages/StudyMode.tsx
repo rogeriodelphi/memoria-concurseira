@@ -65,6 +65,12 @@ export function StudyMode() {
     setRevealed(false);
   }
 
+  // Troca só os campos devolvidos pelo servidor; o resto do cartão na fila
+  // (posição, favorito em andamento) fica como está.
+  function handleUpdated(updated: Flashcard) {
+    setQueue((prev) => prev?.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)) ?? prev);
+  }
+
   async function toggleFavorite() {
     if (!current) return;
     const nextFavorite = !current.favorite;
@@ -103,6 +109,7 @@ export function StudyMode() {
           onReveal={() => setRevealed(true)}
           onRate={rate}
           onToggleFavorite={toggleFavorite}
+          onUpdated={handleUpdated}
         />
       ) : hadCards && studiedSoFar === 0 && studyMode === 'due' ? (
         <div className="card flex flex-col items-center gap-3 p-10 text-center">

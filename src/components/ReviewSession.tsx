@@ -5,7 +5,7 @@ import { ArrowLeft, PartyPopper } from 'lucide-react';
 import { flashcardsApi } from '../services/api';
 import { FlashcardReviewer } from './FlashcardReviewer';
 import { shuffle } from '../utils/studyQueue';
-import type { DueFlashcard, StudyResult } from '../types';
+import type { DueFlashcard, Flashcard, StudyResult } from '../types';
 
 interface ReviewSessionProps {
   fetchQueue: () => Promise<{ flashcards: DueFlashcard[] }>;
@@ -74,6 +74,12 @@ export function ReviewSession({
     setRevealed(false);
   }
 
+  // Mantém collectionName e o resto do cartão da fila; só absorve o que o
+  // servidor devolveu depois da edição.
+  function handleUpdated(updated: Flashcard) {
+    setQueue((prev) => prev?.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)) ?? prev);
+  }
+
   async function toggleFavorite() {
     if (!current) return;
     const nextFavorite = !current.favorite;
@@ -112,6 +118,7 @@ export function ReviewSession({
           onReveal={() => setRevealed(true)}
           onRate={rate}
           onToggleFavorite={toggleFavorite}
+          onUpdated={handleUpdated}
         />
       ) : studiedSoFar === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-10 text-center">

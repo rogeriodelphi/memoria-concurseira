@@ -46,6 +46,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { FormattedText } from '../components/FormattedText';
+import { toEditorHtml } from '../utils/flashcardEditor';
 import type {
   CollectionDetail as CollectionDetailType,
   CollectionStats,
@@ -96,19 +97,6 @@ function formatSize(bytes: number): string {
 
 function defaultOptions(): GenerationOptions {
   return { quantity: 'auto', difficulty: 'medio', cardType: 'pergunta_resposta', depth: 'normal', focus: '' };
-}
-
-/**
- * Flashcards gerados pela IA são texto simples — pra abrir no editor de
- * texto rico (que trabalha com HTML), escapa caracteres especiais e troca
- * quebra de linha por <br>, senão um "<" literal no texto viraria uma tag.
- */
-function plainTextToEditorHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\r\n|\r|\n/g, '<br>');
 }
 
 // Pra buscar dentro de um flashcard em HTML sem que tags/atributos de
@@ -355,8 +343,8 @@ export function CollectionDetail() {
 
   function startEdit(fc: Flashcard) {
     setEditingId(fc.id);
-    setEditQuestion(fc.format === 'html' ? fc.question : plainTextToEditorHtml(fc.question));
-    setEditAnswer(fc.format === 'html' ? fc.answer : plainTextToEditorHtml(fc.answer));
+    setEditQuestion(toEditorHtml(fc.question, fc.format));
+    setEditAnswer(toEditorHtml(fc.answer, fc.format));
   }
 
   async function saveEdit(fcId: string) {
