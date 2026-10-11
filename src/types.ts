@@ -117,6 +117,13 @@ export interface DashboardData {
   pastWeekHours: number;
   totalReviews: number;
   estimatedReviews: number;
+  heatmap: {
+    today: string;
+    days: { date: string; count: number }[];
+    years: { year: number; reviews: number; activeDays: number; periodDays: number }[];
+    longestStreak: number;
+    currentStreak: number;
+  };
 }
 
 export interface CollectionStats {

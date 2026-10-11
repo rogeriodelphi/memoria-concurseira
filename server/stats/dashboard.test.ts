@@ -192,3 +192,93 @@ test('tempo estimado para o que falta usa o ritmo recente', () => {
   );
   assert.equal(d.remaining.estimatedMin, (3 * 30_000) / 60_000);
 });
+
+test('mapa de calor: sem dados, vazio e sem sequência', () => {
+  const { heatmap } = buildDashboard([], [], NOW);
+  assert.deepEqual(heatmap, { today: '2026-10-10', days: [], years: [], longestStreak: 0, currentStreak: 0 });
+});
+
+test('mapa de calor: conta revisões por dia local e cobre todo o histórico', () => {
+  const { heatmap } = buildDashboard(
+    [
+      session('a', 'bom', at(-200, 9), 5000), // bem fora da janela de 30 dias
+      session('b', 'bom', at(0, 9), 5000),
+      session('c', 'bom', at(0, 9, 5), 5000),
+      session('d', 'bom', at(0, 23, 59, 59), 5000),
+    ],
+    [],
+    NOW,
+  );
+  assert.equal(heatmap.days.length, 2);
+  assert.deepEqual(heatmap.days[1], { date: '2026-10-10', count: 3 });
+  assert.equal(heatmap.days[0].count, 1);
+});
+
+test('mapa de calor: maior sequência e sequência atual', () => {
+  const day = (offset: number, id: string) => session(id, 'bom', at(offset, 9), 5000);
+  const { heatmap } = buildDashboard(
+    [
+      day(-10, 'a'), day(-9, 'b'), day(-8, 'c'), day(-7, 'd'), // quatro seguidos
+      day(-3, 'e'), // isolado
+      day(-2, 'f'), day(-1, 'g'), day(0, 'h'), // três seguidos, até hoje
+    ],
+    [],
+    NOW,
+  );
+  assert.equal(heatmap.longestStreak, 4);
+  assert.equal(heatmap.currentStreak, 4); // -3, -2, -1 e hoje
+});
+
+test('mapa de calor: sem estudo hoje, a sequência continua valendo a partir de ontem', () => {
+  const { heatmap } = buildDashboard(
+    [session('a', 'bom', at(-2, 9), 5000), session('b', 'bom', at(-1, 9), 5000)],
+    [],
+    NOW,
+  );
+  assert.equal(heatmap.currentStreak, 2);
+});
+
+test('mapa de calor: sem estudo hoje nem ontem, a sequência atual é zero', () => {
+  const { heatmap } = buildDashboard([session('a', 'bom', at(-2, 9), 5000)], [], NOW);
+  assert.equal(heatmap.currentStreak, 0);
+  assert.equal(heatmap.longestStreak, 1);
+});
+
+test('mapa de calor: a sequência atravessa a virada do ano', () => {
+  const nowJan = new Date(2026, 0, 2, 12, 0, 0);
+  const { heatmap } = buildDashboard(
+    [
+      session('a', 'bom', new Date(2025, 11, 30, 9).toISOString(), 5000),
+      session('b', 'bom', new Date(2025, 11, 31, 9).toISOString(), 5000),
+      session('c', 'bom', new Date(2026, 0, 1, 9).toISOString(), 5000),
+      session('d', 'bom', new Date(2026, 0, 2, 9).toISOString(), 5000),
+    ],
+    [],
+    nowJan,
+  );
+  assert.equal(heatmap.longestStreak, 4);
+  assert.equal(heatmap.currentStreak, 4);
+});
+
+test('mapa de calor: por ano, o período vai da primeira revisão (ou 1º de janeiro) até hoje (ou 31 de dezembro)', () => {
+  const { heatmap } = buildDashboard(
+    [
+      session('a', 'bom', new Date(2024, 11, 30, 9).toISOString(), 5000),
+      session('b', 'bom', new Date(2024, 11, 30, 9, 5).toISOString(), 5000),
+      session('c', 'bom', new Date(2024, 11, 31, 9).toISOString(), 5000),
+      session('d', 'bom', at(0, 9), 5000),
+    ],
+    [],
+    NOW,
+  );
+  assert.deepEqual(
+    heatmap.years.map((y) => y.year),
+    [2024, 2025, 2026],
+  );
+  // 2024: da primeira revisão (30/12) até 31/12 = 2 dias, 3 revisões em 2 dias
+  assert.deepEqual(heatmap.years[0], { year: 2024, reviews: 3, activeDays: 2, periodDays: 2 });
+  // 2025 inteiro, sem nenhuma revisão
+  assert.deepEqual(heatmap.years[1], { year: 2025, reviews: 0, activeDays: 0, periodDays: 365 });
+  // 2026: de 1º de janeiro até 10 de outubro = 283 dias
+  assert.deepEqual(heatmap.years[2], { year: 2026, reviews: 1, activeDays: 1, periodDays: 283 });
+});

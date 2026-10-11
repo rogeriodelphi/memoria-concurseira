@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Info, Play } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Circle, Info, Play } from 'lucide-react';
 
 import { statsApi } from '../services/api';
 import type { DashboardData } from '../types';
@@ -132,6 +132,184 @@ function Panel({ title, rows }: { title: string; rows: { label: string; value: s
   );
 }
 
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const DAY_LABEL = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Do dia sem estudo ao mais intenso. No escuro a escala se inverte (mais claro
+// = mais estudo) pra continuar "acendendo" contra o fundo.
+const LEVEL_CLASSES = [
+  'bg-neutral-100 dark:bg-neutral-800',
+  'bg-brand-200 dark:bg-brand-900',
+  'bg-brand-400 dark:bg-brand-700',
+  'bg-brand-600 dark:bg-brand-500',
+  'bg-brand-800 dark:bg-brand-300',
+];
+
+function levelFor(count: number, max: number): number {
+  if (count <= 0) return 0;
+  const ratio = count / max;
+  if (ratio <= 0.25) return 1;
+  if (ratio <= 0.5) return 2;
+  if (ratio <= 0.75) return 3;
+  return 4;
+}
+
+function dateKey(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function pluralDays(n: number): string {
+  return `${formatInt(n)} ${n === 1 ? 'dia' : 'dias'}`;
+}
+
+function HeatmapStat({ label, value, title }: { label: string; value: string; title: string }) {
+  return (
+    <p className="text-sm text-neutral-600 dark:text-neutral-300" title={title}>
+      {label}: <span className="font-bold text-brand-600 dark:text-brand-400">{value}</span>
+    </p>
+  );
+}
+
+function Heatmap({ heatmap }: { heatmap: DashboardData['heatmap'] }) {
+  const currentYear = Number(heatmap.today.slice(0, 4));
+  const firstYear = heatmap.years[0]?.year ?? currentYear;
+  const [year, setYear] = useState(currentYear);
+
+  // Em telas estreitas a grade rola na horizontal. No ano atual o que importa
+  // é o presente (fim da grade); nos anos passados, o começo.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = year === currentYear ? el.scrollWidth : 0;
+  }, [year, currentYear]);
+
+  const counts = useMemo(() => new Map(heatmap.days.map((d) => [d.date, d.count])), [heatmap.days]);
+  // Escala única pra todos os anos: o mesmo tom significa a mesma quantidade
+  // de revisões, e dá pra comparar um ano com o outro.
+  const max = useMemo(() => Math.max(1, ...heatmap.days.map((d) => d.count)), [heatmap.days]);
+
+  // A grade é semana por coluna, começando no domingo: o 1º de janeiro cai no
+  // meio da primeira coluna e os espaços antes dele (e depois de 31/12) ficam vazios.
+  const jan1 = new Date(year, 0, 1);
+  const offset = jan1.getDay();
+  const daysInYear = Math.round((new Date(year + 1, 0, 1).getTime() - jan1.getTime()) / DAY_MS);
+  const weeks = Math.ceil((offset + daysInYear) / 7);
+
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => {
+    const dayIndex = i - offset;
+    if (dayIndex < 0 || dayIndex >= daysInYear) return null;
+    const date = new Date(year, 0, 1 + dayIndex);
+    return { date, key: dateKey(date) };
+  });
+
+  const monthStarts = MONTH_LABELS.map((label, month) => {
+    const dayIndex = Math.round((new Date(year, month, 1).getTime() - jan1.getTime()) / DAY_MS);
+    return { label, week: Math.floor((offset + dayIndex) / 7) };
+  });
+
+  const stat = heatmap.years.find((y) => y.year === year);
+  const averagePerDay = stat && stat.activeDays > 0 ? Math.round(stat.reviews / stat.activeDays) : null;
+  const daysLearnedPct = stat && stat.periodDays > 0 ? Math.round((stat.activeDays / stat.periodDays) * 100) : null;
+
+  const navButton =
+    'flex h-8 w-8 items-center justify-center rounded-md bg-neutral-100 text-neutral-600 transition-colors hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 dark:disabled:hover:bg-neutral-800';
+
+  return (
+    <div className="card p-6">
+      <div className="mb-4 flex items-center justify-center gap-2">
+        <button type="button" className={navButton} onClick={() => setYear((y) => y - 1)} disabled={year <= firstYear} aria-label="Ano anterior">
+          <ChevronLeft size={16} />
+        </button>
+        <button type="button" className={navButton} onClick={() => setYear(currentYear)} disabled={year === currentYear} aria-label="Voltar ao ano atual">
+          <Circle size={13} />
+        </button>
+        <button type="button" className={navButton} onClick={() => setYear((y) => y + 1)} disabled={year >= currentYear} aria-label="Próximo ano">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="overflow-x-auto pb-1 dark:[color-scheme:dark]">
+        <div className="min-w-[600px]">
+          <div className="mb-1 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}>
+            {monthStarts.map(({ label, week }) => (
+              <span
+                key={label}
+                className="whitespace-nowrap text-[10px] text-neutral-400 dark:text-neutral-500"
+                style={{ gridColumnStart: week + 1, gridRowStart: 1 }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+
+          <div
+            className="grid grid-flow-col gap-[3px]"
+            style={{ gridTemplateRows: 'repeat(7, auto)', gridAutoColumns: 'minmax(0, 1fr)' }}
+            role="img"
+            aria-label={`Mapa de calor das revisões em ${year}`}
+          >
+            {cells.map((cell, i) => {
+              if (!cell) return <div key={i} />;
+              const count = counts.get(cell.key) ?? 0;
+              const isFuture = cell.key > heatmap.today;
+              const isToday = cell.key === heatmap.today;
+              const label = `${DAY_LABEL.format(cell.date)}: ${
+                isFuture ? 'ainda não chegou' : `${formatInt(count)} ${count === 1 ? 'revisão' : 'revisões'}`
+              }`;
+              return (
+                <div
+                  key={i}
+                  title={label}
+                  className={`aspect-square rounded-[2px] ${isFuture ? 'bg-neutral-50 dark:bg-neutral-900' : LEVEL_CLASSES[levelFor(count, max)]} ${
+                    isToday ? 'ring-1 ring-neutral-800 dark:ring-neutral-100' : ''
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">{year}</p>
+        <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+          Menos
+          {LEVEL_CLASSES.map((cls) => (
+            <span key={cls} className={`h-3 w-3 rounded-[2px] ${cls}`} />
+          ))}
+          Mais
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap justify-center gap-x-8 gap-y-2">
+        <HeatmapStat
+          label="Média diária"
+          value={averagePerDay === null ? '—' : `${formatInt(averagePerDay)} ${averagePerDay === 1 ? 'cartão' : 'cartões'}`}
+          title="Revisões por dia, contando só os dias em que você estudou, no ano mostrado"
+        />
+        <HeatmapStat
+          label="Dias estudados"
+          value={formatPct(daysLearnedPct)}
+          title="Dos dias do ano mostrado (desde 1º de janeiro ou da sua primeira revisão, até hoje), quantos tiveram revisão"
+        />
+        <HeatmapStat
+          label="Maior sequência"
+          value={pluralDays(heatmap.longestStreak)}
+          title="Mais dias seguidos com revisão, em todo o seu histórico"
+        />
+        <HeatmapStat
+          label="Sequência atual"
+          value={pluralDays(heatmap.currentStreak)}
+          title="Dias seguidos com revisão até hoje (ou até ontem, se hoje ainda não estudou)"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +393,12 @@ export function Dashboard() {
                 <strong>Aprender</strong>: cartões que você errou e voltam hoje. <strong>Maduros</strong>: cartões com intervalo de 21
                 dias ou mais. <strong>Tempo est.</strong>: o que falta revisar, no seu ritmo dos últimos 30 dias.
               </p>
+              <p>
+                <strong>Mapa de calor</strong>: cada quadrado é um dia, e quanto mais escuro, mais revisões. A cor usa a mesma escala em
+                todos os anos. <strong>Média diária</strong> conta só os dias em que você estudou; <strong>Dias estudados</strong> é a
+                fração dos dias do ano (a partir da sua primeira revisão, se for o primeiro ano) em que você revisou algo. As duas
+                sequências valem para todo o histórico.
+              </p>
             </div>
           )}
 
@@ -282,6 +466,8 @@ export function Dashboard() {
               </p>
             )}
           </div>
+
+          <Heatmap heatmap={data.heatmap} />
         </div>
       )}
     </div>

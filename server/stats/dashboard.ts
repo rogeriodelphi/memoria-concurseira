@@ -57,6 +57,22 @@ export interface DashboardData {
   totalReviews: number;
   /** Quantas revisões tiveram o tempo estimado em vez de medido. */
   estimatedReviews: number;
+  heatmap: Heatmap;
+}
+
+export interface Heatmap {
+  /** Hoje, no dia local do servidor (AAAA-MM-DD). */
+  today: string;
+  /** Todo dia que teve ao menos uma revisão, do mais antigo ao mais recente. */
+  days: { date: string; count: number }[];
+  /**
+   * Um item por ano, do da primeira revisão até o atual. O período conta do
+   * 1º de janeiro (ou da primeira revisão, no primeiro ano) até 31 de dezembro
+   * (ou hoje, no ano atual): é o que dá sentido a "% dos dias estudados".
+   */
+  years: { year: number; reviews: number; activeDays: number; periodDays: number }[];
+  longestStreak: number;
+  currentStreak: number;
 }
 
 type Kind = 'new' | 'relearn' | 'review';
@@ -85,6 +101,72 @@ function localDateKey(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// Número do dia a partir de AAAA-MM-DD. Feito em UTC de propósito: dois dias
+// do calendário distam sempre exatamente 1, sem o desvio de 23h/25h do horário
+// de verão.
+function dayNumber(key: string): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return Date.UTC(y, m - 1, d) / DAY_MS;
+}
+
+function keyFromDayNumber(n: number): string {
+  return new Date(n * DAY_MS).toISOString().slice(0, 10);
+}
+
+function buildHeatmap(reviews: Enriched[], now: Date): Heatmap {
+  const today = localDateKey(now);
+
+  const counts = new Map<string, number>();
+  for (const r of reviews) {
+    const key = localDateKey(new Date(r.at));
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const days = [...counts.entries()]
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (days.length === 0) return { today, days, years: [], longestStreak: 0, currentStreak: 0 };
+
+  let longestStreak = 0;
+  let run = 0;
+  let previous = Number.NaN;
+  for (const { date } of days) {
+    const n = dayNumber(date);
+    run = n === previous + 1 ? run + 1 : 1;
+    longestStreak = Math.max(longestStreak, run);
+    previous = n;
+  }
+
+  // Como na página de Estatísticas: se hoje ainda não teve estudo, a sequência
+  // continua valendo a partir de ontem, em vez de zerar no meio do dia.
+  const studied = new Set(days.map((d) => d.date));
+  let cursor = dayNumber(today);
+  if (!studied.has(keyFromDayNumber(cursor))) cursor -= 1;
+  let currentStreak = 0;
+  while (studied.has(keyFromDayNumber(cursor))) {
+    currentStreak++;
+    cursor -= 1;
+  }
+
+  const firstKey = days[0].date;
+  const firstYear = Number(firstKey.slice(0, 4));
+  const currentYear = now.getFullYear();
+  const years: Heatmap['years'] = [];
+  for (let year = firstYear; year <= currentYear; year++) {
+    const start = year === firstYear ? dayNumber(firstKey) : dayNumber(`${year}-01-01`);
+    const end = year === currentYear ? dayNumber(today) : dayNumber(`${year}-12-31`);
+    const inYear = days.filter((d) => d.date.startsWith(`${year}-`));
+    years.push({
+      year,
+      reviews: inYear.reduce((sum, d) => sum + d.count, 0),
+      activeDays: inYear.length,
+      periodDays: Math.max(end - start + 1, 0),
+    });
+  }
+
+  return { today, days, years, longestStreak, currentStreak };
 }
 
 /**
@@ -221,5 +303,6 @@ export function buildDashboard(sessions: DashboardSession[], cards: DashboardCar
     pastWeekHours: reviews.filter((r) => r.at >= weekStart).reduce((sum, r) => sum + r.time, 0) / 3_600_000,
     totalReviews: reviews.length,
     estimatedReviews: reviews.filter((r) => r.estimated).length,
+    heatmap: buildHeatmap(reviews, now),
   };
 }
