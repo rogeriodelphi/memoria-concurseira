@@ -32,8 +32,22 @@ Edite `.env` e preencha:
 
 - `JWT_SECRET`: qualquer string aleatória longa.
 - `GEMINI_API_KEY`: sua chave em https://aistudio.google.com/apikey
-  (sem ela, a geração de flashcards falha com uma mensagem clara — o resto do
-  app funciona normalmente).
+  (sem nenhuma chave de IA, a geração de flashcards falha com uma mensagem
+  clara — o resto do app funciona normalmente).
+- Opcionais, para ter mais de um provedor de IA: `OPENAI_API_KEY` e
+  `ANTHROPIC_API_KEY` (Claude, em https://console.anthropic.com). A ordem
+  padrão é OpenAI, Gemini e Claude — cada um só entra se tiver chave, e quando
+  um falha (sem créditos, sobrecarga) o app tenta o próximo. Para mudar a ordem
+  ou desligar um provedor sem apagar a chave: `AI_PROVIDER_ORDER=claude,gemini`.
+  O Claude cobre tópico, texto, imagem, PDF, resumos, mapas mentais, bullet
+  points e a análise de edital; áudio, vídeo e YouTube seguem só no Gemini. O
+  modelo é `claude-sonnet-5-5`, e `ANTHROPIC_MODEL` troca por outro.
+- A leitura em voz alta tem uma voz **natural** (gerada pelo Gemini, com a mesma
+  `GEMINI_API_KEY`) e a voz do navegador. A natural é a padrão e fica guardada em
+  disco depois de gerada (fora da pasta do projeto, para o OneDrive não sincronizar);
+  se o Gemini falhar ou o limite do plano gratuito acabar, o app lê com a voz do
+  navegador. Voz, velocidade e motor se escolhem em Configurações. As opções
+  `GEMINI_TTS_MODEL`, `TTS_CACHE_DIR` e `TTS_CACHE_MAX_MB` estão no `.env.example`.
 
 ```bash
 npm run dev

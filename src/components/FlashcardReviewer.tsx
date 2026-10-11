@@ -1,21 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Star, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Pencil, Star, Volume2, VolumeX } from 'lucide-react';
 
 import { FormattedText } from './FormattedText';
 import { RichTextEditor } from './RichTextEditor';
 import { useStudySettings } from '../contexts/StudySettingsContext';
+import { useSpeech } from '../hooks/useSpeech';
 import { ApiError, flashcardsApi } from '../services/api';
 import { editorHasContent, toEditorHtml } from '../utils/flashcardEditor';
+import { stripHtmlForSpeech } from '../utils/speech';
 import type { Flashcard, StudyResult } from '../types';
-
-// A leitura em voz alta usa o texto puro — ler as tags de um cartão em HTML
-// literalmente soletraria a marcação em vez do conteúdo.
-function stripHtmlForSpeech(value: string, format: Flashcard['format']): string {
-  if (format !== 'html') return value;
-  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 const RESULT_BUTTONS: { result: StudyResult; label: string; className: string }[] = [
   {
@@ -53,6 +46,9 @@ interface FlashcardReviewerProps {
   // Quando informado, o cartão ganha um botão pra editar pergunta e resposta
   // ali mesmo. A tela só precisa trocar o cartão na fila pelo atualizado.
   onUpdated?: (updated: Flashcard) => void;
+  // O cartão que vem depois: no modo automático, a voz dele é gerada antes, para
+  // tocar na hora quando chegar a vez.
+  upcoming?: Flashcard;
 }
 
 export function FlashcardReviewer({
@@ -62,9 +58,10 @@ export function FlashcardReviewer({
   onRate,
   onToggleFavorite,
   onUpdated,
+  upcoming,
 }: FlashcardReviewerProps) {
   const { autoPlaySpeech } = useStudySettings();
-  const [speaking, setSpeaking] = useState<'question' | 'answer' | null>(null);
+  const { speak: speakText, stop: stopSpeech, prefetch, speaking, loading, canSpeak } = useSpeech();
   const [editing, setEditing] = useState(false);
   const [editQuestion, setEditQuestion] = useState('');
   const [editAnswer, setEditAnswer] = useState('');
@@ -76,29 +73,15 @@ export function FlashcardReviewer({
   const shownAtRef = useRef(Date.now());
   const editStartedAtRef = useRef(0);
 
-  // Some a fala ao sair da revisão (troca de página ou fim da sessão) —
-  // nunca deixa voz tocando sozinha em segundo plano.
-  useEffect(() => {
-    if (!speechSupported) return;
-    return () => window.speechSynthesis.cancel();
-  }, []);
-
+  // (O próprio hook de voz para tudo ao sair da tela: nunca deixa som tocando
+  // sozinho em segundo plano.)
   function speak(rawText: string, format: Flashcard['format'], field: 'question' | 'answer') {
-    if (!speechSupported) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(stripHtmlForSpeech(rawText, format));
-    utterance.lang = 'pt-BR';
-    utterance.onend = () => setSpeaking(null);
-    utterance.onerror = () => setSpeaking(null);
-    window.speechSynthesis.speak(utterance);
-    setSpeaking(field);
+    void speakText(stripHtmlForSpeech(rawText, format), field);
   }
 
   function toggleSpeak(rawText: string, format: Flashcard['format'], field: 'question' | 'answer') {
-    if (!speechSupported) return;
     if (speaking === field) {
-      window.speechSynthesis.cancel();
-      setSpeaking(null);
+      stopSpeech();
       return;
     }
     speak(rawText, format, field);
@@ -107,11 +90,18 @@ export function FlashcardReviewer({
   // Ao trocar de cartão, para qualquer fala pendente do cartão anterior e
   // descarta uma edição que estivesse aberta.
   useEffect(() => {
-    if (speechSupported) window.speechSynthesis.cancel();
-    setSpeaking(null);
+    stopSpeech();
     setEditing(false);
     shownAtRef.current = Date.now();
   }, [current.id]);
+
+  // Modo automático: já deixa pronta a resposta deste cartão e a pergunta do
+  // próximo — a primeira vez que o Gemini gera a voz leva alguns segundos.
+  useEffect(() => {
+    if (!autoPlaySpeech) return;
+    prefetch(stripHtmlForSpeech(current.answer, current.format));
+    if (upcoming) prefetch(stripHtmlForSpeech(upcoming.question, upcoming.format));
+  }, [current.id, upcoming?.id, autoPlaySpeech]);
 
   // Modo automático: lê a pergunta assim que um novo cartão aparece.
   useEffect(() => {
@@ -127,8 +117,7 @@ export function FlashcardReviewer({
 
   function startEditing() {
     // A voz do cartão que está sendo reescrito não faz mais sentido.
-    if (speechSupported) window.speechSynthesis.cancel();
-    setSpeaking(null);
+    stopSpeech();
     setEditQuestion(toEditorHtml(current.question, current.format));
     setEditAnswer(toEditorHtml(current.answer, current.format));
     setEditError(null);
@@ -246,14 +235,20 @@ export function FlashcardReviewer({
           role="question"
           className="text-lg text-neutral-900 dark:text-neutral-100"
         />
-        {speechSupported && (
+        {canSpeak && (
           <button
             type="button"
             onClick={() => toggleSpeak(current.question, current.format, 'question')}
             className="mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
           >
-            {speaking === 'question' ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            {speaking === 'question' ? 'Parar' : 'Ouvir pergunta'}
+            {loading === 'question' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : speaking === 'question' ? (
+              <VolumeX size={14} />
+            ) : (
+              <Volume2 size={14} />
+            )}
+            {loading === 'question' ? 'Preparando voz...' : speaking === 'question' ? 'Parar' : 'Ouvir pergunta'}
           </button>
         )}
         {revealed && (
@@ -265,14 +260,20 @@ export function FlashcardReviewer({
               role="answer"
               className="text-neutral-600 dark:text-neutral-400"
             />
-            {speechSupported && (
+            {canSpeak && (
               <button
                 type="button"
                 onClick={() => toggleSpeak(current.answer, current.format, 'answer')}
                 className="mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
               >
-                {speaking === 'answer' ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                {speaking === 'answer' ? 'Parar' : 'Ouvir resposta'}
+                {loading === 'answer' ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : speaking === 'answer' ? (
+                  <VolumeX size={14} />
+                ) : (
+                  <Volume2 size={14} />
+                )}
+                {loading === 'answer' ? 'Preparando voz...' : speaking === 'answer' ? 'Parar' : 'Ouvir resposta'}
               </button>
             )}
           </>

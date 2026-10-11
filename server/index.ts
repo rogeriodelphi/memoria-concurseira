@@ -20,6 +20,8 @@ import { bulletPointsRouter } from './bulletpoints/routes';
 import { searchRouter } from './search/routes';
 import { aiUsageRouter } from './aiusage/routes';
 import { ankiImportRouter } from './anki/routes';
+import { examsRouter } from './exams/routes';
+import { ttsRouter } from './tts/routes';
 import { startBackupSchedule } from './backup';
 
 process.on('unhandledRejection', (reason) => {
@@ -59,6 +61,8 @@ app.use('/api/bulletpoints', bulletPointsRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/ai-usage', aiUsageRouter);
 app.use('/api/anki-import', ankiImportRouter);
+app.use('/api/exams', examsRouter);
+app.use('/api/tts', ttsRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, ok: true });

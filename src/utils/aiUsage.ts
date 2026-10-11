@@ -10,6 +10,7 @@ export function formatTokens(n: number): string {
 export const PROVIDER_LABEL: Record<AiProvider, string> = {
   gemini: 'Gemini',
   openai: 'OpenAI',
+  claude: 'Claude',
 };
 
 export const FEATURE_LABEL: Record<AiFeature, string> = {
@@ -18,6 +19,8 @@ export const FEATURE_LABEL: Record<AiFeature, string> = {
   bulletpoints: 'Bullet points',
   mindmap: 'Mapas mentais',
   transcription: 'Transcrição',
+  exam: 'Análise de edital',
+  tts: 'Leitura em voz alta',
 };
 
 export const STATUS_LABEL: Record<AiProviderStatus, string> = {

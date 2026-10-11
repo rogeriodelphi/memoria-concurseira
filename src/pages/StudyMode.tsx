@@ -110,6 +110,7 @@ export function StudyMode() {
           onRate={rate}
           onToggleFavorite={toggleFavorite}
           onUpdated={handleUpdated}
+          upcoming={queue?.[1]}
         />
       ) : hadCards && studiedSoFar === 0 && studyMode === 'due' ? (
         <div className="card flex flex-col items-center gap-3 p-10 text-center">

@@ -197,7 +197,7 @@ export function AiUsagePanel() {
               >
                 platform.openai.com/usage
               </a>{' '}
-              e Gemini em{' '}
+              , Gemini em{' '}
               <a
                 href="https://ai.dev/rate-limit"
                 target="_blank"
@@ -205,6 +205,15 @@ export function AiUsagePanel() {
                 className="text-brand-600 hover:underline dark:text-brand-400"
               >
                 ai.dev/rate-limit
+              </a>{' '}
+              e Claude em{' '}
+              <a
+                href="https://console.anthropic.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-600 hover:underline dark:text-brand-400"
+              >
+                console.anthropic.com
               </a>
               .
             </p>

@@ -10,6 +10,9 @@ import type {
   DocumentItem,
   DueFlashcard,
   DuplicateGroup,
+  ExamDetail,
+  ExamDraft,
+  ExamSummary,
   Flashcard,
   GenerationOptions,
   MindMapDetail,
@@ -19,12 +22,17 @@ import type {
   SearchResults,
   StatsData,
   StudyResult,
+  TtsInfo,
   Summary,
   SummaryMode,
   User,
 } from '../types';
 
-class ApiError extends Error {}
+class ApiError extends Error {
+  /** Só a leitura em voz alta preenche: por que falhou e, se for cota, em quantos segundos volta. */
+  reason?: 'quota' | 'overloaded' | 'other';
+  retryAfterSeconds?: number;
+}
 
 export const AI_USAGE_EVENT = 'ai-usage-changed';
 
@@ -32,7 +40,7 @@ export const AI_USAGE_EVENT = 'ai-usage-changed';
 // bullet points, transcrever) — depois dela o contador de tokens mudou, então
 // quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
 // erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
-const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\//;
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract/;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
@@ -171,6 +179,71 @@ export const flashcardsApi = {
       body: JSON.stringify({ flashcardIds, targetCollectionId, mode }),
     }),
   findDuplicates: () => request<{ groups: DuplicateGroup[]; totalDuplicates: number }>('/flashcards/duplicates'),
+};
+
+export const ttsApi = {
+  voices: () => request<TtsInfo>('/tts/voices'),
+  // Devolve o áudio (WAV), não JSON, então não passa pelo `request`. O servidor
+  // pode levar alguns segundos na primeira vez e a leitura não deve ficar
+  // pendurada à espera: passado o prazo, quem chamou cai na voz do navegador.
+  // O prazo cresce com o texto: gerar uma lista inteira leva bem mais que um cartão,
+  // e abandonar no meio jogaria fora um áudio que o servidor ainda ia guardar.
+  synthesize: async (
+    text: string,
+    voice: string,
+    timeoutMs = 25_000 + Math.min(text.length, 6000) * 25,
+  ): Promise<Blob> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const failure = new ApiError(data?.error ?? 'Não foi possível gerar a voz.');
+        failure.reason = data?.reason === 'quota' || data?.reason === 'overloaded' ? data.reason : 'other';
+        if (typeof data?.retryAfterSeconds === 'number') failure.retryAfterSeconds = data.retryAfterSeconds;
+        throw failure;
+      }
+      return await res.blob();
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw new ApiError('A voz natural demorou demais.');
+      throw err;
+    } finally {
+      clearTimeout(timer);
+      // gerar a voz gasta tokens do Gemini (quando não estava guardada): o contador de uso muda
+      window.dispatchEvent(new Event(AI_USAGE_EVENT));
+    }
+  },
+};
+
+export const examsApi = {
+  list: () => request<{ exams: ExamSummary[] }>('/exams'),
+  get: (id: string) => request<ExamDetail>(`/exams/${id}`),
+  create: (draft: ExamDraft) => request<{ id: string }>('/exams', { method: 'POST', body: JSON.stringify(draft) }),
+  update: (id: string, draft: ExamDraft) =>
+    request<{ success: true }>(`/exams/${id}`, { method: 'PUT', body: JSON.stringify(draft) }),
+  remove: (id: string) => request<{ success: true }>(`/exams/${id}`, { method: 'DELETE' }),
+  extractFromText: (text: string, position: string) =>
+    request<{ draft: ExamDraft }>('/exams/extract/text', { method: 'POST', body: JSON.stringify({ text, position }) }),
+  extractFromFile: (file: File, position: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('position', position);
+    return request<{ draft: ExamDraft }>('/exams/extract/file', { method: 'POST', body: form });
+  },
+  setTopicCollections: (examId: string, topicId: string, collectionIds: string[]) =>
+    request<{ success: true }>(`/exams/${examId}/topics/${topicId}/collections`, {
+      method: 'PUT',
+      body: JSON.stringify({ collectionIds }),
+    }),
+  addLinks: (examId: string, links: { topicId: string; collectionIds: string[] }[]) =>
+    request<{ added: number }>(`/exams/${examId}/links`, { method: 'POST', body: JSON.stringify({ links }) }),
 };
 
 export const statsApi = {

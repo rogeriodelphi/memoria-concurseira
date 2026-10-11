@@ -1,12 +1,16 @@
 import OpenAI, { APIError } from 'openai';
 
-import type {
-  GeneratedBulletPoints,
-  GeneratedFlashcard,
-  GeneratedSummary,
-  GenerationOptions,
-  MindMapNode,
-  SummaryMode,
+import {
+  parseSyllabusResponse,
+  SYLLABUS_SYSTEM_PROMPT,
+  syllabusUserPrompt,
+  type GeneratedBulletPoints,
+  type GeneratedFlashcard,
+  type GeneratedSummary,
+  type GeneratedSyllabus,
+  type GenerationOptions,
+  type MindMapNode,
+  type SummaryMode,
 } from './gemini';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 
@@ -436,6 +440,51 @@ function parseBulletPointsResponse(rawText: string | undefined): GeneratedBullet
   return { title, points };
 }
 
+// O modo estrito da OpenAI exige todos os campos como obrigatórios; "não
+// informado" vira null (números) ou string vazia (textos).
+const SYLLABUS_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    position: { type: 'string' },
+    board: { type: 'string' },
+    examDate: { type: 'string' },
+    disciplines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          questionCount: { type: ['integer', 'null'] },
+          weight: { type: ['number', 'null'] },
+          cutoff: { type: 'string' },
+          topics: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['name', 'questionCount', 'weight', 'cutoff', 'topics'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['name', 'position', 'board', 'examDate', 'disciplines'],
+  additionalProperties: false,
+};
+
+export async function extractSyllabusOpenAI(text: string, positionHint: string): Promise<GeneratedSyllabus> {
+  const client = getClient();
+  const response = await chatCompletionWithRetry(client, {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: SYLLABUS_SYSTEM_PROMPT },
+      { role: 'user', content: `${syllabusUserPrompt(positionHint)}\n\n--- DOCUMENTO ---\n${text}` },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'syllabus', strict: true, schema: SYLLABUS_JSON_SCHEMA },
+    },
+  });
+  return parseSyllabusResponse(response.choices[0]?.message?.content ?? undefined);
+}
+
 function sanitizeMindMapNode(node: unknown): MindMapNode | null {
   if (!node || typeof node !== 'object') return null;
   const title = (node as { title?: unknown }).title;
@@ -459,3 +508,23 @@ function parseMindMapResponse(rawText: string | undefined): MindMapNode {
   if (!root) throw new Error('A IA não conseguiu gerar um mapa mental a partir deste conteúdo.');
   return root;
 }
+
+// Prompts, esquemas e validadores que o Claude (server/ai/claude.ts) reaproveita
+// tal como estão: o resultado de qualquer provedor passa pela mesma validação.
+export {
+  BULLETPOINTS_JSON_SCHEMA,
+  BULLETPOINTS_SYSTEM_PROMPT,
+  FLASHCARDS_JSON_SCHEMA,
+  FLASHCARDS_SYSTEM_PROMPT,
+  MINDMAP_JSON_SCHEMA,
+  MINDMAP_SYSTEM_PROMPT,
+  SUMMARY_JSON_SCHEMA,
+  SUMMARY_SYSTEM_PROMPT,
+  SYLLABUS_JSON_SCHEMA,
+  parseBulletPointsResponse,
+  parseFlashcardsResponse,
+  parseMindMapResponse,
+  parseSummaryResponse,
+  sharedInstructions,
+  summaryModeInstruction,
+};

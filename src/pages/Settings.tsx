@@ -3,6 +3,7 @@ import { Check, Monitor, Moon, MousePointerClick, Sun, Volume2 } from 'lucide-re
 import { useLocation } from 'react-router-dom';
 
 import { AiUsagePanel } from '../components/AiUsagePanel';
+import { VoiceSettings } from '../components/VoiceSettings';
 import { useTheme, type ThemeMode } from '../contexts/ThemeContext';
 import { useStudySettings } from '../contexts/StudySettingsContext';
 import { paletteSwatchHex, THEME_COLOR_LABELS, THEME_COLORS } from '../theme/palettes';
@@ -111,6 +112,8 @@ export function Settings() {
             Automática
           </button>
         </div>
+
+        <VoiceSettings />
       </div>
 
       <AiUsagePanel />

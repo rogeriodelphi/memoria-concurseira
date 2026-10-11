@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type, FileState, ApiError, createPartFromUri, createUserContent } from '@google/genai';
 import type { GenerateContentParameters, GenerateContentResponse } from '@google/genai';
 
-import { recordUsage, reportProviderOutcome } from './usage';
+import { decodeGeminiAudio, type DecodedAudio } from '../tts/audio';
+import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 
 export interface GenerationOptions {
   quantity: 'auto' | number;
@@ -130,14 +131,14 @@ export function hasGemini(): boolean {
   return !!process.env.GEMINI_API_KEY;
 }
 
-function trackGeminiSuccess(response: GenerateContentResponse): void {
+function trackGeminiSuccess(response: GenerateContentResponse, reportStatus: boolean): void {
   const usage = response.usageMetadata;
   const input = usage?.promptTokenCount ?? 0;
   // totalTokenCount já inclui tokens de "raciocínio" do modelo, que
   // candidatesTokenCount sozinho não conta — por isso a saída é derivada do total.
   const total = usage?.totalTokenCount ?? input + (usage?.candidatesTokenCount ?? 0);
   recordUsage('gemini', { input, output: Math.max(total - input, 0), total });
-  reportProviderOutcome('gemini', 'ok');
+  if (reportStatus) reportProviderOutcome('gemini', 'ok');
 }
 
 function getClient(): GoogleGenAI {
@@ -175,18 +176,35 @@ function parseGeminiError(err: ApiError): ParsedGeminiError {
   }
 }
 
-function friendlyGeminiError(err: ApiError, parsed: ParsedGeminiError): Error {
+export type GeminiFailureKind = 'quota' | 'overloaded' | 'other';
+
+/** Erro do Gemini já em linguagem de usuário, com o tipo da falha para quem precisa decidir o que fazer. */
+export class GeminiError extends Error {
+  constructor(
+    message: string,
+    readonly kind: GeminiFailureKind,
+    /** Quando o Google diz em quanto tempo a cota volta. */
+    readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+    this.name = 'GeminiError';
+  }
+}
+
+function friendlyGeminiError(err: ApiError, parsed: ParsedGeminiError): GeminiError {
   if (err.status === 429 || parsed.status === 'RESOURCE_EXHAUSTED') {
-    return new Error(
+    return new GeminiError(
       'Limite de uso gratuito do Gemini atingido no momento (a chave de API está no plano gratuito, com cota ' +
         'bem baixa). Tente de novo em alguns instantes — se persistir, pode ser um limite diário; verifique em ' +
         'https://ai.dev/rate-limit ou considere um plano pago.',
+      'quota',
+      parsed.retryDelaySeconds,
     );
   }
   if (err.status === 503 || parsed.status === 'UNAVAILABLE') {
-    return new Error('O Gemini está com alta demanda no momento. Tente novamente em alguns instantes.');
+    return new GeminiError('O Gemini está com alta demanda no momento. Tente novamente em alguns instantes.', 'overloaded');
   }
-  return new Error('Falha ao se comunicar com a IA. Tente novamente.');
+  return new GeminiError('Falha ao se comunicar com a IA. Tente novamente.', 'other');
 }
 
 /**
@@ -200,38 +218,58 @@ function friendlyGeminiError(err: ApiError, parsed: ParsedGeminiError): Error {
  *   pena tentar de novo UMA vez, respeitando o `retryDelay` que o próprio
  *   Google devolve no erro; se persistir, desiste e explica o motivo real
  *   em vez de devolver o JSON cru.
+ *
+ * Os padrões são os de sempre. A leitura em voz alta muda os três: quem espera
+ * a voz não pode ficar minutos num retry, e ela não deve mexer no indicador de
+ * saúde do Gemini (que reflete os modelos de texto).
  */
+interface RetryOptions {
+  maxAttempts?: number;
+  /** Esperar o tempo que o Google sugere e tentar mais uma vez depois de um 429. */
+  waitForQuota?: boolean;
+  /** Registrar o resultado no status do provedor (o aviso do menu lateral). */
+  reportStatus?: boolean;
+}
+
 async function generateContentWithRetry(
   client: GoogleGenAI,
   params: GenerateContentParameters,
+  options: RetryOptions = {},
 ): Promise<GenerateContentResponse> {
+  const maxAttempts = options.maxAttempts ?? MAX_OVERLOAD_ATTEMPTS;
+  const waitForQuota = options.waitForQuota ?? true;
+  const reportStatus = options.reportStatus ?? true;
+  const report = (status: ProviderStatus) => {
+    if (reportStatus) reportProviderOutcome('gemini', status);
+  };
+
   let quotaRetryUsed = false;
-  for (let attempt = 1; attempt <= MAX_OVERLOAD_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const response = await client.models.generateContent(params);
-      trackGeminiSuccess(response);
+      trackGeminiSuccess(response, reportStatus);
       return response;
     } catch (err) {
       if (!(err instanceof ApiError)) throw err;
       const parsed = parseGeminiError(err);
 
       if (err.status === 429) {
-        if (!quotaRetryUsed && parsed.retryDelaySeconds) {
+        if (waitForQuota && !quotaRetryUsed && parsed.retryDelaySeconds) {
           quotaRetryUsed = true;
           const delay = Math.min(parsed.retryDelaySeconds * 1000, MAX_QUOTA_RETRY_DELAY_MS);
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
-        reportProviderOutcome('gemini', 'quota_exhausted');
+        report('quota_exhausted');
         throw friendlyGeminiError(err, parsed);
       }
 
       const overloaded = err.status === 503;
-      if (!overloaded || attempt === MAX_OVERLOAD_ATTEMPTS) {
+      if (!overloaded || attempt === maxAttempts) {
         if (overloaded) {
-          reportProviderOutcome('gemini', 'unavailable');
+          report('unavailable');
         } else if (err.status === 401 || err.status === 403 || err.message.includes('API_KEY_INVALID')) {
-          reportProviderOutcome('gemini', 'invalid_key');
+          report('invalid_key');
         }
         throw friendlyGeminiError(err, parsed);
       }
@@ -666,6 +704,145 @@ function parseBulletPointsResponse(rawText: string | undefined): GeneratedBullet
     throw new Error('A IA não conseguiu gerar bullet points a partir deste texto.');
   }
   return { title, points };
+}
+
+// Modelo de voz do Gemini. Existe uma versão "lite" (gemini-3.8-flash-lite-tts), mais
+// barata, que dá pra usar definindo GEMINI_TTS_MODEL no .env.
+export function ttsModel(): string {
+  return process.env.GEMINI_TTS_MODEL?.trim() || 'gemini-3.8-flash-tts';
+}
+
+/**
+ * Lê um texto em voz alta. Só o texto vai na requisição, sem instrução de estilo:
+ * o modelo lê em voz alta tudo o que recebe, inclusive um "leia em tom natural".
+ * O idioma ele reconhece pelo próprio texto.
+ */
+export async function synthesizeSpeechGemini(text: string, voice: string): Promise<DecodedAudio> {
+  const client = getClient();
+  const response = await generateContentWithRetry(
+    client,
+    {
+      model: ttsModel(),
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+      },
+    },
+    // Quem ouve está esperando: uma repetição só, sem aguardar cota, e a falha
+    // vira rápido a voz do navegador em vez de um silêncio de minutos.
+    { maxAttempts: 2, waitForQuota: false, reportStatus: false },
+  );
+  const part = response.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+  if (!part?.inlineData?.data) throw new Error('A IA não retornou áudio para este texto.');
+  return decodeGeminiAudio(Buffer.from(part.inlineData.data, 'base64'), part.inlineData.mimeType);
+}
+
+/** O que a IA devolve do edital, ainda sem validar — quem usa passa por `normalizeDraft`. */
+export type GeneratedSyllabus = Record<string, unknown>;
+
+export type SyllabusSource = { type: 'text'; text: string } | { type: 'file'; buffer: Buffer; mimeType: string };
+
+export const SYLLABUS_SYSTEM_PROMPT = `Você é especialista em editais de concursos públicos brasileiros.
+Você receberá o texto (ou o arquivo) de um edital, ou só do seu conteúdo programático. Extraia a estrutura de
+disciplinas e tópicos exatamente como consta no documento.
+
+Regras:
+- Use apenas o que está no documento. Não invente, não complete e não "melhore" disciplinas ou tópicos com o seu
+  conhecimento, mesmo que pareçam incompletos.
+- Liste as disciplinas e os tópicos na mesma ordem do edital.
+- Um tópico é um assunto que dá para estudar sozinho. Quando um item lista vários assuntos distintos (separados
+  por vírgula, ponto e vírgula ou "e"), crie um tópico para cada um e, se for preciso, comece pelo assunto maior
+  para o tópico fazer sentido isolado (por exemplo, "Redes de computadores: DNS"). Mantenha dentro do mesmo tópico
+  apenas o que for detalhe ou exemplo dele: texto entre parênteses, "como", "por exemplo" e listas de artigos de uma lei.
+- Preserve os nomes como estão no edital. Corrija apenas quebras de linha e hifenização que vieram do PDF.
+- Ignore o que não é conteúdo programático (regras de inscrição, datas de recurso, cláusulas gerais).
+- Se o documento trouxer conteúdos de vários cargos e nenhum cargo foi pedido, extraia somente o primeiro cargo
+  listado e informe o nome dele em "position".
+- "questionCount" e "weight": preencha só se o edital informar explicitamente (por exemplo, no quadro de provas);
+  caso contrário, use null.
+- "cutoff": o desempenho mínimo exigido na disciplina para o candidato não ser eliminado, escrito como mínimo (por
+  exemplo, "mínimo de 50% dos pontos"). Se o edital disser que será eliminado quem obtiver menos de 50%, escreva
+  "mínimo de 50% dos pontos". Se não houver, uma string vazia.
+- "examDate": a data da prova objetiva no formato AAAA-MM-DD, só se estiver explícita; caso contrário, string vazia.
+- "name": o nome do concurso (órgão e, se houver, cargo); "board": a banca organizadora. Vazio se não constar.
+Responda apenas com o JSON pedido, sem texto adicional.`;
+
+export function syllabusUserPrompt(positionHint: string): string {
+  const hint = positionHint.trim();
+  return hint
+    ? `Extraia as disciplinas e os tópicos do cargo "${hint}". Se o documento tiver vários cargos, ignore os demais.`
+    : 'Extraia as disciplinas e os tópicos do documento.';
+}
+
+const SYLLABUS_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING },
+    position: { type: Type.STRING },
+    board: { type: Type.STRING },
+    examDate: { type: Type.STRING, description: 'AAAA-MM-DD, ou vazio.' },
+    disciplines: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          questionCount: { type: Type.INTEGER, nullable: true },
+          weight: { type: Type.NUMBER, nullable: true },
+          cutoff: { type: Type.STRING },
+          topics: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ['name', 'topics'],
+      },
+    },
+  },
+  required: ['disciplines'],
+};
+
+export function parseSyllabusResponse(rawText: string | undefined): GeneratedSyllabus {
+  const failure = 'A IA não retornou o conteúdo programático no formato esperado.';
+  if (!rawText) throw new Error(failure);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    throw new Error(failure);
+  }
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as GeneratedSyllabus).disciplines)) {
+    throw new Error(failure);
+  }
+  return parsed as GeneratedSyllabus;
+}
+
+export async function extractSyllabusGemini(source: SyllabusSource, positionHint: string): Promise<GeneratedSyllabus> {
+  const client = getClient();
+  const config = {
+    systemInstruction: SYLLABUS_SYSTEM_PROMPT,
+    responseMimeType: 'application/json',
+    responseSchema: SYLLABUS_SCHEMA,
+  };
+
+  if (source.type === 'text') {
+    const prompt = [syllabusUserPrompt(positionHint), '', '--- DOCUMENTO ---', source.text].join('\n');
+    const response = await generateContentWithRetry(client, { model: MODEL, contents: prompt, config });
+    return parseSyllabusResponse(response.text);
+  }
+
+  // PDF sem texto extraível (escaneado): o Gemini lê a imagem das páginas.
+  const prompt = [
+    'O arquivo em anexo é um edital (ou o seu conteúdo programático). Se for um PDF escaneado, leia o texto das',
+    'páginas antes de extrair.',
+    syllabusUserPrompt(positionHint),
+  ].join('\n');
+  return withUploadedFile(client, source.buffer, source.mimeType, async (uri, mimeType) => {
+    const response = await generateContentWithRetry(client, {
+      model: MODEL,
+      contents: createUserContent([createPartFromUri(uri, mimeType), prompt]),
+      config,
+    });
+    return parseSyllabusResponse(response.text);
+  });
 }
 
 function parseFlashcardsResponse(rawText: string | undefined): { flashcards: GeneratedFlashcard[] } {

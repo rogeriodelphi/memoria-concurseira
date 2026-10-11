@@ -215,3 +215,51 @@ const studySessionsColumns = db.prepare('PRAGMA table_info(study_sessions)').all
 if (!studySessionsColumns.some((c) => c.name === 'duration_ms')) {
   db.exec('ALTER TABLE study_sessions ADD COLUMN duration_ms INTEGER');
 }
+
+// Concursos: o conteúdo programático de um edital (disciplinas e tópicos) e o
+// vínculo de cada tópico com as coleções de flashcards do usuário. Só tabelas
+// novas — nada que já existe é alterado. Apagar um concurso leva junto suas
+// disciplinas, tópicos e vínculos; apagar uma coleção só desfaz o vínculo dela.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS exams (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    position   TEXT NOT NULL DEFAULT '',
+    board      TEXT NOT NULL DEFAULT '',
+    exam_date  TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_exams_user ON exams(user_id);
+
+  CREATE TABLE IF NOT EXISTS exam_disciplines (
+    id             TEXT PRIMARY KEY,
+    exam_id        TEXT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    question_count INTEGER,
+    weight         REAL,
+    cutoff         TEXT NOT NULL DEFAULT '',
+    position       INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_exam_disciplines_exam ON exam_disciplines(exam_id);
+
+  CREATE TABLE IF NOT EXISTS exam_topics (
+    id            TEXT PRIMARY KEY,
+    discipline_id TEXT NOT NULL REFERENCES exam_disciplines(id) ON DELETE CASCADE,
+    title         TEXT NOT NULL,
+    position      INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_exam_topics_discipline ON exam_topics(discipline_id);
+
+  CREATE TABLE IF NOT EXISTS exam_topic_collections (
+    topic_id      TEXT NOT NULL REFERENCES exam_topics(id) ON DELETE CASCADE,
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    PRIMARY KEY (topic_id, collection_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_exam_topic_collections_collection ON exam_topic_collections(collection_id);
+`);

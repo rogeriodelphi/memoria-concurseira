@@ -1,19 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, FileText, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, Loader2, Plus, Trash2, Volume2, VolumeX } from 'lucide-react';
 
 import { summariesApi } from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSpeech } from '../hooks/useSpeech';
 import type { Summary } from '../types';
+import { summaryToSpeech } from '../utils/speech';
 
 export function SummaryList() {
   const confirm = useConfirm();
   const { showToast } = useToast();
+  const { speak, stop, speaking, loading, canSpeak } = useSpeech();
   const [searchParams] = useSearchParams();
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('open'));
+
+  // Fechar ou trocar de resumo para a leitura: ninguém quer ouvir o que acabou de esconder.
+  // (O hook também para tudo ao sair da tela.)
+  useEffect(() => {
+    stop();
+  }, [expandedId, stop]);
+
+  function toggleSpeak(summary: Summary) {
+    if (speaking === 'text') {
+      stop();
+      return;
+    }
+    void speak(summaryToSpeech(summary.title, summary.content), 'text');
+  }
 
   function load() {
     summariesApi
@@ -29,6 +46,7 @@ export function SummaryList() {
     if (!ok) return;
     try {
       await summariesApi.remove(id);
+      if (expandedId === id) stop(); // o resumo some da tela: a leitura dele também
       setSummaries((prev) => prev?.filter((s) => s.id !== id) ?? prev);
       showToast('Resumo excluído.');
     } catch {
@@ -103,6 +121,22 @@ export function SummaryList() {
                 </div>
                 {expanded && (
                   <div className="px-4 pb-4 pl-10">
+                    {canSpeak && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSpeak(s)}
+                        className="mb-3 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+                      >
+                        {loading === 'text' ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : speaking === 'text' ? (
+                          <VolumeX size={14} />
+                        ) : (
+                          <Volume2 size={14} />
+                        )}
+                        {loading === 'text' ? 'Preparando voz...' : speaking === 'text' ? 'Parar' : 'Ouvir'}
+                      </button>
+                    )}
                     <p className="whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">{s.content}</p>
                   </div>
                 )}

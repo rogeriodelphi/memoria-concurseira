@@ -119,6 +119,7 @@ export function ReviewSession({
           onRate={rate}
           onToggleFavorite={toggleFavorite}
           onUpdated={handleUpdated}
+          upcoming={queue[1]}
         />
       ) : studiedSoFar === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-10 text-center">

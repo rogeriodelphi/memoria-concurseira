@@ -1,19 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, ListChecks, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ListChecks, Loader2, Plus, Trash2, Volume2, VolumeX } from 'lucide-react';
 
 import { bulletPointsApi } from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSpeech } from '../hooks/useSpeech';
 import type { BulletPoints } from '../types';
+import { bulletPointsToSpeech } from '../utils/speech';
 
 export function BulletPointsList() {
   const confirm = useConfirm();
   const { showToast } = useToast();
+  const { speak, stop, speaking, loading, canSpeak } = useSpeech();
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState<BulletPoints[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('open'));
+
+  // Fechar ou trocar de item para a leitura: ninguém quer ouvir o que acabou de esconder.
+  // (O hook também para tudo ao sair da tela.)
+  useEffect(() => {
+    stop();
+  }, [expandedId, stop]);
+
+  function toggleSpeak(item: BulletPoints) {
+    if (speaking === 'text') {
+      stop();
+      return;
+    }
+    void speak(bulletPointsToSpeech(item.title, item.points), 'text');
+  }
 
   function load() {
     bulletPointsApi
@@ -29,6 +46,7 @@ export function BulletPointsList() {
     if (!ok) return;
     try {
       await bulletPointsApi.remove(id);
+      if (expandedId === id) stop(); // o item some da tela: a leitura dele também
       setItems((prev) => prev?.filter((i) => i.id !== id) ?? prev);
       showToast('Bullet points excluído.');
     } catch {
@@ -101,6 +119,22 @@ export function BulletPointsList() {
                 </div>
                 {expanded && (
                   <div className="px-4 pb-4 pl-10">
+                    {canSpeak && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSpeak(item)}
+                        className="mb-3 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+                      >
+                        {loading === 'text' ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : speaking === 'text' ? (
+                          <VolumeX size={14} />
+                        ) : (
+                          <Volume2 size={14} />
+                        )}
+                        {loading === 'text' ? 'Preparando voz...' : speaking === 'text' ? 'Parar' : 'Ouvir'}
+                      </button>
+                    )}
                     <ul className="list-disc space-y-1.5 pl-5 text-sm text-neutral-600 dark:text-neutral-300">
                       {item.points.map((point, i) => (
                         <li key={i}>{point}</li>

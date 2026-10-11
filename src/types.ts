@@ -126,6 +126,105 @@ export interface DashboardData {
   };
 }
 
+export interface ExamTopicDraft {
+  id?: string;
+  title: string;
+}
+
+export interface ExamDisciplineDraft {
+  id?: string;
+  name: string;
+  questionCount: number | null;
+  weight: number | null;
+  cutoff: string;
+  topics: ExamTopicDraft[];
+}
+
+export interface ExamDraft {
+  name: string;
+  position: string;
+  board: string;
+  examDate: string | null;
+  disciplines: ExamDisciplineDraft[];
+}
+
+export interface ExamRollup {
+  cards: number;
+  newCards: number;
+  dueCards: number;
+  approvalPct: number | null;
+}
+
+export interface ExamOverall extends ExamRollup {
+  disciplineCount: number;
+  topicCount: number;
+  coveredTopics: number;
+  coveragePct: number | null;
+  weightedByQuestions: boolean;
+}
+
+export interface ExamHeader {
+  id: string;
+  name: string;
+  position: string;
+  board: string;
+  examDate: string | null;
+  daysLeft: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExamSummary extends ExamHeader {
+  overall: ExamOverall;
+}
+
+export interface ExamTopicProgress extends ExamRollup {
+  id: string;
+  title: string;
+  collectionIds: string[];
+  hasMaterial: boolean;
+}
+
+export interface ExamDisciplineProgress extends ExamRollup {
+  id: string;
+  name: string;
+  questionCount: number | null;
+  weight: number | null;
+  cutoff: string;
+  topicCount: number;
+  coveredTopics: number;
+  coveragePct: number | null;
+  topics: ExamTopicProgress[];
+}
+
+export interface ExamCollectionSuggestion {
+  collectionId: string;
+  score: number;
+  strong: boolean;
+}
+
+export interface ExamDetail {
+  exam: ExamHeader;
+  disciplines: ExamDisciplineProgress[];
+  overall: ExamOverall;
+  /** topicId -> sugestões (só para tópicos ainda sem vínculo). */
+  suggestions: Record<string, ExamCollectionSuggestion[]>;
+  collections: { id: string; name: string; subject: string; cards: number }[];
+}
+
+export interface TtsVoiceOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface TtsInfo {
+  /** O servidor tem como gerar a voz natural (chave do Gemini configurada). */
+  available: boolean;
+  defaultVoice: string;
+  voices: TtsVoiceOption[];
+}
+
 export interface CollectionStats {
   totals: { flashcards: number; reviews: number; dueCount: number; favoriteCount: number };
   byResult: Record<StudyResult, number>;
@@ -222,8 +321,8 @@ export interface AnkiImportResult {
   collection: { id: string; name: string } | null;
 }
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription';
-export type AiProvider = 'gemini' | 'openai';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts';
+export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type AiProviderStatus =
   | 'ok'
   | 'quota_exhausted'

@@ -2,6 +2,7 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { hasClaude } from '../ai/claude';
 import { hasGemini } from '../ai/gemini';
 import { hasOpenAI } from '../ai/openai';
 import type { AiFeature, AiProvider, ProviderStatus } from '../ai/usage';
@@ -9,8 +10,8 @@ import type { AiFeature, AiProvider, ProviderStatus } from '../ai/usage';
 export const aiUsageRouter = express.Router();
 aiUsageRouter.use(requireAuth);
 
-const FEATURES: AiFeature[] = ['flashcards', 'summary', 'bulletpoints', 'mindmap', 'transcription'];
-const PROVIDERS: AiProvider[] = ['gemini', 'openai'];
+const FEATURES: AiFeature[] = ['flashcards', 'summary', 'bulletpoints', 'mindmap', 'transcription', 'exam', 'tts'];
+const PROVIDERS: AiProvider[] = ['gemini', 'openai', 'claude'];
 const MAX_BUDGET = 1_000_000_000_000;
 
 interface Totals {
@@ -65,7 +66,7 @@ aiUsageRouter.get('/', (req: AuthedRequest, res: Response) => {
     .prepare('SELECT provider, status, updated_at FROM ai_provider_status')
     .all() as unknown as { provider: string; status: ProviderStatus; updated_at: string }[];
   const statusByProvider = new Map(statusRows.map((r) => [r.provider, r]));
-  const configured: Record<AiProvider, boolean> = { gemini: hasGemini(), openai: hasOpenAI() };
+  const configured: Record<AiProvider, boolean> = { gemini: hasGemini(), openai: hasOpenAI(), claude: hasClaude() };
 
   res.json({
     success: true,

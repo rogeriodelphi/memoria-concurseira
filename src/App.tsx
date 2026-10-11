@@ -10,6 +10,10 @@ import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
+import { Exams } from './pages/Exams';
+import { ExamNew } from './pages/ExamNew';
+import { ExamDetail } from './pages/ExamDetail';
+import { ExamEdit } from './pages/ExamEdit';
 import { Collections } from './pages/Collections';
 import { CollectionNew } from './pages/CollectionNew';
 import { CollectionDetail } from './pages/CollectionDetail';
@@ -49,6 +53,10 @@ export default function App() {
 
                     <Route element={<Layout />}>
                       <Route path="/painel" element={<Dashboard />} />
+                      <Route path="/concursos" element={<Exams />} />
+                      <Route path="/concursos/novo" element={<ExamNew />} />
+                      <Route path="/concursos/:id" element={<ExamDetail />} />
+                      <Route path="/concursos/:id/editar" element={<ExamEdit />} />
                       <Route path="/colecoes" element={<Collections />} />
                       <Route path="/colecoes/nova" element={<CollectionNew />} />
                       <Route path="/colecoes/:id" element={<CollectionDetail />} />
