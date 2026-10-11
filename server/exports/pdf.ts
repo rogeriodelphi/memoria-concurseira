@@ -99,7 +99,7 @@ function withNumber(blocks: PdfBlock[], number: number): PdfBlock[] {
 }
 
 export function buildFlashcardsPdf(title: string, rows: PdfFlashcard[]): Promise<Buffer> {
-  const doc = new PDFDocument({ margin: 56, bufferPages: true });
+  const doc = new PDFDocument({ size: 'A4', margin: 56, bufferPages: true });
   const chunks: Buffer[] = [];
   doc.on('data', (chunk: Buffer) => chunks.push(chunk));
   const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));

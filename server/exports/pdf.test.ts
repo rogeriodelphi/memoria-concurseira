@@ -135,6 +135,14 @@ test('imagem fora do que dá para incluir não derruba o PDF', async () => {
   assert.equal(imageObjects(pdf), 1);
 });
 
+test('as páginas são A4', async () => {
+  const pdf = await buildFlashcardsPdf('Coleção', [card('Pergunta', 'Resposta')]);
+  const sizes = pdf.toString('latin1').match(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/);
+  assert.ok(sizes, 'o PDF deveria declarar o tamanho da página');
+  assert.equal(Math.round(Number(sizes[1])), 595);
+  assert.equal(Math.round(Number(sizes[2])), 842);
+});
+
 test('cartão em texto simples continua saindo normalmente', async () => {
   const pdf = await buildFlashcardsPdf('Coleção', [card('Pergunta <b>?', 'Resposta & mais', 'plain')]);
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
