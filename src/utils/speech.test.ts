@@ -172,3 +172,15 @@ test('texto: espaços e quebras viram um espaço só, igual ao que o servidor fa
   assert.equal(tidySpeechText('  a  b\n\n c \t d '), 'a b c d');
   assert.equal(tidySpeechText('   '), '');
 });
+
+test('resumo editado (HTML): cada parágrafo e item vira uma frase, sem soletrar as tags', () => {
+  const html =
+    '<div style="text-align:justify">O cluster usa nós <b>próximos</b></div><div><br></div>' +
+    '<div>Grid &amp; nuvem&nbsp;diferem</div><ul><li>Item um</li><li>Item dois.</li></ul>Fim<br>de linha';
+  assert.equal(
+    summaryToSpeech('Cluster', html, 'html'),
+    'Cluster. O cluster usa nós próximos. Grid & nuvem diferem. Item um. Item dois. Fim. de linha.',
+  );
+  // o mesmo texto como resumo simples não é tratado como HTML
+  assert.equal(summaryToSpeech('T', 'a < b e <b> literal', 'plain'), 'T. a < b e <b> literal.');
+});

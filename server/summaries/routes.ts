@@ -7,6 +7,7 @@ import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { generateSummary, type SummaryMode } from '../ai/router';
 import { withUsageContext } from '../ai/usage';
 import { mapSummary, type SummaryRow } from '../mappers';
+import { prepareSummaryUpdate } from './update';
 
 export const summariesRouter = express.Router();
 summariesRouter.use(requireAuth);
@@ -52,6 +53,33 @@ summariesRouter.get('/', (req: AuthedRequest, res: Response) => {
     .prepare('SELECT * FROM summaries WHERE user_id = ? ORDER BY created_at DESC')
     .all(req.userId!) as unknown as SummaryRow[];
   res.json({ success: true, summaries: rows.map(mapSummary) });
+});
+
+summariesRouter.put('/:id', (req: AuthedRequest, res: Response) => {
+  const existing = db.prepare('SELECT * FROM summaries WHERE id = ? AND user_id = ?').get(
+    req.params.id,
+    req.userId!,
+  ) as unknown as SummaryRow | undefined;
+  if (!existing) {
+    res.status(404).json({ success: false, error: 'Resumo não encontrado.' });
+    return;
+  }
+
+  const update = prepareSummaryUpdate(req.body);
+  if (!update.ok) {
+    res.status(400).json({ success: false, error: update.error });
+    return;
+  }
+  const { title, content, format } = update.value;
+  db.prepare('UPDATE summaries SET title = ?, content = ?, format = ?, updated_at = ? WHERE id = ?').run(
+    title,
+    content,
+    format,
+    new Date().toISOString(),
+    existing.id,
+  );
+  const row = db.prepare('SELECT * FROM summaries WHERE id = ?').get(existing.id) as unknown as SummaryRow;
+  res.json({ success: true, summary: mapSummary(row) });
 });
 
 summariesRouter.delete('/:id', (req: AuthedRequest, res: Response) => {

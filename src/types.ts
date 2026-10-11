@@ -288,6 +288,8 @@ export interface Summary {
   id: string;
   title: string;
   content: string;
+  /** 'plain' é o que a IA gera; vira 'html' quando o resumo é editado no editor de texto rico. */
+  format: FlashcardFormat;
   mode: SummaryMode;
   createdAt: string;
   updatedAt: string;

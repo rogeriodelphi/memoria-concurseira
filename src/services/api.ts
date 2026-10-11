@@ -308,6 +308,8 @@ export const summariesApi = {
       method: 'POST',
       body: JSON.stringify({ text, mode }),
     }),
+  update: (id: string, input: { title: string; content: string; format: 'plain' | 'html' }) =>
+    request<{ summary: Summary }>(`/summaries/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   remove: (id: string) => request<{ success: true }>(`/summaries/${id}`, { method: 'DELETE' }),
 };
 

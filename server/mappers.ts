@@ -118,6 +118,7 @@ export interface SummaryRow {
   title: string;
   content: string;
   mode: string;
+  format: string;
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +128,7 @@ export function mapSummary(row: SummaryRow) {
     id: row.id,
     title: row.title,
     content: row.content,
+    format: row.format === 'html' ? 'html' : 'plain',
     mode: row.mode,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

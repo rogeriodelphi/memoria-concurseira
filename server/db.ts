@@ -172,6 +172,14 @@ if (!flashcardsColumns.some((c) => c.name === 'format')) {
   db.exec("ALTER TABLE flashcards ADD COLUMN format TEXT NOT NULL DEFAULT 'plain'");
 }
 
+// Migração para "format" em summaries, pelo mesmo motivo dos flashcards: todo
+// resumo existente é 'plain' (texto simples da IA) e só passa a 'html' quando
+// editado no editor de texto rico.
+const summariesColumns = db.prepare('PRAGMA table_info(summaries)').all() as unknown as { name: string }[];
+if (!summariesColumns.some((c) => c.name === 'format')) {
+  db.exec("ALTER TABLE summaries ADD COLUMN format TEXT NOT NULL DEFAULT 'plain'");
+}
+
 // Migração para "source_type" em documents — bancos antigos só conheciam
 // upload de arquivo, então todo registro existente é 'file'.
 const documentsColumns = db.prepare('PRAGMA table_info(documents)').all() as unknown as { name: string }[];

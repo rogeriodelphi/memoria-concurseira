@@ -23,14 +23,24 @@ export function clampSpeechRate(value: number): number {
  */
 export function stripHtmlForSpeech(value: string, format: 'plain' | 'html'): string {
   if (format !== 'html') return value;
-  return value
-    .replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&amp;/gi, '&')
+  return decodeBasicEntities(value.replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' '))
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function decodeBasicEntities(value: string): string {
+  return value.replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&amp;/gi, '&');
+}
+
+/**
+ * O corpo de um resumo em HTML como linhas de texto, uma por parágrafo ou item. Diferente de
+ * `stripHtmlForSpeech`, que junta tudo numa linha só, mantém as quebras: é com elas que
+ * `summaryToSpeech` coloca a pontuação que faz a voz pausar entre um parágrafo e outro.
+ */
+function htmlToParagraphs(html: string): string {
+  return decodeBasicEntities(html.replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' '))
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
     .trim();
 }
 
@@ -90,8 +100,9 @@ export function tidySpeechText(text: string): string {
 }
 
 /** O texto de um resumo para ler em voz alta: o título e cada parágrafo, com a pausa de uma frase entre eles. */
-export function summaryToSpeech(title: string, content: string): string {
-  return bulletPointsToSpeech(title, content.split(/\n+/));
+export function summaryToSpeech(title: string, content: string, format: 'plain' | 'html' = 'plain'): string {
+  const body = format === 'html' ? htmlToParagraphs(content) : content;
+  return bulletPointsToSpeech(title, body.split(/\n+/));
 }
 
 /** O que a voz natural aceita de uma vez; o servidor recusa mais que isso (MAX_SPEECH_CHARS, em server/tts/synthesize.ts). */

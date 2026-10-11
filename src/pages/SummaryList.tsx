@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, FileText, Loader2, Plus, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, Loader2, Pencil, Plus, Trash2, Volume2, VolumeX } from 'lucide-react';
 
-import { summariesApi } from '../services/api';
+import { ApiError, summariesApi } from '../services/api';
+import { FormattedText } from '../components/FormattedText';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSpeech } from '../hooks/useSpeech';
 import type { Summary } from '../types';
+import { editorHasContent, toEditorHtml } from '../utils/flashcardEditor';
 import { summaryToSpeech } from '../utils/speech';
 
 export function SummaryList() {
@@ -17,6 +20,14 @@ export function SummaryList() {
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('open'));
+
+  // Edição de um resumo por vez: o mesmo editor de texto rico dos cartões.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editDirty, setEditDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Fechar ou trocar de resumo para a leitura: ninguém quer ouvir o que acabou de esconder.
   // (O hook também para tudo ao sair da tela.)
@@ -29,7 +40,7 @@ export function SummaryList() {
       stop();
       return;
     }
-    void speak(summaryToSpeech(summary.title, summary.content), 'text');
+    void speak(summaryToSpeech(summary.title, summary.content, summary.format), 'text');
   }
 
   function load() {
@@ -41,12 +52,68 @@ export function SummaryList() {
 
   useEffect(load, []);
 
+  function startEditing(summary: Summary) {
+    stop();
+    setExpandedId(summary.id);
+    setEditingId(summary.id);
+    setEditTitle(summary.title);
+    setEditContent(toEditorHtml(summary.content, summary.format));
+    setEditDirty(false);
+    setEditError(null);
+  }
+
+  function stopEditing() {
+    setEditingId(null);
+    setEditDirty(false);
+    setEditError(null);
+  }
+
+  // Abrir outro resumo (ou fechar este) no meio de uma edição jogaria fora o que foi
+  // digitado; um resumo pode ser longo, então pergunta antes.
+  async function toggleExpanded(id: string) {
+    if (editingId && editDirty) {
+      const discard = await confirm({ message: 'Descartar as alterações feitas neste resumo?', danger: true });
+      if (!discard) return;
+    }
+    stopEditing();
+    setExpandedId(expandedId === id ? null : id);
+  }
+
+  async function saveEditing() {
+    if (!editingId || saving) return;
+    if (!editTitle.trim()) {
+      setEditError('Informe um título para o resumo.');
+      return;
+    }
+    if (!editorHasContent(editContent)) {
+      setEditError('O resumo não pode ficar vazio.');
+      return;
+    }
+    setSaving(true);
+    setEditError(null);
+    try {
+      const { summary } = await summariesApi.update(editingId, {
+        title: editTitle,
+        content: editContent,
+        format: 'html',
+      });
+      setSummaries((prev) => prev?.map((s) => (s.id === summary.id ? summary : s)) ?? prev);
+      stopEditing();
+      showToast('Resumo salvo.');
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Não foi possível salvar o resumo.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDelete(id: string) {
     const ok = await confirm({ message: 'Excluir este resumo? Essa ação não pode ser desfeita.', danger: true });
     if (!ok) return;
     try {
       await summariesApi.remove(id);
       if (expandedId === id) stop(); // o resumo some da tela: a leitura dele também
+      if (editingId === id) stopEditing();
       setSummaries((prev) => prev?.filter((s) => s.id !== id) ?? prev);
       showToast('Resumo excluído.');
     } catch {
@@ -94,12 +161,13 @@ export function SummaryList() {
         <div className="card divide-y divide-neutral-200 dark:divide-neutral-800">
           {summaries.map((s) => {
             const expanded = expandedId === s.id;
+            const editing = editingId === s.id;
             return (
               <div key={s.id}>
                 <div className="flex items-center gap-2 px-4 py-3">
                   <button
                     type="button"
-                    onClick={() => setExpandedId(expanded ? null : s.id)}
+                    onClick={() => void toggleExpanded(s.id)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <ChevronRight
@@ -112,6 +180,16 @@ export function SummaryList() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => startEditing(s)}
+                    disabled={editing}
+                    className="shrink-0 rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-40 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+                    title="Editar"
+                    aria-label="Editar resumo"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleDelete(s.id)}
                     className="shrink-0 rounded-lg p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:text-neutral-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                     title="Excluir"
@@ -119,7 +197,60 @@ export function SummaryList() {
                     <Trash2 size={16} />
                   </button>
                 </div>
-                {expanded && (
+                {expanded && editing && (
+                  <form
+                    className="space-y-3 px-4 pb-4 pl-10"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void saveEditing();
+                    }}
+                  >
+                    <div>
+                      <label className="label-field" htmlFor={`summary-title-${s.id}`}>
+                        Título
+                      </label>
+                      <input
+                        id={`summary-title-${s.id}`}
+                        className="input-field"
+                        value={editTitle}
+                        onChange={(e) => {
+                          setEditTitle(e.target.value);
+                          setEditDirty(true);
+                        }}
+                        maxLength={200}
+                      />
+                    </div>
+                    <div>
+                      <span className="label-field">Resumo</span>
+                      <RichTextEditor
+                        value={editContent}
+                        onChange={(html) => {
+                          setEditContent(html);
+                          setEditDirty(true);
+                        }}
+                        role="answer"
+                        placeholder="Texto do resumo"
+                      />
+                    </div>
+                    {editError && <p className="text-sm text-red-600">{editError}</p>}
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={saving} className="btn-primary">
+                        {saving ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          'Salvar'
+                        )}
+                      </button>
+                      <button type="button" onClick={stopEditing} disabled={saving} className="btn-secondary">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {expanded && !editing && (
                   <div className="px-4 pb-4 pl-10">
                     {canSpeak && (
                       <button
@@ -137,7 +268,13 @@ export function SummaryList() {
                         {loading === 'text' ? 'Preparando voz...' : speaking === 'text' ? 'Parar' : 'Ouvir'}
                       </button>
                     )}
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">{s.content}</p>
+                    {/* Justificado por padrão, como a resposta de um cartão; o que o usuário alinha no editor prevalece. */}
+                    <FormattedText
+                      value={s.content}
+                      format={s.format}
+                      role="answer"
+                      className={`text-sm text-neutral-600 dark:text-neutral-300 ${s.format === 'plain' ? 'whitespace-pre-wrap' : ''}`}
+                    />
                   </div>
                 )}
               </div>
