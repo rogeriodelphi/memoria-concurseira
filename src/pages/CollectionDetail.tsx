@@ -161,6 +161,11 @@ export function CollectionDetail() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateProgress, setGenerateProgress] = useState(0);
 
+  const [renamingName, setRenamingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQuestion, setEditQuestion] = useState('');
@@ -203,6 +208,28 @@ export function CollectionDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handleRename() {
+    if (!id) return;
+    const name = nameDraft.trim();
+    // O servidor ignora em silêncio um nome curto demais: avisar aqui, para não parecer salvo.
+    if (name.length < 2) {
+      setRenameError('O nome precisa ter pelo menos 2 caracteres.');
+      return;
+    }
+    setSavingName(true);
+    setRenameError(null);
+    try {
+      const { collection: updated } = await collectionsApi.update(id, { name });
+      setCollection((prev) => (prev ? { ...prev, name: updated.name, updatedAt: updated.updatedAt } : prev));
+      setRenamingName(false);
+      showToast('Coleção renomeada.');
+    } catch (err) {
+      setRenameError(err instanceof ApiError ? err.message : 'Não foi possível renomear a coleção.');
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   // A IA responde tudo de uma vez (não dá pra saber "quantos flashcards já
   // foram gerados" enquanto a geração está em andamento), então essa barra é
@@ -578,8 +605,65 @@ export function CollectionDetail() {
   return (
     <div>
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{collection.name}</h1>
+        <div className="min-w-0">
+          {renamingName ? (
+            <form
+              className="max-w-md"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleRename();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setRenamingName(false);
+              }}
+            >
+              <label className="label-field" htmlFor="collection-name">
+                Nome da coleção
+              </label>
+              <input
+                id="collection-name"
+                autoFocus
+                className="input-field"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={120}
+              />
+              {renameError && <p className="mt-1 text-xs text-red-600">{renameError}</p>}
+              <div className="mt-1.5 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={savingName}
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-60"
+                >
+                  {savingName ? 'Salvando...' : 'Salvar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRenamingName(false)}
+                  className="text-xs font-semibold text-neutral-500 hover:text-neutral-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{collection.name}</h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(collection.name);
+                  setRenameError(null);
+                  setRenamingName(true);
+                }}
+                className="shrink-0 rounded p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                title="Renomear coleção"
+                aria-label="Renomear coleção"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+          )}
           {collection.subject && (
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{collection.subject}</p>
           )}

@@ -39,6 +39,7 @@ export function Collections() {
   const [collections, setCollections] = useState<CollectionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
   const [editSubject, setEditSubject] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -148,42 +149,80 @@ export function Collections() {
 
   function startEdit(c: CollectionSummary) {
     setEditingId(c.id);
+    setEditName(c.name);
     setEditSubject(c.subject);
     setEditError(null);
   }
 
   async function saveEdit(id: string) {
+    // O servidor ignora em silêncio um nome curto demais e mantém o antigo: avisar aqui,
+    // para o "Salvo" nunca aparecer quando nada mudou.
+    if (editName.trim().length < 2) {
+      setEditError('O nome precisa ter pelo menos 2 caracteres.');
+      return;
+    }
     setSaving(true);
     setEditError(null);
     try {
-      const { collection } = await collectionsApi.update(id, { subject: editSubject });
+      const { collection } = await collectionsApi.update(id, { name: editName.trim(), subject: editSubject });
       setCollections((prev) => prev?.map((c) => (c.id === id ? collection : c)) ?? prev);
       setEditingId(null);
-      showToast('Assunto salvo.');
+      showToast('Coleção atualizada.');
     } catch (err) {
-      setEditError(err instanceof ApiError ? err.message : 'Não foi possível salvar o assunto.');
+      setEditError(err instanceof ApiError ? err.message : 'Não foi possível salvar as alterações.');
     } finally {
       setSaving(false);
     }
   }
 
-  function renderSubject(c: CollectionSummary) {
+  const pencilClass =
+    'shrink-0 p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300';
+
+  /** O nome e o assunto da coleção; o lápis de qualquer um dos dois abre a edição dos dois. */
+  function renderTitle(c: CollectionSummary, layout: 'tabela' | 'cartao') {
     if (editingId === c.id) {
       return (
-        <div className="mt-1.5 max-w-sm">
-          <input
-            autoFocus
-            className="input-field text-xs"
-            value={editSubject}
-            onChange={(e) => setEditSubject(e.target.value)}
-            placeholder="Adicione um assunto para essa coleção"
-          />
-          {editError && <p className="mt-1 text-xs text-red-600">{editError}</p>}
-          <div className="mt-1.5 flex gap-2">
+        <form
+          className="max-w-sm space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveEdit(c.id);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setEditingId(null);
+          }}
+        >
+          <div>
+            <label className="label-field" htmlFor={`${layout}-collection-name-${c.id}`}>
+              Nome
+            </label>
+            <input
+              id={`${layout}-collection-name-${c.id}`}
+              autoFocus
+              className="input-field"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              maxLength={120}
+              placeholder="Nome da coleção"
+            />
+          </div>
+          <div>
+            <label className="label-field" htmlFor={`${layout}-collection-subject-${c.id}`}>
+              Assunto
+            </label>
+            <input
+              id={`${layout}-collection-subject-${c.id}`}
+              className="input-field text-xs"
+              value={editSubject}
+              onChange={(e) => setEditSubject(e.target.value)}
+              placeholder="Adicione um assunto para essa coleção"
+            />
+          </div>
+          {editError && <p className="text-xs text-red-600">{editError}</p>}
+          <div className="flex gap-2">
             <button
-              type="button"
+              type="submit"
               disabled={saving}
-              onClick={() => saveEdit(c.id)}
               className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-60"
             >
               {saving ? 'Salvando...' : 'Salvar'}
@@ -196,23 +235,24 @@ export function Collections() {
               Cancelar
             </button>
           </div>
-        </div>
+        </form>
       );
     }
     return (
-      <div className="mt-0.5 flex items-center gap-1">
-        <p className="line-clamp-1 text-xs text-neutral-400 dark:text-neutral-500">
-          {c.subject || 'Sem assunto'}
-        </p>
-        <button
-          type="button"
-          onClick={() => startEdit(c)}
-          className="shrink-0 p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-          title="Editar assunto"
-        >
-          <Pencil size={12} />
-        </button>
-      </div>
+      <>
+        <div className="flex items-center gap-1">
+          <p className="font-medium text-neutral-900 dark:text-neutral-100">{c.name}</p>
+          <button type="button" onClick={() => startEdit(c)} className={pencilClass} title="Editar nome e assunto">
+            <Pencil size={12} />
+          </button>
+        </div>
+        <div className="mt-0.5 flex items-center gap-1">
+          <p className="line-clamp-1 text-xs text-neutral-400 dark:text-neutral-500">{c.subject || 'Sem assunto'}</p>
+          <button type="button" onClick={() => startEdit(c)} className={pencilClass} title="Editar nome e assunto">
+            <Pencil size={12} />
+          </button>
+        </div>
+      </>
     );
   }
 
@@ -330,10 +370,7 @@ export function Collections() {
                       key={c.id}
                       className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
                     >
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-neutral-900 dark:text-neutral-100">{c.name}</p>
-                        {renderSubject(c)}
-                      </td>
+                      <td className="px-6 py-4">{renderTitle(c, 'tabela')}</td>
                       <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
                         <div className="flex items-center gap-2">
                           <span>{c.flashcardCount}</span>
@@ -371,10 +408,7 @@ export function Collections() {
               return (
                 <div key={c.id} className="card p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-neutral-900 dark:text-neutral-100">{c.name}</p>
-                      {renderSubject(c)}
-                    </div>
+                    <div className="min-w-0">{renderTitle(c, 'cartao')}</div>
                     <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
                       {status.text}
                     </span>
