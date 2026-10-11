@@ -14,7 +14,7 @@ export function Register() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!loading && user) return <Navigate to="/colecoes" replace />;
+  if (!loading && user) return <Navigate to="/painel" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -22,7 +22,7 @@ export function Register() {
     setSubmitting(true);
     try {
       await register(name, email, password);
-      navigate('/colecoes');
+      navigate('/painel');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível criar a conta.');
     } finally {

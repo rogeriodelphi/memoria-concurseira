@@ -8,6 +8,7 @@ import { duplicateKey } from '../duplicates';
 import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 import { nextSrsState, type StudyResult } from '../srs';
+import { MAX_REVIEW_MS } from '../stats/dashboard';
 
 export const flashcardsRouter = express.Router();
 flashcardsRouter.use(requireAuth);
@@ -127,19 +128,22 @@ flashcardsRouter.post('/:id/study', (req: AuthedRequest, res: Response) => {
     return;
   }
 
-  const { result } = req.body ?? {};
+  const { result, durationMs } = req.body ?? {};
   if (typeof result !== 'string' || !(STUDY_RESULTS as readonly string[]).includes(result)) {
     res.status(400).json({ success: false, error: 'Resultado de estudo inválido.' });
     return;
   }
 
-  db.prepare('INSERT INTO study_sessions (id, flashcard_id, user_id, result, studied_at) VALUES (?, ?, ?, ?, ?)').run(
-    crypto.randomUUID(),
-    existing.id,
-    req.userId!,
-    result,
-    new Date().toISOString(),
-  );
+  // Tempo é opcional e só informativo (painel): um valor ausente ou absurdo
+  // nunca pode impedir o registro do estudo em si.
+  const duration =
+    typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs >= 0
+      ? Math.min(Math.round(durationMs), MAX_REVIEW_MS)
+      : null;
+
+  db.prepare(
+    'INSERT INTO study_sessions (id, flashcard_id, user_id, result, studied_at, duration_ms) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(crypto.randomUUID(), existing.id, req.userId!, result, new Date().toISOString(), duration);
 
   const next = nextSrsState(
     { easeFactor: existing.ease_factor, intervalDays: existing.interval_days, repetitions: existing.repetitions },

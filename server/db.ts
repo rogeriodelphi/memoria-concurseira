@@ -207,3 +207,11 @@ const flashcardsColumnsForFavorite = db.prepare('PRAGMA table_info(flashcards)')
 if (!flashcardsColumnsForFavorite.some((c) => c.name === 'favorite')) {
   db.exec('ALTER TABLE flashcards ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
 }
+
+// Tempo gasto em cada revisão, em ms (do cartão aparecer até a avaliação).
+// NULL nas revisões anteriores a esta coluna — o painel estima essas pelo
+// intervalo até a revisão anterior, então não precisa de backfill.
+const studySessionsColumns = db.prepare('PRAGMA table_info(study_sessions)').all() as unknown as { name: string }[];
+if (!studySessionsColumns.some((c) => c.name === 'duration_ms')) {
+  db.exec('ALTER TABLE study_sessions ADD COLUMN duration_ms INTEGER');
+}

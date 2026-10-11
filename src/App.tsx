@@ -9,6 +9,7 @@ import { PomodoroProvider } from './contexts/PomodoroContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { Dashboard } from './pages/Dashboard';
 import { Collections } from './pages/Collections';
 import { CollectionNew } from './pages/CollectionNew';
 import { CollectionDetail } from './pages/CollectionDetail';
@@ -47,6 +48,7 @@ export default function App() {
                     <Route path="/registrar" element={<Register />} />
 
                     <Route element={<Layout />}>
+                      <Route path="/painel" element={<Dashboard />} />
                       <Route path="/colecoes" element={<Collections />} />
                       <Route path="/colecoes/nova" element={<CollectionNew />} />
                       <Route path="/colecoes/:id" element={<CollectionDetail />} />
@@ -72,8 +74,8 @@ export default function App() {
                       <Route path="/bullet-points/meus" element={<BulletPointsList />} />
                     </Route>
 
-                    <Route path="/" element={<Navigate to="/colecoes" replace />} />
-                    <Route path="*" element={<Navigate to="/colecoes" replace />} />
+                    <Route path="/" element={<Navigate to="/painel" replace />} />
+                    <Route path="*" element={<Navigate to="/painel" replace />} />
                   </Routes>
                 </PomodoroProvider>
               </AuthProvider>

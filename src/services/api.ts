@@ -6,6 +6,7 @@ import type {
   CollectionDetail,
   CollectionStats,
   CollectionSummary,
+  DashboardData,
   DocumentItem,
   DueFlashcard,
   DuplicateGroup,
@@ -158,10 +159,10 @@ export const flashcardsApi = {
     }),
   remove: (id: string) => request<{ success: true }>(`/flashcards/${id}`, { method: 'DELETE' }),
   favorites: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/favorites'),
-  study: (id: string, result: StudyResult) =>
+  study: (id: string, result: StudyResult, durationMs?: number) =>
     request<{ success: true }>(`/flashcards/${id}/study`, {
       method: 'POST',
-      body: JSON.stringify({ result }),
+      body: JSON.stringify({ result, durationMs }),
     }),
   due: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/due'),
   copyToCollection: (flashcardIds: string[], targetCollectionId: string, mode: 'copy' | 'move' = 'copy') =>
@@ -174,6 +175,7 @@ export const flashcardsApi = {
 
 export const statsApi = {
   get: () => request<StatsData>('/stats'),
+  dashboard: () => request<DashboardData>('/stats/dashboard'),
 };
 
 export const pomodoroApi = {

@@ -49,10 +49,10 @@ export function StudyMode() {
     [counts],
   );
 
-  async function rate(result: StudyResult) {
+  async function rate(result: StudyResult, durationMs: number) {
     if (!current || !queue) return;
 
-    await flashcardsApi.study(current.id, result).catch(() => {});
+    await flashcardsApi.study(current.id, result, durationMs).catch(() => {});
     setCounts((prev) => ({ ...prev, [result]: prev[result] + 1 }));
 
     const rest = queue.slice(1);

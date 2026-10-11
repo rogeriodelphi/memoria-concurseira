@@ -89,6 +89,36 @@ export interface StatsData {
   byCollection: { id: string | null; name: string; reviews: number; accuracyPct: number }[];
 }
 
+export interface DashboardData {
+  consistency: { date: string; count: number }[];
+  efficiencyPct: number | null;
+  precisionPct: number | null;
+  retentionPct: number | null;
+  newCardsPct: number | null;
+  today: {
+    studied: number;
+    distinctCards: number;
+    timeMin: number;
+    paceSec: number | null;
+    cardsPerMin: number | null;
+    passRatePct: number | null;
+  };
+  remaining: {
+    new: number;
+    learning: number;
+    due: number;
+    total: number;
+    dueTomorrow: number;
+    estimatedMin: number | null;
+  };
+  doneToday: { newLearned: number; relearned: number; reviews: number; again: number };
+  matureCards: number;
+  totalHours: number;
+  pastWeekHours: number;
+  totalReviews: number;
+  estimatedReviews: number;
+}
+
 export interface CollectionStats {
   totals: { flashcards: number; reviews: number; dueCount: number; favoriteCount: number };
   byResult: Record<StudyResult, number>;

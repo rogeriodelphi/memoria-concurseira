@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pencil, Star, Volume2, VolumeX } from 'lucide-react';
 
 import { FormattedText } from './FormattedText';
@@ -46,7 +46,9 @@ interface FlashcardReviewerProps {
   current: Flashcard & { collectionName?: string };
   revealed: boolean;
   onReveal: () => void;
-  onRate: (result: StudyResult) => void;
+  // `durationMs`: quanto o cartão ficou na tela até a avaliação (o painel usa
+  // isso pro ritmo de estudo). O servidor limita valores absurdos.
+  onRate: (result: StudyResult, durationMs: number) => void;
   onToggleFavorite?: () => void;
   // Quando informado, o cartão ganha um botão pra editar pergunta e resposta
   // ali mesmo. A tela só precisa trocar o cartão na fila pelo atualizado.
@@ -68,6 +70,11 @@ export function FlashcardReviewer({
   const [editAnswer, setEditAnswer] = useState('');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Quando o cartão atual apareceu, pra medir o tempo até a avaliação. O tempo
+  // gasto editando o cartão não é estudo, então é descontado ao sair da edição.
+  const shownAtRef = useRef(Date.now());
+  const editStartedAtRef = useRef(0);
 
   // Some a fala ao sair da revisão (troca de página ou fim da sessão) —
   // nunca deixa voz tocando sozinha em segundo plano.
@@ -103,6 +110,7 @@ export function FlashcardReviewer({
     if (speechSupported) window.speechSynthesis.cancel();
     setSpeaking(null);
     setEditing(false);
+    shownAtRef.current = Date.now();
   }, [current.id]);
 
   // Modo automático: lê a pergunta assim que um novo cartão aparece.
@@ -124,7 +132,21 @@ export function FlashcardReviewer({
     setEditQuestion(toEditorHtml(current.question, current.format));
     setEditAnswer(toEditorHtml(current.answer, current.format));
     setEditError(null);
+    editStartedAtRef.current = Date.now();
     setEditing(true);
+  }
+
+  function stopEditing() {
+    shownAtRef.current += Date.now() - editStartedAtRef.current;
+    setEditing(false);
+  }
+
+  function rate(result: StudyResult) {
+    const durationMs = Date.now() - shownAtRef.current;
+    // O próximo cartão (ou o mesmo, se for o único e voltou pra fila) aparece
+    // agora — o efeito acima só dispara quando o id muda.
+    shownAtRef.current = Date.now();
+    onRate(result, durationMs);
   }
 
   async function saveEditing() {
@@ -144,7 +166,7 @@ export function FlashcardReviewer({
         format: 'html',
       });
       onUpdated?.(flashcard);
-      setEditing(false);
+      stopEditing();
     } catch (err) {
       setEditError(err instanceof ApiError ? err.message : 'Não foi possível salvar as alterações.');
     } finally {
@@ -173,7 +195,7 @@ export function FlashcardReviewer({
           <button type="button" className="btn-primary" onClick={saveEditing} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
-          <button type="button" className="btn-secondary" onClick={() => setEditing(false)} disabled={saving}>
+          <button type="button" className="btn-secondary" onClick={stopEditing} disabled={saving}>
             Cancelar
           </button>
         </div>
@@ -266,7 +288,7 @@ export function FlashcardReviewer({
           {RESULT_BUTTONS.map((btn) => (
             <button
               key={btn.result}
-              onClick={() => onRate(btn.result)}
+              onClick={() => rate(btn.result)}
               className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${btn.className}`}
             >
               {btn.label}

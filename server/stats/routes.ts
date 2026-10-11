@@ -2,6 +2,7 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { buildDashboard, type DashboardCard, type DashboardSession } from './dashboard';
 
 export const statsRouter = express.Router();
 statsRouter.use(requireAuth);
@@ -126,4 +127,40 @@ statsRouter.get('/', (req: AuthedRequest, res: Response) => {
     dailyActivity,
     byCollection,
   });
+});
+
+statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {
+  const userId = req.userId!;
+
+  const sessions = db
+    .prepare('SELECT flashcard_id, result, studied_at, duration_ms FROM study_sessions WHERE user_id = ?')
+    .all(userId) as unknown as {
+    flashcard_id: string;
+    result: DashboardSession['result'];
+    studied_at: string;
+    duration_ms: number | null;
+  }[];
+
+  const cards = db
+    .prepare(
+      `SELECT f.due_at, f.repetitions, f.interval_days
+       FROM flashcards f JOIN collections c ON c.id = f.collection_id
+       WHERE c.user_id = ?`,
+    )
+    .all(userId) as unknown as { due_at: string | null; repetitions: number; interval_days: number }[];
+
+  const dashboard = buildDashboard(
+    sessions.map(
+      (s): DashboardSession => ({
+        flashcardId: s.flashcard_id,
+        result: s.result,
+        studiedAt: s.studied_at,
+        durationMs: s.duration_ms,
+      }),
+    ),
+    cards.map((c): DashboardCard => ({ dueAt: c.due_at, repetitions: c.repetitions, intervalDays: c.interval_days })),
+    new Date(),
+  );
+
+  res.json({ success: true, ...dashboard });
 });

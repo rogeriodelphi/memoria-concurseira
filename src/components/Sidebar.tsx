@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import {
   BarChart3,
   FileText,
+  LayoutDashboard,
   LayoutGrid,
   ListChecks,
   LogOut,
@@ -78,6 +79,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
 
           <nav className="space-y-1">
+            <NavLink
+              to="/painel"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-brand-800' : 'text-brand-50 hover:bg-brand-700'
+                }`
+              }
+            >
+              <LayoutDashboard size={18} />
+              Painel
+            </NavLink>
             <NavLink
               to="/colecoes"
               onClick={onClose}

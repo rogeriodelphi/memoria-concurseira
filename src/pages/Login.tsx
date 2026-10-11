@@ -13,7 +13,7 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!loading && user) return <Navigate to="/colecoes" replace />;
+  if (!loading && user) return <Navigate to="/painel" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -21,7 +21,7 @@ export function Login() {
     setSubmitting(true);
     try {
       await login(email, password);
-      navigate('/colecoes');
+      navigate('/painel');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível entrar.');
     } finally {
