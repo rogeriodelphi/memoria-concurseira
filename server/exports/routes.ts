@@ -1,11 +1,11 @@
 import { createRequire } from 'node:module';
 
 import express, { type Response } from 'express';
-import PDFDocument from 'pdfkit';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
+import { buildFlashcardsPdf } from './pdf';
 
 export const exportsRouter = express.Router();
 exportsRouter.use(requireAuth);
@@ -73,26 +73,6 @@ function toCardHtml(value: string, format: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/\r\n|\r|\n/g, '<br>')
-    .trim();
-}
-
-/**
- * pdfkit não entende HTML — para flashcards em HTML, convertemos quebras de
- * bloco em `\n` e removemos as tags, sobrando só o texto (perde a
- * formatação visual no PDF, mas o conteúdo continua correto).
- */
-function toPlainText(value: string, format: string): string {
-  if (format !== 'html') return value;
-  return sanitizeFlashcardHtml(value)
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<img[^>]*>/gi, '[imagem]')
-    .replace(/<\/(p|div|li)>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
     .trim();
 }
 
@@ -165,12 +145,6 @@ exportsRouter.post('/anki', async (req: AuthedRequest, res: Response) => {
   }
 });
 
-const DIFFICULTY_LABEL: Record<string, string> = {
-  facil: 'Fácil',
-  medio: 'Médio',
-  dificil: 'Difícil',
-};
-
 exportsRouter.post('/pdf', async (req: AuthedRequest, res: Response) => {
   const resolved = resolveExportRows(req.userId!, req.body?.collectionId, req.body?.flashcardIds);
   if ('error' in resolved) {
@@ -180,44 +154,7 @@ exportsRouter.post('/pdf', async (req: AuthedRequest, res: Response) => {
   const { collection, rows } = resolved;
 
   try {
-    const doc = new PDFDocument({ margin: 56, bufferPages: true });
-    const chunks: Buffer[] = [];
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
-
-    doc.font('Helvetica-Bold').fontSize(20).fillColor('#111827').text(collection.name);
-    doc.moveDown(0.6);
-    doc.font('Helvetica').fontSize(9).fillColor('#9ca3af').text(`${rows.length} flashcards`);
-    doc.moveDown(1.2);
-
-    rows.forEach((row, index) => {
-      const question = toPlainText(row.question, row.format);
-      const answer = toPlainText(row.answer, row.format);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(`${index + 1}. ${question}`);
-      doc.moveDown(0.15);
-      doc.font('Helvetica').fontSize(10).fillColor('#4b5563').text(answer, { indent: 14 });
-      doc.moveDown(0.15);
-      doc
-        .font('Helvetica-Oblique')
-        .fontSize(8)
-        .fillColor('#9ca3af')
-        .text(DIFFICULTY_LABEL[row.difficulty] ?? row.difficulty, { indent: 14 });
-      doc.moveDown(0.5);
-
-      if (index < rows.length - 1) {
-        const y = doc.y;
-        doc
-          .moveTo(doc.page.margins.left, y)
-          .lineTo(doc.page.width - doc.page.margins.right, y)
-          .strokeColor('#e5e7eb')
-          .lineWidth(0.5)
-          .stroke();
-        doc.moveDown(0.5);
-      }
-    });
-
-    doc.end();
-    const buffer = await done;
+    const buffer = await buildFlashcardsPdf(collection.name, rows);
     const filename = `${slugify(collection.name)}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
