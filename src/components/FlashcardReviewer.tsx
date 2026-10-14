@@ -5,6 +5,7 @@ import { FormattedText } from './FormattedText';
 import { RichTextEditor } from './RichTextEditor';
 import { useStudySettings } from '../contexts/StudySettingsContext';
 import { useSpeech } from '../hooks/useSpeech';
+import { useStudyShortcuts } from '../hooks/useStudyShortcuts';
 import { ApiError, flashcardsApi } from '../services/api';
 import { editorHasContent, toEditorHtml } from '../utils/flashcardEditor';
 import { stripHtmlForSpeech } from '../utils/speech';
@@ -52,6 +53,11 @@ interface FlashcardReviewerProps {
   // Uma avaliação está sendo gravada: os botões de avaliar esperam, para o mesmo cartão
   // não ser avaliado duas vezes (um clique duplo).
   busy?: boolean;
+  // Voltar ao cartão anterior e pular este: os botões ficam em `StudyNavigation`; aqui só
+  // servem aos atalhos de teclado (← e →).
+  onBack?: () => void;
+  onSkip?: () => void;
+  canGoBack?: boolean;
 }
 
 export function FlashcardReviewer({
@@ -63,6 +69,9 @@ export function FlashcardReviewer({
   onUpdated,
   upcoming,
   busy = false,
+  onBack,
+  onSkip,
+  canGoBack = false,
 }: FlashcardReviewerProps) {
   const { autoPlaySpeech } = useStudySettings();
   const { speak: speakText, stop: stopSpeech, prefetch, speaking, loading, canSpeak } = useSpeech();
@@ -118,6 +127,10 @@ export function FlashcardReviewer({
     if (!autoPlaySpeech || !revealed) return;
     speak(current.answer, current.format, 'answer');
   }, [revealed, autoPlaySpeech]);
+
+  // Atalhos de teclado: Enter mostra a resposta, 1 a 4 avaliam, ← volta, → pula. Desligados com
+  // o cartão em edição: ali as teclas são de quem escreve, e → pularia o cartão perdendo o texto.
+  useStudyShortcuts({ enabled: !editing, revealed, canGoBack, busy, onReveal, onRate: rate, onBack, onSkip });
 
   function startEditing() {
     // A voz do cartão que está sendo reescrito não faz mais sentido.
@@ -287,6 +300,9 @@ export function FlashcardReviewer({
       {!revealed ? (
         <button onClick={onReveal} className="btn-primary mt-6 w-full">
           Mostrar resposta
+          <kbd className="ml-2 hidden rounded bg-white/20 px-1.5 py-0.5 font-sans text-xs font-medium sm:inline">
+            Enter
+          </kbd>
         </button>
       ) : (
         <div className="mt-6 grid grid-cols-4 gap-2">

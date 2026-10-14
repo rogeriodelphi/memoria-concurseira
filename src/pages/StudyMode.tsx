@@ -73,6 +73,9 @@ export function StudyMode() {
             onUpdated={study.handleUpdated}
             upcoming={queue[1]}
             busy={study.busy}
+            onBack={study.back}
+            onSkip={study.skip}
+            canGoBack={study.canGoBack}
           />
           <StudyNavigation canGoBack={study.canGoBack} busy={study.busy} onBack={study.back} onSkip={study.skip} />
         </>
