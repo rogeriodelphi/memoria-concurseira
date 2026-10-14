@@ -168,9 +168,15 @@ export const flashcardsApi = {
   remove: (id: string) => request<{ success: true }>(`/flashcards/${id}`, { method: 'DELETE' }),
   favorites: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/favorites'),
   study: (id: string, result: StudyResult, durationMs?: number) =>
-    request<{ success: true }>(`/flashcards/${id}/study`, {
+    request<{ success: true; dueAt: string; sessionId: string }>(`/flashcards/${id}/study`, {
       method: 'POST',
       body: JSON.stringify({ result, durationMs }),
+    }),
+  // Desfaz a avaliação cujo `sessionId` o `study` devolveu (o cartão volta ao agendamento de antes).
+  undoStudy: (id: string, sessionId: string) =>
+    request<{ success: true }>(`/flashcards/${id}/study/undo`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
     }),
   due: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/due'),
   copyToCollection: (flashcardIds: string[], targetCollectionId: string, mode: 'copy' | 'move' = 'copy') =>

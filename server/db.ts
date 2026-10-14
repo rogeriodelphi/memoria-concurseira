@@ -224,6 +224,21 @@ if (!studySessionsColumns.some((c) => c.name === 'duration_ms')) {
   db.exec('ALTER TABLE study_sessions ADD COLUMN duration_ms INTEGER');
 }
 
+// O agendamento que o cartão tinha ANTES de cada avaliação, para "Voltar ao cartão
+// anterior" poder desfazê-la de verdade. NULL nas revisões anteriores a estas colunas
+// (não dá para reconstruir o estado antigo): essas não podem ser desfeitas.
+const studySessionsUndoColumns = db.prepare('PRAGMA table_info(study_sessions)').all() as unknown as {
+  name: string;
+}[];
+if (!studySessionsUndoColumns.some((c) => c.name === 'prev_ease_factor')) {
+  db.exec(`
+    ALTER TABLE study_sessions ADD COLUMN prev_ease_factor REAL;
+    ALTER TABLE study_sessions ADD COLUMN prev_interval_days INTEGER;
+    ALTER TABLE study_sessions ADD COLUMN prev_repetitions INTEGER;
+    ALTER TABLE study_sessions ADD COLUMN prev_due_at TEXT;
+  `);
+}
+
 // Concursos: o conteúdo programático de um edital (disciplinas e tópicos) e o
 // vínculo de cada tópico com as coleções de flashcards do usuário. Só tabelas
 // novas — nada que já existe é alterado. Apagar um concurso leva junto suas

@@ -7,8 +7,9 @@ import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { duplicateKey } from '../duplicates';
 import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
-import { nextSrsState, type StudyResult } from '../srs';
+import type { StudyResult } from '../srs';
 import { MAX_REVIEW_MS } from '../stats/dashboard';
+import { recordStudy, undoStudy } from './study';
 
 export const flashcardsRouter = express.Router();
 flashcardsRouter.use(requireAuth);
@@ -141,23 +142,30 @@ flashcardsRouter.post('/:id/study', (req: AuthedRequest, res: Response) => {
       ? Math.min(Math.round(durationMs), MAX_REVIEW_MS)
       : null;
 
-  db.prepare(
-    'INSERT INTO study_sessions (id, flashcard_id, user_id, result, studied_at, duration_ms) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(crypto.randomUUID(), existing.id, req.userId!, result, new Date().toISOString(), duration);
+  const { sessionId, dueAt } = recordStudy(db, req.userId!, existing, result as StudyResult, duration);
 
-  const next = nextSrsState(
-    { easeFactor: existing.ease_factor, intervalDays: existing.interval_days, repetitions: existing.repetitions },
-    result as StudyResult,
-  );
-  db.prepare('UPDATE flashcards SET ease_factor = ?, interval_days = ?, repetitions = ?, due_at = ? WHERE id = ?').run(
-    next.easeFactor,
-    next.intervalDays,
-    next.repetitions,
-    next.dueAt,
-    existing.id,
-  );
+  // `sessionId` é o que a tela usa para desfazer esta avaliação ("Voltar ao cartão anterior").
+  res.json({ success: true, dueAt, sessionId });
+});
 
-  res.json({ success: true, dueAt: next.dueAt });
+flashcardsRouter.post('/:id/study/undo', (req: AuthedRequest, res: Response) => {
+  const existing = loadOwnedFlashcard(req.userId!, req.params.id);
+  if (!existing) {
+    res.status(404).json({ success: false, error: 'Flashcard não encontrado.' });
+    return;
+  }
+  const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId : '';
+  if (!sessionId) {
+    res.status(400).json({ success: false, error: 'Avaliação inválida.' });
+    return;
+  }
+
+  const undone = undoStudy(db, req.userId!, existing.id, sessionId);
+  if (!undone.ok) {
+    res.status(undone.status).json({ success: false, error: undone.error });
+    return;
+  }
+  res.json({ success: true });
 });
 
 flashcardsRouter.post('/copy', (req: AuthedRequest, res: Response) => {

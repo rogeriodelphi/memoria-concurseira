@@ -49,6 +49,9 @@ interface FlashcardReviewerProps {
   // O cartão que vem depois: no modo automático, a voz dele é gerada antes, para
   // tocar na hora quando chegar a vez.
   upcoming?: Flashcard;
+  // Uma avaliação está sendo gravada: os botões de avaliar esperam, para o mesmo cartão
+  // não ser avaliado duas vezes (um clique duplo).
+  busy?: boolean;
 }
 
 export function FlashcardReviewer({
@@ -59,6 +62,7 @@ export function FlashcardReviewer({
   onToggleFavorite,
   onUpdated,
   upcoming,
+  busy = false,
 }: FlashcardReviewerProps) {
   const { autoPlaySpeech } = useStudySettings();
   const { speak: speakText, stop: stopSpeech, prefetch, speaking, loading, canSpeak } = useSpeech();
@@ -290,7 +294,8 @@ export function FlashcardReviewer({
             <button
               key={btn.result}
               onClick={() => rate(btn.result)}
-              className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${btn.className}`}
+              disabled={busy}
+              className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${btn.className}`}
             >
               {btn.label}
             </button>
