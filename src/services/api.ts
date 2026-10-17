@@ -415,6 +415,26 @@ export function exportPdf(collectionId: string, name: string, flashcardIds?: str
   return downloadExport('/exports/pdf', `${name}.pdf`, collectionId, flashcardIds);
 }
 
+/** Baixa todos os dados da conta num arquivo JSON. Devolve o nome e o tamanho, para a tela avisar. */
+export async function exportAccountData(): Promise<{ filename: string; bytes: number }> {
+  const res = await fetch('/api/exports/account', { credentials: 'include' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(data?.error ?? 'Não foi possível exportar os seus dados.');
+  }
+  const blob = await res.blob();
+  const filename = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'base-concurseira.json';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return { filename, bytes: blob.size };
+}
+
 export const mockExamsApi = {
   // Com `flashcardId`, cada simulado diz se já tem esse cartão (o seletor "Adicionar ao simulado").
   list: (flashcardId?: string) =>

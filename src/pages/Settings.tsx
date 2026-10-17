@@ -3,6 +3,7 @@ import { Check, Monitor, Moon, MousePointerClick, Sun, Volume2 } from 'lucide-re
 import { useLocation } from 'react-router-dom';
 
 import { AiUsagePanel } from '../components/AiUsagePanel';
+import { DataExport } from '../components/DataExport';
 import { StudyPlanSettings } from '../components/StudyPlanSettings';
 import { VoiceSettings } from '../components/VoiceSettings';
 import { useTheme, type ThemeMode } from '../contexts/ThemeContext';
@@ -120,6 +121,8 @@ export function Settings() {
       </div>
 
       <AiUsagePanel />
+
+      <DataExport />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import express, { type Response } from 'express';
 
 import { db } from '../db';
+import { buildAccountExport, exportFilename } from '../account/export';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 import { buildFlashcardsPdf } from './pdf';
@@ -164,4 +165,19 @@ exportsRouter.post('/pdf', async (req: AuthedRequest, res: Response) => {
     console.error(err);
     res.status(500).json({ success: false, error: 'Não foi possível gerar o PDF.' });
   }
+});
+
+// Todos os dados da conta de quem pediu, num arquivo só (ver server/account/export.ts). Nunca traz
+// a senha nem nada de outra conta. `no-store`: o arquivo tem conteúdo pessoal e não deve ficar em cache.
+exportsRouter.get('/account', (req: AuthedRequest, res: Response) => {
+  const now = new Date();
+  const data = buildAccountExport(db, req.userId!, now);
+  if (!data) {
+    res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+    return;
+  }
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${exportFilename(now)}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(JSON.stringify(data));
 });

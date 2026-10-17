@@ -175,6 +175,25 @@ desabilite e encerre a tarefa, como descrito acima), substitua `data/app.db` pel
 arquivo de backup desejado (renomeando-o para `app.db`), apague eventuais
 `data/app.db-wal` e `data/app.db-shm` residuais, e suba o servidor de novo.
 
+### Exportar os seus dados
+
+Em **Configurações → Seus dados**, "Exportar meus dados" baixa um arquivo
+`base-concurseira-AAAA-MM-DD.json` com tudo o que é da conta de quem está logado: coleções,
+cartões (com a agenda de revisão), histórico de estudo, resumos, bullet points, mapas mentais,
+concursos, simulados (com tentativas e alternativas geradas), Pomodoro e o uso de IA. Serve
+como cópia extra para guardar **fora** do PC (nuvem, pen drive).
+
+- É **por conta**, de propósito: o app tem cadastro aberto e pode ser alcançado pela rede, então
+  um botão que baixasse o banco inteiro entregaria a qualquer conta os dados de todas. A senha
+  nunca vai no arquivo.
+- As linhas saem como estão no banco (colunas em `snake_case`), sob `tabelas`, com `usuario`,
+  `contagens` e a versão do formato (`versao`) no começo.
+- Ainda não há importação pelo app. Para restaurar o banco inteiro, use os backups automáticos
+  acima.
+- Uma tabela nova do banco precisa ser listada em `server/account/export.ts` (ou nas exclusões,
+  com o motivo): um teste falha se alguma ficar de fora, para o "tudo" não ficar incompleto sem
+  ninguém notar.
+
 ## Scripts
 
 - `npm run dev` — frontend + API em modo desenvolvimento.
