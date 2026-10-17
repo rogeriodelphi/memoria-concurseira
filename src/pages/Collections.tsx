@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -6,6 +6,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   CheckCircle2,
+  ChevronRight,
   GraduationCap,
   Layers,
   Pencil,
@@ -22,12 +23,22 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
 import type { CollectionSummary, DashboardData, DuplicateGroup } from '../types';
 import { filterCollections } from '../utils/collectionFilter';
+import {
+  groupByDiscipline,
+  groupTotals,
+  loadExpandedGroups,
+  saveExpandedGroups,
+  type CollectionEntry,
+} from '../utils/collectionGroups';
 
 function stripHtml(value: string, format: string): string {
   return format === 'html' ? value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : value;
 }
 
 type SortKey = 'name' | 'flashcardCount' | 'status' | 'updatedAt';
+
+/** Uma disciplina da lista: coleções de mesmo nome. */
+type GroupEntry = Extract<CollectionEntry<CollectionSummary>, { kind: 'group' }>;
 
 const STATUS_LABEL: Record<CollectionSummary['status'], { text: string; className: string }> = {
   sem_documento: { text: 'Sem documento', className: 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400' },
@@ -139,6 +150,24 @@ export function Collections() {
     [sortedCollections, query],
   );
 
+  // As disciplinas (coleções de mesmo nome) ficam fechadas até o usuário abrir, e a escolha é lembrada
+  // neste navegador. Pesquisando, todas abrem: o que casou com a pesquisa precisa estar à vista.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => loadExpandedGroups());
+  const entries = useMemo(() => groupByDiscipline(visibleCollections ?? []), [visibleCollections]);
+  const groupKeys = useMemo(() => entries.flatMap((e) => (e.kind === 'group' ? [e.key] : [])), [entries]);
+  const searching = query.trim() !== '';
+  const isExpanded = (key: string) => searching || expandedGroups.has(key);
+  const allExpanded = groupKeys.length > 0 && groupKeys.every((key) => expandedGroups.has(key));
+  function setExpanded(next: Set<string>) {
+    setExpandedGroups(next);
+    saveExpandedGroups(next);
+  }
+  function toggleGroup(key: string) {
+    const next = new Set(expandedGroups);
+    if (!next.delete(key)) next.add(key);
+    setExpanded(next);
+  }
+
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -211,7 +240,7 @@ export function Collections() {
     'shrink-0 p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300';
 
   /** O nome e o assunto da coleção; o lápis de qualquer um dos dois abre a edição dos dois. */
-  function renderTitle(c: CollectionSummary, layout: 'tabela' | 'cartao') {
+  function renderTitle(c: CollectionSummary, layout: 'tabela' | 'cartao', nested = false) {
     if (editingId === c.id) {
       return (
         <form
@@ -270,6 +299,23 @@ export function Collections() {
         </form>
       );
     }
+    // Dentro de uma disciplina o nome é o do grupo; o que distingue a coleção é o assunto.
+    if (nested) {
+      return (
+        <div className="flex items-center gap-1">
+          <p
+            className={`text-sm font-medium ${
+              c.subject ? 'text-neutral-800 dark:text-neutral-200' : 'italic text-neutral-400 dark:text-neutral-500'
+            }`}
+          >
+            {c.subject || 'Sem assunto'}
+          </p>
+          <button type="button" onClick={() => startEdit(c)} className={pencilClass} title="Editar nome e assunto">
+            <Pencil size={12} />
+          </button>
+        </div>
+      );
+    }
     return (
       <>
         <div className="flex items-center gap-1">
@@ -285,6 +331,162 @@ export function Collections() {
           </button>
         </div>
       </>
+    );
+  }
+
+  // ---------- disciplinas: coleções de mesmo nome, agrupadas ----------
+
+  const dueBadge = (n: number, extra = '') => (
+    <span
+      className={`rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 ${extra}`}
+    >
+      {n} a revisar
+    </span>
+  );
+
+  /** A revisão dos pendentes de todas as coleções da disciplina (só as que têm algo pendente vão no endereço). */
+  const studyHref = (group: GroupEntry) =>
+    `/disciplina/estudar?ids=${group.items
+      .filter((c) => c.dueCount > 0)
+      .map((c) => c.id)
+      .join(',')}&nome=${encodeURIComponent(group.name)}`;
+
+  function renderTableRow(c: CollectionSummary, nested: boolean) {
+    const status = STATUS_LABEL[c.status];
+    return (
+      <tr
+        key={c.id}
+        className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
+      >
+        <td className={nested ? 'border-l-2 border-brand-300 py-4 pl-14 pr-6 dark:border-brand-700' : 'px-6 py-4'}>
+          {renderTitle(c, 'tabela', nested)}
+        </td>
+        <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
+          <div className="flex items-center gap-2">
+            <span>{c.flashcardCount}</span>
+            {c.dueCount > 0 && dueBadge(c.dueCount)}
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>{status.text}</span>
+        </td>
+        <td className="px-6 py-4 text-neutral-500 dark:text-neutral-400">
+          {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
+        </td>
+        <td className="px-6 py-4 text-right">
+          <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
+            Abrir
+          </Link>
+        </td>
+      </tr>
+    );
+  }
+
+  function renderGroupRow(group: GroupEntry) {
+    const totals = groupTotals(group.items);
+    const open = isExpanded(group.key);
+    return (
+      <tr className="border-b border-neutral-100 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-800/40">
+        <td className="px-6 py-4">
+          <button
+            type="button"
+            onClick={() => toggleGroup(group.key)}
+            aria-expanded={open}
+            className="flex items-center gap-2 text-left"
+            title={open ? 'Recolher as coleções desta disciplina' : 'Mostrar as coleções desta disciplina'}
+          >
+            <ChevronRight
+              size={16}
+              className={`shrink-0 text-neutral-400 transition-transform dark:text-neutral-500 ${open ? 'rotate-90' : ''}`}
+            />
+            <span>
+              <span className="block font-semibold text-neutral-900 dark:text-neutral-100">{group.name}</span>
+              <span className="block text-xs text-neutral-400 dark:text-neutral-500">
+                {group.items.length} coleções
+              </span>
+            </span>
+          </button>
+        </td>
+        <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
+          <div className="flex items-center gap-2">
+            <span>{totals.flashcards}</span>
+            {totals.due > 0 && dueBadge(totals.due)}
+          </div>
+        </td>
+        <td className="px-6 py-4" />
+        <td className="px-6 py-4 text-neutral-500 dark:text-neutral-400">
+          {new Date(totals.updatedAt).toLocaleDateString('pt-BR')}
+        </td>
+        <td className="px-6 py-4 text-right">
+          {totals.due > 0 && (
+            <Link
+              to={studyHref(group)}
+              className="btn-primary whitespace-nowrap"
+              title={`Junta os ${totals.due} pendentes de todas as ${group.items.length} coleções de ${group.name}`}
+            >
+              <GraduationCap size={16} />
+              Estudar a disciplina inteira
+            </Link>
+          )}
+        </td>
+      </tr>
+    );
+  }
+
+  function renderCard(c: CollectionSummary, nested: boolean) {
+    const status = STATUS_LABEL[c.status];
+    return (
+      <div key={c.id} className={`card p-4 ${nested ? 'ml-4 border-l-2 border-l-brand-300 dark:border-l-brand-700' : ''}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">{renderTitle(c, 'cartao', nested)}</div>
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
+            {status.text}
+          </span>
+        </div>
+        <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+          <span className="flex items-center gap-1.5">
+            {c.flashcardCount} flashcard{c.flashcardCount === 1 ? '' : 's'} ·{' '}
+            {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
+            {c.dueCount > 0 && dueBadge(c.dueCount)}
+          </span>
+          <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
+            Abrir
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  function renderGroupCard(group: GroupEntry) {
+    const totals = groupTotals(group.items);
+    const open = isExpanded(group.key);
+    return (
+      <div className="card bg-neutral-50/70 p-4 dark:bg-neutral-800/40">
+        <button
+          type="button"
+          onClick={() => toggleGroup(group.key)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-2 text-left"
+        >
+          <ChevronRight
+            size={16}
+            className={`shrink-0 text-neutral-400 transition-transform dark:text-neutral-500 ${open ? 'rotate-90' : ''}`}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-neutral-900 dark:text-neutral-100">{group.name}</span>
+            <span className="block text-xs text-neutral-400 dark:text-neutral-500">
+              {group.items.length} coleções · {totals.flashcards} flashcards
+            </span>
+          </span>
+          {totals.due > 0 && dueBadge(totals.due, 'shrink-0')}
+        </button>
+        {totals.due > 0 && (
+          <Link to={studyHref(group)} className="btn-primary mt-3 w-full">
+            <GraduationCap size={16} />
+            Estudar a disciplina inteira
+          </Link>
+        )}
+      </div>
     );
   }
 
@@ -448,6 +650,15 @@ export function Collections() {
                 {visibleCollections!.length} de {collections.length} coleç{collections.length === 1 ? 'ão' : 'ões'}
               </p>
             )}
+            {groupKeys.length > 0 && !searching && (
+              <button
+                type="button"
+                onClick={() => setExpanded(allExpanded ? new Set() : new Set(groupKeys))}
+                className="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+              >
+                {allExpanded ? 'Recolher todas as disciplinas' : 'Expandir todas as disciplinas'}
+              </button>
+            )}
           </div>
 
           {visibleCollections!.length === 0 ? (
@@ -463,7 +674,8 @@ export function Collections() {
             <>
               {/* Tabela — telas médias e maiores. Em telas de celular uma tabela de
                   5 colunas não cabe, por isso ela fica escondida e substituída
-                  pelos cards logo abaixo. */}
+                  pelos cards logo abaixo. As coleções de mesmo nome formam uma disciplina,
+                  com uma linha própria que abre e fecha as coleções dela. */}
               <div className="card hidden overflow-hidden md:block">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-neutral-100 bg-neutral-50/60 text-xs uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/60 dark:text-neutral-500">
@@ -476,73 +688,32 @@ export function Collections() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleCollections!.map((c) => {
-                      const status = STATUS_LABEL[c.status];
-                      return (
-                        <tr
-                          key={c.id}
-                          className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
-                        >
-                          <td className="px-6 py-4">{renderTitle(c, 'tabela')}</td>
-                          <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
-                            <div className="flex items-center gap-2">
-                              <span>{c.flashcardCount}</span>
-                              {c.dueCount > 0 && (
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                                  {c.dueCount} a revisar
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
-                              {status.text}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-neutral-500 dark:text-neutral-400">
-                            {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
-                              Abrir
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {entries.map((entry) =>
+                      entry.kind === 'single' ? (
+                        renderTableRow(entry.item, false)
+                      ) : (
+                        <Fragment key={entry.key}>
+                          {renderGroupRow(entry)}
+                          {isExpanded(entry.key) && entry.items.map((c) => renderTableRow(c, true))}
+                        </Fragment>
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
 
               {/* Cards — só em telas de celular (abaixo de md). */}
               <div className="space-y-3 md:hidden">
-                {visibleCollections!.map((c) => {
-                  const status = STATUS_LABEL[c.status];
-                  return (
-                    <div key={c.id} className="card p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">{renderTitle(c, 'cartao')}</div>
-                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
-                          {status.text}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-                        <span className="flex items-center gap-1.5">
-                          {c.flashcardCount} flashcard{c.flashcardCount === 1 ? '' : 's'} ·{' '}
-                          {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
-                          {c.dueCount > 0 && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                              {c.dueCount} a revisar
-                            </span>
-                          )}
-                        </span>
-                        <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
-                          Abrir
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
+                {entries.map((entry) =>
+                  entry.kind === 'single' ? (
+                    renderCard(entry.item, false)
+                  ) : (
+                    <Fragment key={entry.key}>
+                      {renderGroupCard(entry)}
+                      {isExpanded(entry.key) && entry.items.map((c) => renderCard(c, true))}
+                    </Fragment>
+                  ),
+                )}
               </div>
             </>
           )}

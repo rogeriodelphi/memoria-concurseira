@@ -38,7 +38,7 @@ const RESULT_BUTTONS: { result: StudyResult; label: string; className: string }[
 ];
 
 interface FlashcardReviewerProps {
-  current: Flashcard & { collectionName?: string };
+  current: Flashcard & { collectionName?: string; collectionSubject?: string };
   revealed: boolean;
   onReveal: () => void;
   // `durationMs`: quanto o cartão ficou na tela até a avaliação (o painel usa
@@ -75,6 +75,8 @@ export function FlashcardReviewer({
   canGoBack = false,
 }: FlashcardReviewerProps) {
   const { autoPlaySpeech } = useStudySettings();
+  // De onde é o cartão: a coleção e, havendo, o assunto dela (com várias coleções de mesmo nome, é o assunto que as distingue).
+  const originLabel = [current.collectionName, current.collectionSubject].filter(Boolean).join(' · ');
   const { speak: speakText, stop: stopSpeech, prefetch, speaking, loading, canSpeak } = useSpeech();
   const [editing, setEditing] = useState(false);
   const [editQuestion, setEditQuestion] = useState('');
@@ -184,9 +186,9 @@ export function FlashcardReviewer({
   if (editing) {
     return (
       <div className="card space-y-4 p-6">
-        {current.collectionName && (
+        {originLabel && (
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            {current.collectionName}
+            {originLabel}
           </p>
         )}
         <div>
@@ -246,9 +248,9 @@ export function FlashcardReviewer({
         </div>
       )}
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        {current.collectionName && (
+        {originLabel && (
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            {current.collectionName}
+            {originLabel}
           </p>
         )}
         <FormattedText

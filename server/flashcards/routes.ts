@@ -12,6 +12,9 @@ import { MAX_REVIEW_MS } from '../stats/dashboard';
 import { selectDueCards } from '../studyplan/store';
 import { recordStudy, undoStudy } from './study';
 
+/** Quantas coleções cabem numa fila de "estudar a disciplina inteira". */
+const MAX_DUE_COLLECTIONS = 200;
+
 export const flashcardsRouter = express.Router();
 flashcardsRouter.use(requireAuth);
 
@@ -264,15 +267,29 @@ flashcardsRouter.post('/copy', (req: AuthedRequest, res: Response) => {
   });
 });
 
-
 flashcardsRouter.get('/due', (req: AuthedRequest, res: Response) => {
   // Com um limite diário de novos configurado, só entram os novos que ainda cabem hoje
   // (`waitingNew` diz quantos ficaram de fora); sem limite, é a fila completa de sempre.
-  const { cards, waitingNew } = selectDueCards(db, req.userId!);
+  // Com `?collectionIds=a,b,c`, só os pendentes dessas coleções e sem limite diário (estudar uma
+  // disciplina inteira); ids que não são do usuário simplesmente não trazem cartão nenhum.
+  const raw = typeof req.query.collectionIds === 'string' ? req.query.collectionIds : null;
+  let collectionIds: string[] | undefined;
+  if (raw !== null) {
+    collectionIds = [...new Set(raw.split(',').map((id) => id.trim()).filter(Boolean))];
+    if (collectionIds.length === 0 || collectionIds.length > MAX_DUE_COLLECTIONS || collectionIds.some((id) => id.length > 64)) {
+      res.status(400).json({ success: false, error: 'Escolha de uma a 200 coleções.' });
+      return;
+    }
+  }
+  const { cards, waitingNew } = selectDueCards(db, req.userId!, new Date(), { collectionIds });
 
   res.json({
     success: true,
-    flashcards: cards.map((row) => ({ ...mapFlashcard(row), collectionName: row.collection_name })),
+    flashcards: cards.map((row) => ({
+      ...mapFlashcard(row),
+      collectionName: row.collection_name,
+      collectionSubject: row.collection_subject,
+    })),
     waitingNew,
   });
 });
@@ -280,16 +297,20 @@ flashcardsRouter.get('/due', (req: AuthedRequest, res: Response) => {
 flashcardsRouter.get('/favorites', (req: AuthedRequest, res: Response) => {
   const rows = db
     .prepare(
-      `SELECT f.*, c.name as collection_name FROM flashcards f
+      `SELECT f.*, c.name as collection_name, c.subject as collection_subject FROM flashcards f
        JOIN collections c ON c.id = f.collection_id
        WHERE c.user_id = ? AND f.favorite = 1
        ORDER BY f.created_at DESC`,
     )
-    .all(req.userId!) as unknown as (FlashcardRow & { collection_name: string })[];
+    .all(req.userId!) as unknown as (FlashcardRow & { collection_name: string; collection_subject: string })[];
 
   res.json({
     success: true,
-    flashcards: rows.map((row) => ({ ...mapFlashcard(row), collectionName: row.collection_name })),
+    flashcards: rows.map((row) => ({
+      ...mapFlashcard(row),
+      collectionName: row.collection_name,
+      collectionSubject: row.collection_subject,
+    })),
   });
 });
 

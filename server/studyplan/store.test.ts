@@ -12,7 +12,7 @@ function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
   db.exec(`
     CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER);
-    CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL);
+    CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL, subject TEXT NOT NULL DEFAULT '');
     CREATE TABLE flashcards (
       id TEXT PRIMARY KEY, collection_id TEXT NOT NULL REFERENCES collections(id), question TEXT NOT NULL DEFAULT 'p',
       answer TEXT NOT NULL DEFAULT 'r', format TEXT NOT NULL DEFAULT 'plain', difficulty TEXT NOT NULL DEFAULT 'medio',
@@ -25,7 +25,7 @@ function newDb(): DatabaseSync {
       studied_at TEXT NOT NULL, duration_ms INTEGER
     );
     INSERT INTO users VALUES ('u1', NULL), ('u2', NULL);
-    INSERT INTO collections VALUES ('c1', 'u1', 'Redes'), ('c2', 'u1', 'Direito'), ('cx', 'u2', 'Alheia');
+    INSERT INTO collections VALUES ('c1', 'u1', 'Redes', 'Protocolos'), ('c2', 'u1', 'Direito', ''), ('cx', 'u2', 'Alheia', '');
   `);
   return db;
 }
@@ -151,4 +151,49 @@ test('a fila é só do usuário: cartões de outro usuário não entram nem cont
   const selection = selectDueCards(db, 'u1', NOW);
   assert.deepEqual(selection.cards.map((c) => c.id), ['meu']);
   assert.equal(selection.waitingNew, 0);
+});
+
+// ---------- fila de uma disciplina (coleções escolhidas) ----------
+
+const idsOf = (db: DatabaseSync, collectionIds: string[]) =>
+  selectDueCards(db, 'u1', NOW, { collectionIds }).cards.map((c) => c.id);
+
+test('fila por coleções: só os pendentes (novos e vencidos) das coleções escolhidas', () => {
+  const db = newDb();
+  addCard(db, 'r-novo', { collection: 'c1' });
+  addCard(db, 'r-vencido', { collection: 'c1', dueAt: at(8, -1) });
+  addCard(db, 'r-futuro', { collection: 'c1', dueAt: at(9, 3) });
+  addCard(db, 'd-novo', { collection: 'c2' });
+
+  assert.deepEqual(idsOf(db, ['c1']), ['r-novo', 'r-vencido']);
+  assert.deepEqual(idsOf(db, ['c2']), ['d-novo']);
+  assert.deepEqual(idsOf(db, ['c1', 'c2']), ['r-novo', 'd-novo', 'r-vencido'], 'os novos primeiro, depois os vencidos');
+});
+
+test('fila por coleções: o limite diário de novos não se aplica, porque quem escolhe o que estudar não é contido', () => {
+  const db = newDb();
+  setDailyNewLimit(db, 'u1', 1);
+  for (const id of ['n1', 'n2', 'n3']) addCard(db, id, { collection: 'c1' });
+
+  assert.equal(selectDueCards(db, 'u1', NOW).cards.length, 1, 'a fila global respeita o limite');
+  const disciplina = selectDueCards(db, 'u1', NOW, { collectionIds: ['c1'] });
+  assert.deepEqual(disciplina.cards.map((c) => c.id), ['n1', 'n2', 'n3']);
+  assert.equal(disciplina.waitingNew, 0);
+});
+
+test('fila por coleções: coleção de outro usuário ou inexistente não traz cartão nenhum', () => {
+  const db = newDb();
+  addCard(db, 'meu', { collection: 'c1' });
+  addCard(db, 'alheio', { collection: 'cx' });
+  assert.deepEqual(idsOf(db, ['cx']), []);
+  assert.deepEqual(idsOf(db, ['nao-existe']), []);
+  assert.deepEqual(idsOf(db, ['cx', 'c1']), ['meu']);
+});
+
+test('as linhas da fila trazem o nome e o assunto da coleção', () => {
+  const db = newDb();
+  addCard(db, 'a', { collection: 'c1' });
+  addCard(db, 'b', { collection: 'c2' });
+  const rows = selectDueCards(db, 'u1', NOW).cards;
+  assert.deepEqual(rows.map((r) => [r.collection_name, r.collection_subject]), [['Redes', 'Protocolos'], ['Direito', '']]);
 });

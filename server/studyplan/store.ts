@@ -3,7 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { FlashcardRow } from '../mappers';
 import { newCardsForToday, parseDailyNewLimit } from './limit';
 
-export type DueRow = FlashcardRow & { collection_name: string };
+export type DueRow = FlashcardRow & { collection_name: string; collection_subject: string };
 
 export function getDailyNewLimit(db: DatabaseSync, userId: string): number | null {
   const row = db.prepare('SELECT daily_new_limit AS limit_value FROM users WHERE id = ?').get(userId) as unknown as
@@ -44,7 +44,7 @@ export function countNewLearnedToday(db: DatabaseSync, userId: string, now: Date
   return row.n;
 }
 
-const SELECT_CARDS = `SELECT f.*, c.name AS collection_name FROM flashcards f JOIN collections c ON c.id = f.collection_id`;
+const SELECT_CARDS = `SELECT f.*, c.name AS collection_name, c.subject AS collection_subject FROM flashcards f JOIN collections c ON c.id = f.collection_id`;
 
 export interface DueSelection {
   /** Os cartões da fila de revisão: os novos primeiro, depois os vencidos. */
@@ -59,12 +59,26 @@ export interface DueSelection {
  * (na ordem em que foram criados ou importados), para um lote de cartões ser estudado
  * por inteiro antes do seguinte.
  */
-export function selectDueCards(db: DatabaseSync, userId: string, now: Date = new Date()): DueSelection {
-  const limit = getDailyNewLimit(db, userId);
+export function selectDueCards(
+  db: DatabaseSync,
+  userId: string,
+  now: Date = new Date(),
+  options: { collectionIds?: string[] } = {},
+): DueSelection {
+  // Com coleções escolhidas (estudar uma disciplina inteira) a fila é só delas, e sem limite
+  // diário: quem escolhe o que estudar não é contido pelo limite — como estudar uma coleção direto.
+  const only = options.collectionIds;
+  const scope = only ? `AND c.id IN (${only.map(() => '?').join(', ')})` : '';
+  const scopeArgs = only ?? [];
+  const limit = only ? null : getDailyNewLimit(db, userId);
+
   const totalNew = (
     db
-      .prepare(`SELECT COUNT(*) AS n FROM flashcards f JOIN collections c ON c.id = f.collection_id WHERE c.user_id = ? AND f.due_at IS NULL`)
-      .get(userId) as unknown as { n: number }
+      .prepare(
+        `SELECT COUNT(*) AS n FROM flashcards f JOIN collections c ON c.id = f.collection_id
+         WHERE c.user_id = ? ${scope} AND f.due_at IS NULL`,
+      )
+      .get(userId, ...scopeArgs) as unknown as { n: number }
   ).n;
   const allowed = newCardsForToday(totalNew, limit, limit === null ? 0 : countNewLearnedToday(db, userId, now));
 
@@ -72,11 +86,13 @@ export function selectDueCards(db: DatabaseSync, userId: string, now: Date = new
     allowed === 0
       ? []
       : (db
-          .prepare(`${SELECT_CARDS} WHERE c.user_id = ? AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC LIMIT ?`)
-          .all(userId, allowed) as unknown as DueRow[]);
+          .prepare(
+            `${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC LIMIT ?`,
+          )
+          .all(userId, ...scopeArgs, allowed) as unknown as DueRow[]);
   const dueCards = db
-    .prepare(`${SELECT_CARDS} WHERE c.user_id = ? AND f.due_at IS NOT NULL AND f.due_at <= ? ORDER BY f.due_at ASC`)
-    .all(userId, now.toISOString()) as unknown as DueRow[];
+    .prepare(`${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NOT NULL AND f.due_at <= ? ORDER BY f.due_at ASC`)
+    .all(userId, ...scopeArgs, now.toISOString()) as unknown as DueRow[];
 
   return { cards: [...newCards, ...dueCards], waitingNew: totalNew - newCards.length };
 }

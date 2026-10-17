@@ -19,6 +19,7 @@ import { CollectionNew } from './pages/CollectionNew';
 import { CollectionDetail } from './pages/CollectionDetail';
 import { StudyMode } from './pages/StudyMode';
 import { GlobalReview } from './pages/GlobalReview';
+import { DisciplineStudy } from './pages/DisciplineStudy';
 import { FavoritesReview } from './pages/FavoritesReview';
 import { Settings } from './pages/Settings';
 import { Stats } from './pages/Stats';
@@ -68,6 +69,7 @@ export default function App() {
                       <Route path="/colecoes/:id" element={<CollectionDetail />} />
                       <Route path="/colecoes/:id/estudar" element={<StudyMode />} />
                       <Route path="/revisar" element={<GlobalReview />} />
+                      <Route path="/disciplina/estudar" element={<DisciplineStudy />} />
                       <Route path="/favoritos" element={<FavoritesReview />} />
                       <Route path="/buscar" element={<GlobalSearch />} />
                       <Route path="/importar-anki" element={<AnkiImport />} />

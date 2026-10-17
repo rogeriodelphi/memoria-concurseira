@@ -184,6 +184,11 @@ export const flashcardsApi = {
     }),
   // `waitingNew`: novos que ficaram de fora da fila por causa do limite diário (0 sem limite).
   due: () => request<{ flashcards: DueFlashcard[]; waitingNew: number }>('/flashcards/due'),
+  // Só os pendentes das coleções dadas (estudar uma disciplina inteira), sem o limite diário de novos.
+  dueForCollections: (collectionIds: string[]) =>
+    request<{ flashcards: DueFlashcard[]; waitingNew: number }>(
+      `/flashcards/due?collectionIds=${encodeURIComponent(collectionIds.join(','))}`,
+    ),
   copyToCollection: (flashcardIds: string[], targetCollectionId: string, mode: 'copy' | 'move' = 'copy') =>
     request<{ flashcards: Flashcard[]; count: number; skippedDuplicates: number }>('/flashcards/copy', {
       method: 'POST',

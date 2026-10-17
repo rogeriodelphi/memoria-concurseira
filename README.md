@@ -159,3 +159,15 @@ entram na revisão de cada dia. Vazio (o padrão) = sem limite, como sempre foi.
 - A revisão global, o botão "Revisar pendentes" do Painel e o aviso "Meta de hoje" da lista de
   coleções usam a mesma conta. O Painel mostra os "Novos aguardando".
 - Estudar uma coleção direto (pelo botão "Estudar" dela) não tem limite: ali a escolha é sua.
+
+## Disciplinas (coleções agrupadas)
+
+Na lista de coleções, as coleções de **mesmo nome** (sem diferenciar maiúsculas nem acentos)
+viram uma disciplina: uma linha com o total de cartões e de pendentes, que abre e fecha as
+coleções dela (cada uma aparece pelo assunto). A escolha de quais ficam abertas é lembrada neste
+navegador; pesquisando, todas abrem. Nome que aparece uma vez só continua sendo uma linha comum.
+
+"Estudar a disciplina inteira" abre uma revisão com os pendentes de todas as coleções da
+disciplina juntos (`/disciplina/estudar`). Como estudar uma coleção direto, ela não é contida
+pelo limite diário de cartões novos. Nessa revisão (e na global) cada cartão mostra a coleção e o
+assunto dela.

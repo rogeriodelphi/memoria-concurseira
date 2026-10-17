@@ -64,6 +64,8 @@ export interface Flashcard {
 
 export interface DueFlashcard extends Flashcard {
   collectionName: string;
+  /** O assunto da coleção (vazio se não tem): com várias coleções de mesmo nome, é o que as distingue. */
+  collectionSubject?: string;
 }
 
 export interface DuplicateFlashcard extends Flashcard {
