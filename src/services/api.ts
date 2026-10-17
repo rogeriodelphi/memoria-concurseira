@@ -426,7 +426,7 @@ export async function exportAccountData(): Promise<{ filename: string; bytes: nu
     throw new ApiError(data?.error ?? 'Não foi possível exportar os seus dados.');
   }
   const blob = await res.blob();
-  const filename = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'base-concurseira.json';
+  const filename = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'memoria-concurseira.json';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

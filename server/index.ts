@@ -105,7 +105,7 @@ try {
 }
 const onListening = () => {
   const where = HOST ? `${HOST}:${PORT}` : `localhost:${PORT}`;
-  console.log(`\n  ✓ Base Concurseira API rodando em http://${where}\n`);
+  console.log(`\n  ✓ Memória Concurseira API rodando em http://${where}\n`);
 };
 if (HOST) app.listen(PORT, HOST, onListening);
 else app.listen(PORT, onListening);

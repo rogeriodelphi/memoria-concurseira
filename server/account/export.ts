@@ -9,7 +9,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * futuro leia exatamente o que foi gravado.
  */
 
-export const EXPORT_FORMAT = 'base-concurseira-exportacao';
+export const EXPORT_FORMAT = 'memoria-concurseira-exportacao';
 export const EXPORT_VERSION = 1;
 
 interface ExportedTable {
@@ -100,9 +100,9 @@ export interface AccountExport {
   tabelas: Record<string, Record<string, unknown>[]>;
 }
 
-/** O nome sugerido para o arquivo baixado: `base-concurseira-2026-10-17.json`. */
+/** O nome sugerido para o arquivo baixado: `memoria-concurseira-2026-10-17.json`. */
 export function exportFilename(now: Date): string {
-  return `base-concurseira-${now.toISOString().slice(0, 10)}.json`;
+  return `memoria-concurseira-${now.toISOString().slice(0, 10)}.json`;
 }
 
 /** Os dados da conta `userId`, ou `null` se ela não existe. */

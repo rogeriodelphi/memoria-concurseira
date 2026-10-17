@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 
+import { APP_NAME, APP_SLOGAN, BrandMark } from '../components/BrandMark';
 import { PasswordInput } from '../components/PasswordInput';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
@@ -32,11 +33,12 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 dark:bg-neutral-950">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-            BC
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <BrandMark size={36} />
+            <span className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{APP_NAME}</span>
           </div>
-          <span className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Base Concurseira</span>
+          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{APP_SLOGAN}</p>
         </div>
 
         <div className="card p-8">

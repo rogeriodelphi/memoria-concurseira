@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Base Concurseira",
-  "short_name": "Concurseira",
-  "description": "Cartões, simulados e plano de estudo para concursos.",
+  "name": "Memória Concurseira",
+  "short_name": "Memória",
+  "description": "Aprenda. Revise. Memorize. Conquiste.",
   "lang": "pt-BR",
   "start_url": "/painel",
   "scope": "/",

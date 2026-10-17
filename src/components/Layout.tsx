@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
+import { APP_NAME, BrandMark } from './BrandMark';
 import { Sidebar } from './Sidebar';
 
 export function Layout() {
@@ -40,7 +41,8 @@ export function Layout() {
           >
             <Menu size={22} />
           </button>
-          <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100">Base Concurseira</span>
+          <BrandMark size={22} />
+          <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{APP_NAME}</span>
         </header>
         <main className="flex-1 overflow-y-auto print:overflow-visible">
           <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8 print:max-w-none print:p-0">

@@ -136,5 +136,5 @@ test('completude: toda tabela do banco é exportada ou está na lista de exclus�
 });
 
 test('nome do arquivo: tem a data', () => {
-  assert.equal(exportFilename(new Date('2026-10-17T23:59:59Z')), 'base-concurseira-2026-10-17.json');
+  assert.equal(exportFilename(new Date('2026-10-17T23:59:59Z')), 'memoria-concurseira-2026-10-17.json');
 });

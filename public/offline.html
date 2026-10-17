@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#194f31" />
-    <title>Sem conexão — Base Concurseira</title>
+    <title>Sem conexão — Memória Concurseira</title>
     <style>
       :root { color-scheme: light dark; }
       * { box-sizing: border-box; }
@@ -21,12 +21,13 @@
         color: #171717;
       }
       main { width: 100%; max-width: 380px; text-align: center; }
+      /* O logotipo: um cartão claro com um cérebro verde e o "cartão de trás" do baralho. */
       .logo {
-        width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 14px;
+        width: 64px; height: 52px; margin: 0 auto 24px; border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(135deg, #2c8f58, #194f31); color: #f0faf3;
-        font-weight: 800; font-size: 22px;
+        background: #f0faf3; box-shadow: 6px -6px 0 0 rgba(44, 143, 88, 0.6);
       }
+      .logo svg { width: 32px; height: 32px; fill: none; stroke: #194f31; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       h1 { margin: 0 0 8px; font-size: 20px; }
       p { margin: 0 0 12px; color: #525252; line-height: 1.5; font-size: 15px; }
       ul { margin: 0 0 20px; padding: 0; list-style: none; text-align: left; color: #525252; font-size: 14px; }
@@ -47,7 +48,19 @@
   </head>
   <body>
     <main>
-      <div class="logo" aria-hidden="true">BC</div>
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+          <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+          <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
+          <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
+          <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
+          <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
+          <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
+          <path d="M6 18a4 4 0 0 1-1.967-.516" />
+          <path d="M19.967 17.484A4 4 0 0 1 18 18" />
+        </svg>
+      </div>
       <h1>Não consegui falar com o seu computador</h1>
       <p>O app roda no seu PC, então ele precisa estar acessível. Confira:</p>
       <ul>

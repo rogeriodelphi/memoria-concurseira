@@ -18,6 +18,7 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import { AiUsageWidget } from './AiUsageWidget';
+import { APP_NAME, BrandMark } from './BrandMark';
 import { useAuth } from '../contexts/AuthContext';
 import { getInitials } from '../utils/initials';
 
@@ -55,11 +56,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       >
         <div>
           <div className="mb-8 flex items-center justify-between gap-2 px-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-sm font-bold text-brand-800">
-                BC
-              </div>
-              <span className="text-lg font-bold text-white">Base Concurseira</span>
+            <div className="flex items-center gap-3">
+              <BrandMark size={30} tone="light" />
+              {/* Em duas linhas ("Memória" / "Concurseira"): numa só, não cabe ao lado do logotipo e do botão de fechar. */}
+              <span className="max-w-[8rem] text-base font-bold leading-tight text-white">{APP_NAME}</span>
             </div>
             <button onClick={onClose} className="tap-area text-brand-100 hover:text-white md:hidden" aria-label="Fechar menu">
               <X size={20} />

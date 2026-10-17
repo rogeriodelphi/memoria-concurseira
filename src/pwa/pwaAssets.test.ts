@@ -186,7 +186,7 @@ function pngSize(file: string): { width: number; height: number } {
 }
 
 test('manifest: é instalável (nome, tela cheia, escopo, início e cores)', () => {
-  assert.equal(manifest.name, 'Base Concurseira');
+  assert.equal(manifest.name, 'Memória Concurseira');
   assert.ok(manifest.short_name.length > 0 && manifest.short_name.length <= 12, 'nome curto cabe embaixo do ícone');
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.scope, '/');

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Headphones, Info, Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 
+import { APP_NAME } from '../components/BrandMark';
 import { FormattedText } from '../components/FormattedText';
 import { useStudySettings } from '../contexts/StudySettingsContext';
 import { useHandsFree } from '../hooks/useHandsFree';
@@ -93,7 +94,7 @@ function Player({ cards, backLabel }: { cards: DueFlashcard[]; backLabel: string
     try {
       session.metadata = new MediaMetadata({
         title: card.question.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'Cartão',
-        artist: 'Base Concurseira',
+        artist: APP_NAME,
         album: card.collectionName,
       });
       session.playbackState = status === 'playing' ? 'playing' : 'paused';

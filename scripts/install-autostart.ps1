@@ -1,4 +1,4 @@
-# Registra o Base Concurseira como tarefa agendada do Windows, para o app subir
+# Registra a Memoria Concurseira como tarefa agendada do Windows, para o app subir
 # sozinho no login e voltar sozinho se o processo cair - sem depender de
 # nenhum terminal ou sessao do Claude aberta.
 #
@@ -52,7 +52,7 @@ $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.3" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Base Concurseira - servidor de producao (porta $Port)</Description>
+    <Description>Memoria Concurseira - servidor de producao (porta $Port)</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>

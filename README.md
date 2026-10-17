@@ -1,4 +1,6 @@
-# Base Concurseira
+# Memória Concurseira
+
+*Aprenda. Revise. Memorize. Conquiste.*
 
 PDF → IA → Flashcards → Exportação para Anki.
 
@@ -59,7 +61,8 @@ npm run dev
 ## Rodando em segundo plano (Windows)
 
 Para o app ficar no ar sem terminal aberto, ele roda como tarefa agendada do
-Windows (`BaseConcurseira`): sobe sozinho quando você entra no Windows e volta
+Windows (`BaseConcurseira`, o nome antigo do app, mantido de propósito: renomear a tarefa
+exige recriá-la): sobe sozinho quando você entra no Windows e volta
 sozinho se o processo cair (num teste de queda forçada, voltou em ~2 minutos).
 É a versão de **produção** (um
 processo só serve a interface e a API), numa porta própria para não colidir com
@@ -178,7 +181,7 @@ arquivo de backup desejado (renomeando-o para `app.db`), apague eventuais
 ### Exportar os seus dados
 
 Em **Configurações → Seus dados**, "Exportar meus dados" baixa um arquivo
-`base-concurseira-AAAA-MM-DD.json` com tudo o que é da conta de quem está logado: coleções,
+`memoria-concurseira-AAAA-MM-DD.json` com tudo o que é da conta de quem está logado: coleções,
 cartões (com a agenda de revisão), histórico de estudo, resumos, bullet points, mapas mentais,
 concursos, simulados (com tentativas e alternativas geradas), Pomodoro e o uso de IA. Serve
 como cópia extra para guardar **fora** do PC (nuvem, pen drive).
@@ -193,6 +196,24 @@ como cópia extra para guardar **fora** do PC (nuvem, pen drive).
 - Uma tabela nova do banco precisa ser listada em `server/account/export.ts` (ou nas exclusões,
   com o motivo): um teste falha se alguma ficar de fora, para o "tudo" não ficar incompleto sem
   ninguém notar.
+
+## O nome do app
+
+O app se chamava **Base Concurseira** e hoje é **Memória Concurseira**. O nome, o slogan e o
+logotipo (um cartão de memorização com um cérebro, em `src/components/BrandMark.tsx`; os ícones
+do app instalado, em `public/icons`, são o mesmo desenho) estão em tudo o que aparece na tela.
+Alguns identificadores **internos** ficaram com o nome antigo de propósito, porque trocá-los
+teria um custo que o nome não compensa:
+
+- o cookie de sessão `bc_session` (trocar desconectaria quem está logado);
+- as chaves `bc-*` do armazenamento do navegador (trocar apagaria as preferências de voz, de
+  tema e o tempo para pensar do modo mãos livres);
+- a tarefa agendada `BaseConcurseira` do Windows e a pasta de cache de voz `BaseConcurseira`
+  em `%LOCALAPPDATA%` (trocar exige recriar a tarefa ou perder o cache);
+- o nome da pasta do projeto, que o OneDrive e a tarefa agendada usam como caminho.
+
+Se um dia quiser trocar algum deles, dá para fazer com migração (ler o nome antigo e gravar o
+novo), sem perder nada.
 
 ## Scripts
 
