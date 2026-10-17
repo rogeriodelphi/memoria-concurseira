@@ -11,7 +11,7 @@ const at = (hour: number, dayOffset = 0) => new Date(2026, 9, 14 + dayOffset, ho
 function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
   db.exec(`
-    CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER);
+    CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER, new_card_order TEXT NOT NULL DEFAULT 'created');
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL, subject TEXT NOT NULL DEFAULT '');
     CREATE TABLE flashcards (
       id TEXT PRIMARY KEY, collection_id TEXT NOT NULL REFERENCES collections(id), question TEXT NOT NULL DEFAULT 'p',
@@ -24,7 +24,7 @@ function newDb(): DatabaseSync {
       id TEXT PRIMARY KEY, flashcard_id TEXT NOT NULL, user_id TEXT NOT NULL, result TEXT NOT NULL,
       studied_at TEXT NOT NULL, duration_ms INTEGER
     );
-    INSERT INTO users VALUES ('u1', NULL), ('u2', NULL);
+    INSERT INTO users (id, daily_new_limit) VALUES ('u1', NULL), ('u2', NULL);
     INSERT INTO collections VALUES ('c1', 'u1', 'Redes', 'Protocolos'), ('c2', 'u1', 'Direito', ''), ('cx', 'u2', 'Alheia', '');
   `);
   return db;

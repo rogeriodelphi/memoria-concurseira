@@ -482,4 +482,32 @@ export interface ExamPlan {
   };
   neededNewPerDay: number | null;
   scenarios: PlanScenario[];
+  /** Em que ordem os cartões novos entram na revisão quando há limite diário. */
+  newOrder: NewCardOrder;
+}
+
+/** 'created': do mais antigo ao mais novo. 'exam': repartidos pelo peso das disciplinas do edital. */
+export type NewCardOrder = 'created' | 'exam';
+
+/** Como a ordem pelo edital reparte os cartões novos, disciplina a disciplina. */
+export interface NewOrderOverview {
+  order: NewCardOrder;
+  /** O concurso com data mais próxima, que dá o edital; `null` se não há nenhum com data. */
+  exam: { id: string; name: string; examDate: string; daysLeft: number } | null;
+  disciplines: {
+    id: string;
+    name: string;
+    questions: number | null;
+    weight: number | null;
+    /** A fatia da prova, em %. */
+    sharePct: number;
+    /** A cota na ordem pelo edital (só entre as disciplinas com cartões); `null` se a disciplina não tem cartões. */
+    quotaPct: number | null;
+    newCards: number;
+    learnedCards: number;
+    /** Que parte dos cartões já estudados é desta disciplina, em %; `null` se não tem cartões. */
+    learnedSharePct: number | null;
+  }[];
+  /** Cartões novos fora de qualquer coleção ligada ao edital: entram por último. */
+  unlinkedNew: number;
 }

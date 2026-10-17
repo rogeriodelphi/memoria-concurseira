@@ -1,9 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-import { daysUntil } from '../exams/progress';
 import { nextSrsState, type SrsState } from '../srs';
 import { buildDashboard, type DashboardCard, type DashboardSession } from '../stats/dashboard';
 import { MAX_DAILY_NEW_LIMIT } from './limit';
+import { getNewCardOrder, type NewCardOrder } from './newOrder';
+import { nextExam } from './nextExam';
 import { getDailyNewLimit } from './store';
 
 /**
@@ -153,6 +154,8 @@ export interface ExamPlan {
   };
   /** O limite diário de cartões novos configurado (`null` = sem limite). */
   currentLimit: number | null;
+  /** A ordem em que os novos entram na fila: a de criação ou a do edital (Configurações → Plano de estudo). */
+  newOrder: NewCardOrder;
   pace: {
     windowDays: number;
     /** Cartões estudados por dia na janela, contando os dias sem estudo (é o que o usuário realmente faz por dia). */
@@ -174,6 +177,7 @@ export interface PlanInput {
   newCount: number;
   learned: SimCard[];
   currentLimit: number | null;
+  newOrder: NewCardOrder;
   pace: ExamPlan['pace'];
 }
 
@@ -194,7 +198,7 @@ export function suggestLimit(neededPerDay: number): number {
 const sum = (values: number[]) => values.reduce((total, n) => total + n, 0);
 
 export function buildExamPlan(input: PlanInput): ExamPlan {
-  const { exam, newCount, learned, currentLimit, pace } = input;
+  const { exam, newCount, learned, currentLimit, newOrder, pace } = input;
   const daysLeft = Math.max(0, exam.daysLeft);
   const days = Math.min(daysLeft, MAX_PLAN_DAYS);
   const finalReviewDays = days <= LAST_DAYS ? days : Math.min(FINAL_REVIEW_DAYS, Math.floor(days / 3));
@@ -281,6 +285,7 @@ export function buildExamPlan(input: PlanInput): ExamPlan {
     newDays,
     cards: { new: newCount, due: learned.filter((card) => card.dueInDays <= 0).length, learned: learned.length },
     currentLimit,
+    newOrder,
     pace,
     neededNewPerDay,
     scenarios,
@@ -312,20 +317,6 @@ interface CardRow {
   ease_factor: number;
   interval_days: number;
   repetitions: number;
-}
-
-/** O concurso com data mais próximo (que ainda não passou); `null` se não há nenhum. */
-function nextExam(db: DatabaseSync, userId: string, now: Date): ExamPlan['exam'] | null {
-  const rows = db
-    .prepare('SELECT id, name, exam_date FROM exams WHERE user_id = ? AND exam_date IS NOT NULL')
-    .all(userId) as unknown as { id: string; name: string; exam_date: string }[];
-  let best: ExamPlan['exam'] | null = null;
-  for (const row of rows) {
-    const daysLeft = daysUntil(row.exam_date, now);
-    if (daysLeft === null || daysLeft < 0) continue;
-    if (!best || daysLeft < best.daysLeft) best = { id: row.id, name: row.name, examDate: row.exam_date, daysLeft };
-  }
-  return best;
 }
 
 /** O plano do usuário para o próximo concurso com data, ou `null` se ele não tem nenhum. */
@@ -387,6 +378,7 @@ export function loadExamPlan(db: DatabaseSync, userId: string, now: Date = new D
     newCount,
     learned,
     currentLimit,
+    newOrder: getNewCardOrder(db, userId),
     pace: {
       windowDays: PACE_WINDOW_DAYS,
       reviewsPerDay: reviewsInWindow / PACE_WINDOW_DAYS,

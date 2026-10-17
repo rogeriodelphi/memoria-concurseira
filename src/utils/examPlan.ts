@@ -88,3 +88,23 @@ export function chartBars(perDay: number[], maxBars = 60): number[] {
   }
   return bars;
 }
+
+/**
+ * Uma frase sobre a ordem em que os cartões novos entram, para quando o cenário escolhido não os cobre
+ * todos (aí a ordem decide quais ficam de fora). Sem cartões novos, sem nenhum novo por dia (nada entra: não há
+ * ordem a descrever) ou com um cenário que vê todos: `null`.
+ * `suggestEdital` é verdadeiro quando vale apontar para o ajuste em Configurações.
+ */
+export function newOrderHint(plan: ExamPlan, scenario: PlanScenario | undefined): { text: string; suggestEdital: boolean } | null {
+  if (!scenario || plan.cards.new === 0 || scenario.newPerDay <= 0 || scenario.coveragePct >= 100) return null;
+  if (plan.newOrder === 'exam') {
+    return {
+      text: 'Com esse limite, os cartões novos entram repartidos pelo peso das disciplinas do edital (a ordem pelo edital está ligada).',
+      suggestEdital: false,
+    };
+  }
+  return {
+    text: 'Com esse limite, os cartões novos entram do mais antigo ao mais novo, sem olhar o que mais pesa na prova.',
+    suggestEdital: true,
+  };
+}

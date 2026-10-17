@@ -215,6 +215,13 @@ if (!usersColumns.some((c) => c.name === 'daily_new_limit')) {
   db.exec('ALTER TABLE users ADD COLUMN daily_new_limit INTEGER');
 }
 
+// Em que ordem os cartões novos entram na fila quando há limite diário: 'created' (a ordem de
+// criação, o comportamento de sempre) ou 'exam' (pelo peso das disciplinas do concurso mais próximo).
+// Todo mundo começa em 'created': ninguém muda de ordem sem pedir.
+if (!usersColumns.some((c) => c.name === 'new_card_order')) {
+  db.exec("ALTER TABLE users ADD COLUMN new_card_order TEXT NOT NULL DEFAULT 'created'");
+}
+
 // Migração para "favorite" em flashcards — marca manual do usuário pra
 // montar um baralho rápido de revisão sem depender de agendamento.
 const flashcardsColumnsForFavorite = db.prepare('PRAGMA table_info(flashcards)').all() as unknown as {

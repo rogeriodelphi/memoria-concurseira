@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 
 import { AiUsagePanel } from '../components/AiUsagePanel';
 import { DataExport } from '../components/DataExport';
+import { NewCardOrderSettings } from '../components/NewCardOrderSettings';
 import { StudyPlanSettings } from '../components/StudyPlanSettings';
 import { VoiceSettings } from '../components/VoiceSettings';
 import { useTheme, type ThemeMode } from '../contexts/ThemeContext';
@@ -85,6 +86,7 @@ export function Settings() {
       </div>
 
       <StudyPlanSettings />
+      <NewCardOrderSettings />
 
       <div className="card mt-6 p-6">
         <h2 className="mb-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">Leitura em voz alta</h2>

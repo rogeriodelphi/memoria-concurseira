@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ExamPlan, PlanScenario, PlanVerdict } from '../types';
-import { cardsPerDayLabel, chartBars, formatMinutes, scenarioLabel, scenarioSummary, verdictMessage, VERDICT_LABEL } from './examPlan';
+import { cardsPerDayLabel, chartBars, formatMinutes, newOrderHint, scenarioLabel, scenarioSummary, verdictMessage, VERDICT_LABEL } from './examPlan';
 
 const scenario = (extra: Partial<PlanScenario> = {}): PlanScenario => ({
   kind: 'budget',
@@ -26,6 +26,7 @@ function plan(verdict: PlanVerdict, extra: Partial<ExamPlan> = {}): ExamPlan {
     pace: { windowDays: 14, reviewsPerDay: 22.9, newPerDay: 20, activeDays: 9, secPerReview: 36 },
     neededNewPerDay: 22,
     scenarios: [scenario({ kind: 'current', newPerDay: 1, coveragePct: 5, newSeen: 43 })],
+    newOrder: 'created',
     ...extra,
   };
 }
@@ -101,4 +102,24 @@ test('gráfico: poucas barras ficam como estão; muitas são agrupadas pela méd
   const original = [5, 6, 7];
   chartBars(original, 1);
   assert.deepEqual(original, [5, 6, 7], 'não altera o que recebeu');
+});
+
+test('ordem dos novos: só aparece quando o cenário deixa cartões de fora', () => {
+  const partial = scenario({ coveragePct: 38 });
+  const created = newOrderHint(plan('behind', { newOrder: 'created' }), partial)!;
+  assert.match(created.text, /do mais antigo ao mais novo/);
+  assert.equal(created.suggestEdital, true);
+
+  const exam = newOrderHint(plan('behind', { newOrder: 'exam' }), partial)!;
+  assert.match(exam.text, /peso das disciplinas do edital/);
+  assert.equal(exam.suggestEdital, false, 'já está ligada: não precisa apontar para Configurações');
+
+  assert.equal(newOrderHint(plan('on_track', { newOrder: 'created' }), scenario({ kind: 'all', coveragePct: 100 })), null, 'vê todos: a ordem não muda nada');
+  assert.equal(newOrderHint(plan('on_track', { newOrder: 'created', cards: { new: 0, due: 3, learned: 9 } }), partial), null, 'sem cartões novos');
+  assert.equal(newOrderHint(plan('behind'), undefined), null, 'sem cenário escolhido');
+});
+
+test('ordem dos novos: sem nenhum novo por dia não há ordem a descrever', () => {
+  assert.equal(newOrderHint(plan('behind'), scenario({ newPerDay: 0, newSeen: 0, coveragePct: 0 })), null);
+  assert.notEqual(newOrderHint(plan('behind'), scenario({ newPerDay: 1, newSeen: 43, coveragePct: 5 })), null);
 });

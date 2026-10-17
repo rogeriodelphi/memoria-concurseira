@@ -13,6 +13,8 @@ import type {
   DocumentItem,
   DueFlashcard,
   ExamPlan,
+  NewCardOrder,
+  NewOrderOverview,
   DuplicateGroup,
   ExamDetail,
   ExamDraft,
@@ -281,6 +283,10 @@ export const studyPlanApi = {
   exam: () => request<{ plan: ExamPlan | null }>('/study-plan/exam'),
   setDailyNewLimit: (dailyNewLimit: number | null) =>
     request<{ dailyNewLimit: number | null }>('/study-plan', { method: 'PUT', body: JSON.stringify({ dailyNewLimit }) }),
+  // A ordem dos cartões novos (criação ou pelo peso das disciplinas do edital) e como ela reparte os cartões.
+  newOrder: () => request<NewOrderOverview>('/study-plan/new-order'),
+  setNewOrder: (order: NewCardOrder) =>
+    request<{ order: NewCardOrder }>('/study-plan/new-order', { method: 'PUT', body: JSON.stringify({ order }) }),
 };
 
 export const pomodoroApi = {

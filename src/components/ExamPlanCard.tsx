@@ -10,6 +10,7 @@ import {
   cardsPerDayLabel,
   chartBars,
   formatMinutes,
+  newOrderHint,
   scenarioLabel,
   scenarioSummary,
   verdictMessage,
@@ -69,6 +70,7 @@ export function ExamPlanCard({ onLimitChanged }: { onLimitChanged?: () => void }
   const bars = chosen ? chartBars(chosen.perDay) : [];
   const peak = Math.max(1, ...bars);
   const inUse = chosen !== undefined && plan.currentLimit === chosen.newPerDay;
+  const orderHint = newOrderHint(plan, chosen);
 
   async function apply(limit: number) {
     setSaving(true);
@@ -183,6 +185,21 @@ export function ExamPlanCard({ onLimitChanged }: { onLimitChanged?: () => void }
                 Isso só muda quantos cartões novos entram na revisão por dia (você pode alterar em Configurações).
               </span>
             </div>
+          )}
+
+          {orderHint && (
+            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+              {orderHint.text}
+              {orderHint.suggestEdital && (
+                <>
+                  {' '}
+                  <Link to="/configuracoes" className="font-medium text-brand-600 hover:underline dark:text-brand-400">
+                    Priorizar pelo edital em Configurações
+                  </Link>
+                  .
+                </>
+              )}
+            </p>
           )}
         </>
       )}

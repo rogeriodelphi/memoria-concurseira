@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 
 import type { FlashcardRow } from '../mappers';
 import { newCardsForToday, parseDailyNewLimit } from './limit';
+import { getNewCardOrder, pickNewCardIdsByExam } from './newOrder';
 
 export type DueRow = FlashcardRow & { collection_name: string; collection_subject: string };
 
@@ -46,6 +47,26 @@ export function countNewLearnedToday(db: DatabaseSync, userId: string, now: Date
 
 const SELECT_CARDS = `SELECT f.*, c.name AS collection_name, c.subject AS collection_subject FROM flashcards f JOIN collections c ON c.id = f.collection_id`;
 
+/**
+ * Os `count` novos que entram hoje na ordem do edital (ver `pickByExamWeight`), ou `null` para o
+ * chamador usar a ordem de criação: quando não há concurso com data, e também se algo falhar. Uma falha
+ * aqui não pode derrubar a fila de estudo.
+ */
+function newCardsByExam(db: DatabaseSync, userId: string, now: Date, count: number): DueRow[] | null {
+  try {
+    const ids = pickNewCardIdsByExam(db, userId, now, count);
+    if (ids === null || ids.length === 0) return null;
+    const rows = db
+      .prepare(`${SELECT_CARDS} WHERE f.id IN (${ids.map(() => '?').join(', ')})`)
+      .all(...ids) as unknown as DueRow[];
+    const position = new Map(ids.map((id, i) => [id, i]));
+    return rows.sort((a, b) => position.get(a.id)! - position.get(b.id)!);
+  } catch (err) {
+    console.error('  ✗ A ordem dos novos pelo edital falhou; usando a ordem de criação:', err);
+    return null;
+  }
+}
+
 export interface DueSelection {
   /** Os cartões da fila de revisão: os novos primeiro, depois os vencidos. */
   cards: DueRow[];
@@ -82,10 +103,14 @@ export function selectDueCards(
   ).n;
   const allowed = newCardsForToday(totalNew, limit, limit === null ? 0 : countNewLearnedToday(db, userId, now));
 
+  // A ordem dos novos só muda quem entra quando eles não cabem todos: com limite, e só na fila geral
+  // (com coleções escolhidas entram todos).
+  const byExam = allowed > 0 && allowed < totalNew && limit !== null && getNewCardOrder(db, userId) === 'exam';
   const newCards =
     allowed === 0
       ? []
-      : (db
+      : (byExam ? newCardsByExam(db, userId, now, allowed) : null) ??
+        (db
           .prepare(
             `${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC LIMIT ?`,
           )

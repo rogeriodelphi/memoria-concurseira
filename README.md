@@ -305,6 +305,28 @@ entram na revisão de cada dia. Vazio (o padrão) = sem limite, como sempre foi.
   coleções usam a mesma conta. O Painel mostra os "Novos aguardando".
 - Estudar uma coleção direto (pelo botão "Estudar" dela) não tem limite: ali a escolha é sua.
 
+### Ordem dos cartões novos
+
+Por padrão, os novos entram do mais antigo ao mais novo. Em **Configurações → Ordem dos
+cartões novos** dá para trocar por **Pelo edital da prova**: as vagas de cada dia são repartidas
+entre as disciplinas do concurso com data mais próxima, na proporção do peso de cada uma
+(questões × peso no edital).
+
+- **Só vale com limite diário.** Sem limite, todos os novos entram e a ordem não muda nada.
+- **Como escolhe:** a cada vaga, entra um cartão da disciplina que está mais abaixo da sua
+  cota, **contando o que você já estudou**. Assim a divisão se corrige sozinha: uma disciplina
+  que ficou para trás recebe mais vagas até alcançar as outras. Dentro de uma disciplina, a
+  ordem é a de criação.
+- **A cota** reparte o peso só entre as disciplinas que têm cartões (uma disciplina do edital
+  sem nenhuma coleção ligada não "segura" vagas que ela não pode usar). Cartões de coleções
+  que não estão ligadas ao edital entram por último.
+- Uma coleção ligada a mais de uma disciplina conta para a de maior peso.
+- Sem concurso com data (ou sem disciplinas no edital), vale a ordem de criação. Se o cálculo
+  falhar por qualquer motivo, o app registra o erro no log e usa a ordem de criação: o estudo
+  nunca fica sem fila.
+- A tabela em Configurações mostra a cota, a parte já estudada e os novos de cada disciplina, e
+  a "Meta para a prova" avisa qual ordem vale para o cenário escolhido.
+
 ## Meta para a prova
 
 Se algum concurso tem **data da prova**, o Painel mostra "Meta para a prova" (do concurso com a

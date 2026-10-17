@@ -100,6 +100,7 @@ function plan(overrides: Omit<Partial<PlanInput>, 'pace'> & { pace?: Partial<Pla
     newCount: 900,
     learned: [],
     currentLimit: null,
+    newOrder: 'created',
     pace: { ...PACE, ...pace },
     ...rest,
   });
@@ -229,7 +230,7 @@ const at = (dayOffset: number, hour = 10) => new Date(2026, 9, 17 + dayOffset, h
 function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
   db.exec(`
-    CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER);
+    CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER, new_card_order TEXT NOT NULL DEFAULT 'created');
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL);
     CREATE TABLE flashcards (
       id TEXT PRIMARY KEY, collection_id TEXT NOT NULL, ease_factor REAL NOT NULL DEFAULT 2.5,
@@ -240,7 +241,7 @@ function newDb(): DatabaseSync {
       studied_at TEXT NOT NULL, duration_ms INTEGER
     );
     CREATE TABLE exams (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, exam_date TEXT);
-    INSERT INTO users VALUES ('u1', NULL), ('u2', NULL);
+    INSERT INTO users (id, daily_new_limit) VALUES ('u1', NULL), ('u2', NULL);
     INSERT INTO collections VALUES ('c1', 'u1', 'Redes'), ('c2', 'u2', 'Alheia');
   `);
   return db;
@@ -326,6 +327,10 @@ test('carregador: o tempo por cartão vem das revisões medidas e o limite diár
   const p = loadExamPlan(db, 'u1', NOW)!;
   assert.equal(p.pace.secPerReview, 30, 'média de 20 s e 40 s');
   assert.equal(p.currentLimit, 12);
+  assert.equal(p.newOrder, 'created', 'a ordem dos novos começa na de criação');
+
+  db.prepare("UPDATE users SET new_card_order = 'exam' WHERE id = 'u1'").run();
+  assert.equal(loadExamPlan(db, 'u1', NOW)!.newOrder, 'exam');
 });
 
 test('carregador: conta sem nenhum estudo recente fica "sem ritmo", não quebra', () => {
