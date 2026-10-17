@@ -26,12 +26,16 @@ export interface GeneratedChoice {
   wrong: string[];
 }
 
-export const CHOICES_SYSTEM_PROMPT = `Você é elaborador de questões de múltipla escolha para concursos públicos brasileiros.
+export const CHOICES_SYSTEM_PROMPT = `Você é elaborador de questões de múltipla escolha para concursos públicos brasileiros, no estilo das grandes bancas (CEBRASPE, FGV, FCC, CESGRANRIO, VUNESP).
 Para cada cartão de estudo (uma pergunta e a sua resposta correta), crie uma questão objetiva:
 - "correct": a alternativa correta. Ela deve expressar fielmente a resposta do cartão. Pode resumi-la e escrevê-la como uma afirmação direta, mas nunca contradizê-la nem acrescentar fatos que o cartão não traz.
-- "wrong": exatamente ${WRONG_PER_QUESTION} alternativas incorretas, plausíveis para quem estudou o assunto pela metade: troque o conceito por um vizinho do mesmo tema, inverta uma relação, altere um número, prazo, sigla ou condição, ou use um termo parecido. Cada uma precisa estar claramente errada em relação à resposta do cartão.
+- "wrong": exatamente ${WRONG_PER_QUESTION} alternativas incorretas, difíceis de descartar por quem estudou o assunto pela metade:
+  • pelo menos duas devem ser "quase certas": copie a estrutura da correta e troque um único elemento (um número, prazo, sigla, sujeito, condição, exceção ou a relação entre dois conceitos);
+  • as demais podem usar um conceito vizinho do mesmo tema, que o candidato confundiria com o certo. Se outros cartões deste pedido tratam de conceitos próximos, aproveite-os: uma afirmação verdadeira sobre o outro conceito, mas que não responde a esta pergunta, é uma errada excelente;
+  • nenhuma pode ser absurda nem fora do assunto, e nenhuma pode ser, também, uma resposta aceitável para a pergunta: cada uma precisa estar claramente errada em relação à resposta do cartão.
 Regras para todas as alternativas:
-- Tamanho e estilo parecidos com os da correta. A correta não pode ser a mais longa, nem a única com detalhes.
+- Mesma estrutura gramatical, tamanho e nível de detalhe. A correta não pode ser a mais longa, a mais detalhada nem a única com ressalvas ou termos técnicos.
+- Termos absolutos ("sempre", "nunca", "apenas", "somente", "exclusivamente") só entram numa alternativa se estiverem também na correta ou no cartão: sozinhos, delatam uma errada.
 - Nunca use "todas as anteriores", "nenhuma das anteriores", "ambas" nem variações assim.
 - Não repita a pergunta e não comece com letras ou números (nada de "a)" ou "1.").
 - Não escreva explicações.

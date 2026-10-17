@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { choicesUserPrompt, parseChoicesResponse, type ChoiceSource } from './choices';
+import { CHOICES_SYSTEM_PROMPT, choicesUserPrompt, parseChoicesResponse, WRONG_PER_QUESTION, type ChoiceSource } from './choices';
 
 const SOURCES: ChoiceSource[] = [
   { n: 1, question: 'Qual protocolo resolve nomes?', answer: 'O DNS.' },
@@ -91,4 +91,16 @@ test('validação: resposta que não é o JSON esperado, ou sem nenhuma questão
   for (const raw of [undefined, '', 'não é json', '{"questions": "x"}', '{}', reply([])]) {
     assert.throws(() => parseChoicesResponse(raw, SOURCES), /formato esperado/, String(raw));
   }
+});
+
+test('instruções à IA: erradas difíceis, no estilo das bancas, sem pistas de tamanho nem de termo absoluto', () => {
+  const prompt = CHOICES_SYSTEM_PROMPT;
+  assert.match(prompt, new RegExp(`exatamente ${WRONG_PER_QUESTION} alternativas incorretas`));
+  assert.match(prompt, /CEBRASPE/);
+  assert.match(prompt, /quase certas/, 'erradas que trocam um só elemento da correta');
+  assert.match(prompt, /outros cartões deste pedido/, 'conceitos vizinhos vêm dos outros cartões do lote');
+  assert.match(prompt, /não pode ser a mais longa/);
+  assert.match(prompt, /Termos absolutos/);
+  assert.match(prompt, /todas as anteriores/, 'a proibição das "anteriores" continua');
+  assert.doesNotMatch(prompt, /${|undefined/, 'nada de interpolação esquecida');
 });
