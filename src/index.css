@@ -69,11 +69,20 @@
   }
 }
 
+/* A barra que enche durante o tempo de pensar, no modo mãos livres. */
+@keyframes handsfree-think {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
 /* No celular, campos com letra menor que 16px fazem o iPhone dar zoom ao tocar neles. */
 @media (max-width: 639px) {
-  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
-  select,
-  textarea {
+  /* `:is()` com os `:not()` dá à regra mais peso que o `text-sm` das classes dos campos (`.input-field`). */
+  :is(input, select, textarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']) {
     font-size: 16px;
   }
 }

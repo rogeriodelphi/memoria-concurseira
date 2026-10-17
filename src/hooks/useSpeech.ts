@@ -17,6 +17,13 @@ import {
 /** O que está sendo lido, para o botão certo mostrar "Parar": pergunta ou resposta de um cartão, ou um texto avulso. */
 export type SpeechField = 'question' | 'answer' | 'text';
 
+/**
+ * Avisa o fim de uma leitura: `true` se a voz leu até o fim, `false` se não deu para ler (sem voz no
+ * aparelho, som barrado pelo navegador, erro). Não é chamado se a leitura for interrompida por
+ * outra (`speak` de novo, `stop`, sair da tela): quem interrompeu já sabe.
+ */
+export type SpeechDone = (completed: boolean) => void;
+
 const browserSpeechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 // ---------- o que o servidor oferece ----------
@@ -193,9 +200,10 @@ export function useSpeech() {
     [stopPlayback],
   );
 
-  const speakWithBrowser = useCallback((text: string, field: SpeechField, token: number) => {
+  const speakWithBrowser = useCallback((text: string, field: SpeechField, token: number, onDone?: SpeechDone) => {
     if (!browserSpeechSupported) {
       setSpeaking(null);
+      onDone?.(false);
       return;
     }
     const { browserVoiceURI, speechRate } = settingsRef.current;
@@ -204,19 +212,24 @@ export function useSpeech() {
     utterance.rate = speechRate;
     const voice = pickBestBrowserVoice(window.speechSynthesis.getVoices(), browserVoiceURI);
     if (voice) utterance.voice = voice;
-    const finish = () => {
-      if (tokenRef.current === token) setSpeaking(null);
+    const finish = (completed: boolean) => {
+      if (tokenRef.current !== token) return;
+      setSpeaking(null);
+      onDone?.(completed);
     };
-    utterance.onend = finish;
-    utterance.onerror = finish;
+    utterance.onend = () => finish(true);
+    utterance.onerror = () => finish(false);
     window.speechSynthesis.speak(utterance);
     setSpeaking(field);
   }, []);
 
   const speak = useCallback(
-    async (text: string, field: SpeechField) => {
+    async (text: string, field: SpeechField, onDone?: SpeechDone) => {
       const clean = tidySpeechText(text);
-      if (!clean) return;
+      if (!clean) {
+        onDone?.(false);
+        return;
+      }
       const token = ++tokenRef.current;
       stopPlayback();
       setSpeaking(field);
@@ -231,7 +244,7 @@ export function useSpeech() {
       const wantsNatural = settingsRef.current.speechEngine === 'natural' && ttsInfo.available;
       if (wantsNatural && tooLong) {
         showToast('Este texto é longo demais para a voz natural. Lendo com a voz do navegador.', 'error');
-        speakWithBrowser(clean, field, token);
+        speakWithBrowser(clean, field, token, onDone);
         return;
       }
 
@@ -249,12 +262,13 @@ export function useSpeech() {
             if (tokenRef.current !== token) return;
             audioRef.current = null;
             setSpeaking(null);
+            onDone?.(true);
           };
           audio.onerror = () => {
             // áudio ilegível: não deixa o usuário no silêncio
             if (tokenRef.current !== token) return;
             audioRef.current = null;
-            speakWithBrowser(clean, field, token);
+            speakWithBrowser(clean, field, token, onDone);
           };
           await audio.play();
           return;
@@ -265,6 +279,7 @@ export function useSpeech() {
           // O navegador barra som que começa sozinho antes de qualquer clique na página.
           if (err instanceof DOMException && err.name === 'NotAllowedError') {
             setSpeaking(null);
+            onDone?.(false);
             return;
           }
         }
@@ -277,7 +292,7 @@ export function useSpeech() {
         showToast(`${describeNaturalOutage(outage)} Lendo com a voz do navegador.`, 'error');
       }
 
-      speakWithBrowser(clean, field, token);
+      speakWithBrowser(clean, field, token, onDone);
     },
     [showToast, speakWithBrowser, stopPlayback],
   );

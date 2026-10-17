@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Info, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Headphones, Info, Play } from 'lucide-react';
 
 import { statsApi } from '../services/api';
 import type { DashboardData } from '../types';
@@ -330,10 +330,20 @@ export function Dashboard() {
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Seu estudo de hoje e o panorama dos últimos 30 dias.</p>
         </div>
         {data && data.remaining.total > 0 && (
-          <Link to="/revisar" className="btn-primary flex items-center gap-2">
-            <Play size={16} />
-            Revisar pendentes ({formatInt(data.remaining.total)})
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/revisar" className="btn-primary flex items-center gap-2">
+              <Play size={16} />
+              Revisar pendentes ({formatInt(data.remaining.total)})
+            </Link>
+            <Link
+              to="/maos-livres"
+              className="btn-secondary flex items-center gap-2"
+              title="A voz lê a pergunta, espera você pensar e lê a resposta, sem você tocar na tela. Não conta como estudo."
+            >
+              <Headphones size={16} />
+              Mãos livres
+            </Link>
+          </div>
         )}
         {data && data.remaining.total === 0 && data.dailyNewLimit !== null && (
           <p className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">

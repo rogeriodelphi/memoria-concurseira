@@ -90,6 +90,27 @@ schtasks /run /tn BaseConcurseira               # sobe agora
 Não defina `NODE_ENV=production` nessa tarefa: o cookie de sessão passaria a
 ser `secure` e deixaria de funcionar em HTTP pelo IP da rede.
 
+## Modo mãos livres
+
+Para ouvir os cartões sem olhar a tela (andando, por exemplo). Abra **Mãos livres** no menu (ou
+o botão no Painel): a voz lê a pergunta, espera o tempo para pensar (3, 5, 8 ou 12 segundos, à
+sua escolha), lê a resposta e passa ao próximo, em ordem aleatória, com os cartões pendentes de
+todas as coleções. Com `/maos-livres?ids=<id>,<id>` a fila fica só nas coleções indicadas.
+
+- **Não conta como estudo:** nada é avaliado e o agendamento dos cartões não muda. Para avaliar,
+  use "Revisar pendentes".
+- **Controles:** pausar/continuar (continuar recomeça o cartão pela pergunta), cartão anterior,
+  próximo e repetir. No PC, `Espaço` pausa e `←`/`→` trocam de cartão. Mudar o tempo para pensar
+  vale na hora, até no meio da sessão.
+- **Voz:** a escolhida em Configurações. A **natural** (Gemini) tem limite diário no plano
+  gratuito e este modo gasta duas leituras por cartão; quando ela falha, o modo segue com a voz do
+  navegador. A voz do navegador (como as vozes "Natural" gratuitas do Edge) não tem limite.
+- **Tela do celular:** o app pede para a tela ficar ligada enquanto toca, porque a voz do
+  navegador costuma parar quando ela apaga. A voz natural toca como áudio e, em navegadores que
+  oferecem isso, pode mostrar os controles na tela de bloqueio.
+- Cartões só com imagem na pergunta são pulados. Se a leitura falhar 3 vezes seguidas (sem som,
+  sem voz em português), o modo para e avisa.
+
 ## Usando no celular
 
 O app roda no seu PC e o celular só o acessa, então o PC precisa estar **ligado e sem

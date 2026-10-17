@@ -17,6 +17,7 @@
   ],
   "shortcuts": [
     { "name": "Revisar pendentes", "short_name": "Revisar", "url": "/revisar", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Mãos livres", "url": "/maos-livres", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
     { "name": "Simulados", "url": "/simulados", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
     { "name": "Painel", "url": "/painel", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]

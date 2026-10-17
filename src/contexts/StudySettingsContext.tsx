@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 
+import { normalizeThinkSeconds } from '../utils/handsFree';
 import { clampSpeechRate, SPEECH_RATE } from '../utils/speech';
 
 const AUTO_PLAY_KEY = 'bc-study-autoplay-speech';
+const THINK_SECONDS_KEY = 'bc-handsfree-think-seconds';
 const ENGINE_KEY = 'bc-speech-engine';
 const VOICE_KEY = 'bc-speech-voice';
 const RATE_KEY = 'bc-speech-rate';
@@ -57,6 +59,9 @@ interface StudySettingsContextValue {
   /** voiceURI da voz do navegador escolhida; null = a melhor disponível. */
   browserVoiceURI: string | null;
   setBrowserVoiceURI: (value: string | null) => void;
+  /** Modo mãos livres: quantos segundos esperar, entre ler a pergunta e ler a resposta. */
+  handsFreeThinkSeconds: number;
+  setHandsFreeThinkSeconds: (value: number) => void;
 }
 
 const StudySettingsContext = createContext<StudySettingsContextValue | null>(null);
@@ -67,6 +72,9 @@ export function StudySettingsProvider({ children }: { children: ReactNode }) {
   const [geminiVoice, setGeminiVoiceState] = useState<string>(() => read(VOICE_KEY) ?? '');
   const [speechRate, setSpeechRateState] = useState<number>(readRate);
   const [browserVoiceURI, setBrowserVoiceURIState] = useState<string | null>(() => read(BROWSER_VOICE_KEY));
+  const [handsFreeThinkSeconds, setHandsFreeThinkSecondsState] = useState<number>(() =>
+    normalizeThinkSeconds(read(THINK_SECONDS_KEY)),
+  );
 
   const setAutoPlaySpeech = useCallback((value: boolean) => {
     setAutoPlaySpeechState(value);
@@ -94,6 +102,12 @@ export function StudySettingsProvider({ children }: { children: ReactNode }) {
     write(BROWSER_VOICE_KEY, value);
   }, []);
 
+  const setHandsFreeThinkSeconds = useCallback((value: number) => {
+    const next = normalizeThinkSeconds(value);
+    setHandsFreeThinkSecondsState(next);
+    write(THINK_SECONDS_KEY, String(next));
+  }, []);
+
   return (
     <StudySettingsContext.Provider
       value={{
@@ -107,6 +121,8 @@ export function StudySettingsProvider({ children }: { children: ReactNode }) {
         setSpeechRate,
         browserVoiceURI,
         setBrowserVoiceURI,
+        handsFreeThinkSeconds,
+        setHandsFreeThinkSeconds,
       }}
     >
       {children}

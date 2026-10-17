@@ -3,6 +3,7 @@ import {
   BarChart3,
   ClipboardCheck,
   FileText,
+  Headphones,
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
@@ -128,6 +129,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             >
               <ClipboardCheck size={18} />
               Simulados
+            </NavLink>
+            <NavLink
+              to="/maos-livres"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-brand-800' : 'text-brand-50 hover:bg-brand-700'
+                }`
+              }
+            >
+              <Headphones size={18} />
+              Mãos livres
             </NavLink>
             <NavLink
               to="/pomodoro"
