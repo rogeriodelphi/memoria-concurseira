@@ -10,7 +10,7 @@ export const MAX_ATTEMPT_MS = 24 * 60 * 60 * 1000;
 const MAX_ANSWER_MS = 60 * 60 * 1000;
 const ATTEMPTS_IN_DETAIL = 20;
 
-export type Failure = { ok: false; status: 400 | 404 | 409; error: string };
+export type Failure = { ok: false; status: 400 | 404 | 409 | 422; error: string };
 export type Result<T> = { ok: true; value: T } | Failure;
 
 export const fail = (status: Failure['status'], error: string): Failure => ({ ok: false, status, error });

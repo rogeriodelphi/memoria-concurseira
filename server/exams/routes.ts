@@ -5,9 +5,11 @@ import multer, { type FileFilterCallback } from 'multer';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
-import { extractSyllabus, MAX_SYLLABUS_CHARS } from '../ai/router';
+import { extractSyllabus, generateFlashcards, MAX_SYLLABUS_CHARS } from '../ai/router';
 import { withUsageContext } from '../ai/usage';
 import { mockExamFromDiscipline } from '../mockexams/fromDiscipline';
+import { fail } from '../mockexams/store';
+import { generateTopicCards } from './topicCards';
 import { LIMITS, normalizeDraft, type ExamDraft } from './draft';
 import {
   buildExamProgress,
@@ -480,6 +482,21 @@ examsRouter.put('/:id/topics/:topicId/collections', (req: AuthedRequest, res: Re
     }
   });
   res.json({ success: true });
+});
+
+// Gera, por IA, os cartões de um tópico que ainda não tem material: uma coleção nova, já ligada a ele.
+// Uma chamada de IA por tópico; quem decide quando e quantos é sempre o usuário.
+examsRouter.post('/:id/topics/:topicId/cards', async (req: AuthedRequest, res: Response) => {
+  const result = await withUsageContext({ userId: req.userId!, feature: 'flashcards' }, () =>
+    generateTopicCards(db, req.userId!, req.params.id, req.params.topicId, req.body?.quantity, async (topic, options) =>
+      generateFlashcards({ type: 'topic', topic }, options),
+    ),
+  ).catch((err: unknown) => fail(422, err instanceof Error ? err.message : 'Falha ao gerar os cartões.'));
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error });
+    return;
+  }
+  res.status(201).json({ success: true, ...result.value });
 });
 
 // Cria (ou atualiza) o simulado da disciplina com os cartões das coleções ligadas aos tópicos dela.

@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Info, Link2, ListChecks, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronRight, Headphones, Info, Link2, ListChecks, Loader2, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, examsApi } from '../services/api';
 import { daysLeftLabel, formatExamDate, plural } from '../utils/exam';
+import {
+  batchButtonLabel,
+  batchConfirmMessage,
+  CARDS_PER_TOPIC,
+  nextBatch,
+  topicConfirmMessage,
+  topicsWithoutMaterial,
+} from '../utils/examGaps';
+import { disciplineCollectionIds, studyHref } from '../utils/examLinks';
 import type { ExamDetail as ExamDetailData, ExamDisciplineProgress, ExamTopicProgress } from '../types';
 
 type Collection = ExamDetailData['collections'][number];
@@ -95,7 +104,21 @@ export function ExamDetail() {
   const [busy, setBusy] = useState(false);
   /** A disciplina cujo simulado está sendo criado, para desligar o botão dela enquanto isso. */
   const [mockExamBusy, setMockExamBusy] = useState<string | null>(null);
+  /** O tópico cujos cartões a IA está criando (pelo botão do próprio tópico). */
+  const [generatingTopicId, setGeneratingTopicId] = useState<string | null>(null);
+  /** A rodada em lote em andamento: de que disciplina, quantos já foram, de quantos, e o tópico da vez. */
+  const [batch, setBatch] = useState<{ disciplineId: string; done: number; total: number; topicId: string; title: string } | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const stopRef = useRef(false);
   const initialized = useRef(false);
+
+  // Sair da página para o lote: o tópico em andamento termina, e nenhum outro é pedido.
+  useEffect(
+    () => () => {
+      stopRef.current = true;
+    },
+    [],
+  );
 
   async function load() {
     if (!id) return;
@@ -172,6 +195,72 @@ export function ExamDetail() {
     } finally {
       setMockExamBusy(null);
     }
+  }
+
+  const generating = generatingTopicId !== null || batch !== null;
+
+  /** Pede à IA os cartões de um tópico sem material. Só roda depois de confirmar: gasta cota da IA. */
+  async function generateForTopic(topic: ExamTopicProgress) {
+    if (generating) return;
+    const confirmed = await confirm({
+      title: 'Gerar cartões com IA',
+      message: topicConfirmMessage(topic.title),
+      confirmLabel: 'Gerar',
+    });
+    if (!confirmed) return;
+    setGeneratingTopicId(topic.id);
+    try {
+      const { added } = await examsApi.generateTopicCards(id!, topic.id, CARDS_PER_TOPIC);
+      showToast(`${plural(added, 'cartão criado', 'cartões criados')} para o tópico.`);
+      await load();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Não foi possível gerar os cartões.', 'error');
+    } finally {
+      setGeneratingTopicId(null);
+    }
+  }
+
+  /**
+   * Uma rodada em lote: os próximos tópicos sem material da disciplina, um de cada vez (cada um é uma
+   * chamada de IA). Para no primeiro erro (a cota do dia, por exemplo) ou quando o usuário manda parar;
+   * o que já foi gerado fica.
+   */
+  async function generateForDiscipline(discipline: ExamDisciplineProgress) {
+    if (generating) return;
+    const queue = nextBatch(discipline.topics);
+    if (queue.length === 0) return;
+    const confirmed = await confirm({
+      title: 'Gerar cartões com IA',
+      message: batchConfirmMessage(queue.length, discipline.name),
+      confirmLabel: `Gerar para ${queue.length === 1 ? '1 tópico' : `${queue.length} tópicos`}`,
+    });
+    if (!confirmed) return;
+
+    stopRef.current = false;
+    setStopping(false);
+    let topicsDone = 0;
+    let cardsAdded = 0;
+    let failure: string | null = null;
+    for (const [index, topic] of queue.entries()) {
+      if (stopRef.current) break;
+      setBatch({ disciplineId: discipline.id, done: index, total: queue.length, topicId: topic.id, title: topic.title });
+      try {
+        const { added } = await examsApi.generateTopicCards(id!, topic.id, CARDS_PER_TOPIC);
+        topicsDone++;
+        cardsAdded += added;
+      } catch (err) {
+        failure = err instanceof ApiError ? err.message : 'Não foi possível gerar os cartões.';
+        break;
+      }
+    }
+    setBatch(null);
+    setStopping(false);
+    await load().catch(() => {});
+
+    const result = `${plural(topicsDone, 'tópico', 'tópicos')} com cartões novos (${plural(cardsAdded, 'cartão', 'cartões')}).`;
+    if (failure) showToast(topicsDone === 0 ? failure : `Parou depois de ${result} ${failure}`, 'error');
+    else if (stopRef.current && topicsDone < queue.length) showToast(`Parado: ${result}`);
+    else showToast(`Pronto: ${result}`);
   }
 
   async function removeExam() {
@@ -289,6 +378,23 @@ export function ExamDetail() {
             <Link2 size={12} />
             {linked.length > 0 ? 'Editar vínculos' : 'Vincular coleção'}
           </button>
+
+          {!topic.hasMaterial && (
+            <button
+              type="button"
+              onClick={() => void generateForTopic(topic)}
+              disabled={generating || busy}
+              title="A IA cria os cartões deste tópico a partir do título (uma coleção nova, ligada a ele)."
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-brand-400"
+            >
+              {generatingTopicId === topic.id || batch?.topicId === topic.id ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Sparkles size={12} />
+              )}
+              {generatingTopicId === topic.id || batch?.topicId === topic.id ? 'Gerando cartões...' : 'Gerar cartões com IA'}
+            </button>
+          )}
         </div>
 
         {pickerOpen && (
@@ -311,6 +417,11 @@ export function ExamDetail() {
 
   function renderDiscipline(discipline: ExamDisciplineProgress) {
     const expanded = open.has(discipline.id);
+    const missing = topicsWithoutMaterial(discipline.topics).length;
+    const batchHere = batch !== null && batch.disciplineId === discipline.id ? batch : null;
+    const studyIds = disciplineCollectionIds(discipline.topics);
+    const canStudy = discipline.cards > 0 && studyIds.length > 0;
+    const returnTo = `/concursos/${exam.id}`;
     return (
       <section key={discipline.id} className="card overflow-hidden">
         <button
@@ -357,26 +468,94 @@ export function ExamDetail() {
                 Esta disciplina não tem tópicos. Use “Editar” para adicionar.
               </li>
             )}
+            {missing > 0 && (
+              <li className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/30">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {plural(missing, 'tópico está sem material', 'tópicos estão sem material')}. A IA pode criar os cartões deles a partir
+                    do título; você confere depois.
+                  </p>
+                  {batchHere ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopRef.current = true;
+                        setStopping(true);
+                      }}
+                      disabled={stopping}
+                      className="btn-secondary shrink-0 text-xs disabled:opacity-60 sm:py-1.5"
+                    >
+                      {stopping ? 'Parando...' : 'Parar'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void generateForDiscipline(discipline)}
+                      disabled={generating || busy}
+                      className="btn-secondary shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
+                    >
+                      <Sparkles size={14} />
+                      {batchButtonLabel(missing)}
+                    </button>
+                  )}
+                </div>
+                {batchHere && (
+                  <div className="mt-2" role="status">
+                    <p className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                      <Loader2 size={12} className="shrink-0 animate-spin" />
+                      <span className="min-w-0 truncate">
+                        Gerando {batchHere.done + 1} de {batchHere.total}: {batchHere.title}
+                      </span>
+                    </p>
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                      <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${(batchHere.done / batchHere.total) * 100}%` }} />
+                    </div>
+                  </div>
+                )}
+              </li>
+            )}
             <li className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/30">
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 {discipline.cards > 0
                   ? `Treine esta disciplina como numa prova, com os ${plural(discipline.cards, 'cartão', 'cartões')} das coleções ligadas.`
                   : 'Ligue coleções aos tópicos para poder treinar esta disciplina como numa prova.'}
               </p>
-              <button
-                type="button"
-                onClick={() => void openDisciplineMockExam(discipline)}
-                disabled={discipline.cards === 0 || mockExamBusy !== null}
-                className="btn-secondary shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
-                title={
-                  discipline.cards === 0
-                    ? 'Nenhuma coleção com cartões está ligada aos tópicos desta disciplina.'
-                    : 'Cria um simulado só com os cartões desta disciplina (ou o atualiza, se já existir).'
-                }
-              >
-                {mockExamBusy === discipline.id ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
-                Simulado da disciplina
-              </button>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {canStudy ? (
+                  <>
+                    <Link
+                      to={studyHref('study', studyIds, discipline.name, returnTo)}
+                      className="btn-secondary text-xs sm:py-1.5"
+                      title="Revisa os cartões pendentes das coleções ligadas aos tópicos desta disciplina."
+                    >
+                      <BookOpen size={14} />
+                      Revisar
+                    </Link>
+                    <Link
+                      to={studyHref('listen', studyIds, discipline.name, returnTo)}
+                      className="btn-secondary text-xs sm:py-1.5"
+                      title="A voz lê os cartões pendentes desta disciplina (não conta como estudo)."
+                    >
+                      <Headphones size={14} />
+                      Ouvir
+                    </Link>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void openDisciplineMockExam(discipline)}
+                  disabled={discipline.cards === 0 || mockExamBusy !== null}
+                  className="btn-secondary shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
+                  title={
+                    discipline.cards === 0
+                      ? 'Nenhuma coleção com cartões está ligada aos tópicos desta disciplina.'
+                      : 'Cria um simulado só com os cartões desta disciplina (ou o atualiza, se já existir).'
+                  }
+                >
+                  {mockExamBusy === discipline.id ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
+                  Simulado da disciplina
+                </button>
+              </div>
             </li>
           </ul>
         )}
@@ -468,6 +647,11 @@ export function ExamDetail() {
           <p>
             <strong>Sugestões</strong>: comparam o texto do tópico com o assunto e o nome das suas coleções. São só palpites:
             nada é vinculado sem a sua confirmação.
+          </p>
+          <p>
+            <strong>Gerar cartões com IA</strong>: num tópico sem material, a IA cria cerca de {CARDS_PER_TOPIC} cartões a partir do título
+            dele e do concurso, do cargo e da banca, numa coleção nova já vinculada. Sem texto-fonte, podem ter imprecisões: confira,
+            sobretudo leis, números e datas.
           </p>
         </div>
       )}

@@ -290,8 +290,35 @@ chamado "Disciplina — Concurso" com os cartões de todas as coleções ligadas
 (sem repetir cartões). Usar o botão de novo, depois de ligar mais coleções, acrescenta só os
 cartões que faltam ao mesmo simulado; nada é removido.
 
+Ao lado dele, a disciplina tem **Revisar** e **Ouvir**: abrem, para as coleções ligadas aos tópicos
+dela, a revisão dos cartões pendentes e o modo mãos livres (a voz lê, sem contar como estudo). O
+"voltar" dessas telas leva de volta ao concurso. Como em "Estudar a disciplina inteira" da lista de
+coleções, a revisão não é contida pelo limite diário de cartões novos.
+
 Nas telas de estudo comum também há atalhos: `Enter` mostra a resposta, `1` a `4` avaliam
 (errei, difícil, bom, fácil), `←` volta ao cartão anterior e `→` pula o cartão.
+
+### Cobrir os tópicos sem material (cartões por IA)
+
+Na página do concurso, os tópicos do edital sem cartões aparecem com o ponto cinza e o botão
+**Gerar cartões com IA**. Nada roda sozinho: cada geração pede confirmação.
+
+- **Um tópico:** a IA cria cerca de 12 cartões a partir do título do tópico, da disciplina e do
+  concurso, cargo e banca. O tópico ganha uma **coleção nova**, já ligada a ele (assim os cartões
+  dela são exatamente os dele e a cobertura não conta o mesmo cartão duas vezes). Se o título é
+  "Grupo: assunto", o nome da coleção é o grupo e o assunto é o que vem depois, como nas suas
+  outras coleções; sem "Grupo:", o nome é o da disciplina.
+- **Uma rodada na disciplina:** "Gerar cartões dos próximos 20 tópicos sem material" faz um tópico
+  por vez (cada um é uma chamada de IA), mostra o andamento e tem **Parar**. Para sozinho no primeiro
+  erro (a cota do dia, por exemplo); o que já foi gerado fica, e a próxima rodada continua no
+  tópico seguinte. O limite de 20 por rodada protege a cota da IA.
+- **Confira o que a IA gerou.** Sem texto-fonte, ela pode errar, sobretudo em leis, números e datas
+  (o pedido já manda não inventar artigos, datas nem valores). A descrição da coleção diz que ela
+  foi gerada assim, e o arquivo de origem aparece como um tópico, não um PDF. Para trocar por
+  material seu, ligue outra coleção ao tópico em "Vincular coleção" ou apague a coleção gerada.
+- O uso entra no contador de IA ("Flashcards") das Configurações.
+- Um tópico que já tem material não é gerado de novo. Se o tópico está ligado só a coleções
+  vazias, a coleção nova se soma aos vínculos que ele já tinha.
 
 ## Limite diário de cartões novos
 

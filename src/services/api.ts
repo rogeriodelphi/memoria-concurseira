@@ -50,7 +50,7 @@ export const AI_USAGE_EVENT = 'ai-usage-changed';
 // bullet points, transcrever) — depois dela o contador de tokens mudou, então
 // quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
 // erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
-const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/mock-exams\/[^/]+\/choices/;
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices/;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
@@ -269,6 +269,12 @@ export const examsApi = {
     request<DisciplineMockExam>(`/exams/${examId}/disciplines/${disciplineId}/mock-exam`, { method: 'POST' }),
   addLinks: (examId: string, links: { topicId: string; collectionIds: string[] }[]) =>
     request<{ added: number }>(`/exams/${examId}/links`, { method: 'POST', body: JSON.stringify({ links }) }),
+  // Pede à IA os cartões de um tópico sem material: cria uma coleção nova, já ligada ao tópico.
+  generateTopicCards: (examId: string, topicId: string, quantity?: number) =>
+    request<{ collection: { id: string; name: string; subject: string }; added: number }>(
+      `/exams/${examId}/topics/${topicId}/cards`,
+      { method: 'POST', body: JSON.stringify(quantity === undefined ? {} : { quantity }) },
+    ),
 };
 
 export const statsApi = {

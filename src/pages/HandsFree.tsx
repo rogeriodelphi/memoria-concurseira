@@ -9,6 +9,7 @@ import { useHandsFree } from '../hooks/useHandsFree';
 import { useTtsInfo } from '../hooks/useSpeech';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { flashcardsApi } from '../services/api';
+import { safeReturnPath } from '../utils/examLinks';
 import type { DueFlashcard } from '../types';
 import { THINK_SECONDS_OPTIONS, type HandsFreePhase } from '../utils/handsFree';
 import { shuffle } from '../utils/studyQueue';
@@ -75,7 +76,7 @@ function VoiceNote() {
   );
 }
 
-function Player({ cards, backLabel }: { cards: DueFlashcard[]; backLabel: string }) {
+function Player({ cards, backTo, backLabel }: { cards: DueFlashcard[]; backTo: string; backLabel: string }) {
   const hf = useHandsFree(cards);
   const { handsFreeThinkSeconds } = useStudySettings();
   const { status, position } = hf;
@@ -140,7 +141,7 @@ function Player({ cards, backLabel }: { cards: DueFlashcard[]; backLabel: string
 
   const back = (
     <Link
-      to="/colecoes"
+      to={backTo}
       className="tap-area mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
     >
       <ArrowLeft size={16} />
@@ -340,6 +341,10 @@ export function HandsFree() {
   const ids = (params.get('ids') ?? '').split(',').filter(Boolean);
   const idsKey = ids.join(',');
   const name = params.get('nome')?.trim();
+  // Vindo da página de um concurso, o "voltar" leva de volta a ela.
+  const returnTo = safeReturnPath(params.get('voltar'));
+  const backTo = returnTo ?? '/colecoes';
+  const backBase = returnTo ? 'Concurso' : 'Coleções';
 
   const [cards, setCards] = useState<DueFlashcard[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -367,8 +372,8 @@ export function HandsFree() {
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             Não há cartões pendentes{name ? ` em ${name}` : ''} para ouvir agora.
           </p>
-          <Link to="/colecoes" className="btn-primary mt-2">
-            Coleções
+          <Link to={backTo} className="btn-primary mt-2">
+            {backBase}
           </Link>
         </div>
       </div>
@@ -376,5 +381,5 @@ export function HandsFree() {
   }
 
   // `key`: trocar de coleções no endereço começa uma sessão nova.
-  return <Player key={idsKey} cards={cards} backLabel={name ? `Coleções · ${name}` : 'Coleções'} />;
+  return <Player key={idsKey} cards={cards} backTo={backTo} backLabel={name ? `${backBase} · ${name}` : backBase} />;
 }
