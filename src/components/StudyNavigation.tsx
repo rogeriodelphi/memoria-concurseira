@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { SkipForward, Undo2 } from 'lucide-react';
 
 const BUTTON_CLASS =
-  'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200';
+  'flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium sm:py-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200';
 
 function Key({ children }: { children: ReactNode }) {
   return (

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#194f31" />
+    <title>Sem conexão — Base Concurseira</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: #fafafa;
+        color: #171717;
+      }
+      main { width: 100%; max-width: 380px; text-align: center; }
+      .logo {
+        width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #2c8f58, #194f31); color: #f0faf3;
+        font-weight: 800; font-size: 22px;
+      }
+      h1 { margin: 0 0 8px; font-size: 20px; }
+      p { margin: 0 0 12px; color: #525252; line-height: 1.5; font-size: 15px; }
+      ul { margin: 0 0 20px; padding: 0; list-style: none; text-align: left; color: #525252; font-size: 14px; }
+      li { padding: 10px 14px; margin-bottom: 8px; border-radius: 10px; background: #fff; border: 1px solid #e5e5e5; }
+      button {
+        width: 100%; padding: 14px 16px; border: 0; border-radius: 10px;
+        background: #237d48; color: #fff; font: inherit; font-weight: 600; font-size: 15px;
+      }
+      button:active { background: #1c633a; }
+      .status { margin-top: 14px; font-size: 13px; color: #737373; min-height: 1.2em; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0a0a0a; color: #f5f5f5; }
+        p, ul { color: #a3a3a3; }
+        li { background: #171717; border-color: #262626; }
+        .status { color: #8a8a8a; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="logo" aria-hidden="true">BC</div>
+      <h1>Não consegui falar com o seu computador</h1>
+      <p>O app roda no seu PC, então ele precisa estar acessível. Confira:</p>
+      <ul>
+        <li>O PC está ligado e fora do modo de suspensão?</li>
+        <li>O Tailscale está ativo neste celular?</li>
+      </ul>
+      <button id="retry" type="button">Tentar de novo</button>
+      <p class="status" id="status" role="status">Vou tentar sozinho a cada poucos segundos.</p>
+    </main>
+    <script>
+      var status = document.getElementById('status');
+      function check() {
+        status.textContent = 'Tentando...';
+        return fetch('/api/health', { cache: 'no-store' })
+          .then(function (response) {
+            // Servidor de volta: recarrega a tela que o usuário queria. Aberta direto (/offline.html), não há para onde voltar.
+            if (response.ok) {
+              if (location.pathname === '/offline.html') status.textContent = 'O computador respondeu.';
+              else location.reload();
+              return;
+            }
+            status.textContent = 'Ainda sem resposta. Vou tentar de novo.';
+          })
+          .catch(function () { status.textContent = 'Ainda sem resposta. Vou tentar de novo.'; });
+      }
+      document.getElementById('retry').addEventListener('click', check);
+      window.addEventListener('online', check);
+      setInterval(check, 8000);
+    </script>
+  </body>
+</html>

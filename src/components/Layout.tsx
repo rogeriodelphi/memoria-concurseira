@@ -18,7 +18,7 @@ export function Layout() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-neutral-50 text-neutral-400 dark:bg-neutral-950 dark:text-neutral-500">
+      <div className="flex h-screen h-dvh items-center justify-center bg-neutral-50 text-neutral-400 dark:bg-neutral-950 dark:text-neutral-500">
         Carregando...
       </div>
     );
@@ -26,14 +26,16 @@ export function Layout() {
 
   if (!user) return <Navigate to="/login" replace />;
 
+  // `h-dvh` acompanha a área realmente visível no celular (a barra de endereço do navegador some e
+  // volta); só com `h-screen` o fim da página ficava escondido atrás dela. `h-screen` fica de reserva.
   return (
-    <div className="flex h-screen bg-neutral-50 dark:bg-neutral-950 print:h-auto">
+    <div className="flex h-screen h-dvh bg-neutral-50 dark:bg-neutral-950 print:h-auto">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col print:block">
         <header className="flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900 print:hidden md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            className="tap-area text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             aria-label="Abrir menu"
           >
             <Menu size={22} />

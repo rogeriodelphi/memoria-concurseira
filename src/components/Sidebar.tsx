@@ -48,7 +48,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col justify-between overflow-y-auto bg-brand-800 px-4 py-6 text-brand-50 transition-transform duration-200 ease-out print:hidden md:static md:z-auto md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen h-dvh w-64 shrink-0 flex-col justify-between overflow-y-auto bg-brand-800 px-4 py-6 text-brand-50 transition-transform duration-200 ease-out print:hidden md:static md:z-auto md:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -60,7 +60,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               </div>
               <span className="text-lg font-bold text-white">Base Concurseira</span>
             </div>
-            <button onClick={onClose} className="text-brand-100 hover:text-white md:hidden" aria-label="Fechar menu">
+            <button onClick={onClose} className="tap-area text-brand-100 hover:text-white md:hidden" aria-label="Fechar menu">
               <X size={20} />
             </button>
           </div>

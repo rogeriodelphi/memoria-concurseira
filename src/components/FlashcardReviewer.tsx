@@ -215,16 +215,16 @@ export function FlashcardReviewer({
   return (
     <div className="card relative flex min-h-[320px] flex-col justify-between p-8">
       {(onUpdated || onToggleFavorite) && (
-        <div className="absolute right-4 top-4 flex items-center gap-2.5">
+        <div className="absolute right-4 top-4 flex items-center gap-5 sm:gap-2.5">
           <AddToMockExamButton
             flashcardId={current.id}
-            className="text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+            className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
           />
           {onUpdated && (
             <button
               type="button"
               onClick={startEditing}
-              className="text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+              className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
               title="Editar pergunta e resposta"
               aria-label="Editar pergunta e resposta"
             >
@@ -235,7 +235,7 @@ export function FlashcardReviewer({
             <button
               type="button"
               onClick={onToggleFavorite}
-              className={`transition-colors ${
+              className={`tap-area transition-colors ${
                 current.favorite
                   ? 'text-amber-500 hover:text-amber-600'
                   : 'text-neutral-300 hover:text-amber-500 dark:text-neutral-600 dark:hover:text-amber-400'
@@ -263,7 +263,7 @@ export function FlashcardReviewer({
           <button
             type="button"
             onClick={() => toggleSpeak(current.question, current.format, 'question')}
-            className="mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+            className="tap-area mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
           >
             {loading === 'question' ? (
               <Loader2 size={14} className="animate-spin" />
@@ -288,7 +288,7 @@ export function FlashcardReviewer({
               <button
                 type="button"
                 onClick={() => toggleSpeak(current.answer, current.format, 'answer')}
-                className="mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+                className="tap-area mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
               >
                 {loading === 'answer' ? (
                   <Loader2 size={14} className="animate-spin" />

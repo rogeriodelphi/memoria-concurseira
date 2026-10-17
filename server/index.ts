@@ -25,6 +25,7 @@ import { ttsRouter } from './tts/routes';
 import { mockExamsRouter } from './mockexams/routes';
 import { studyPlanRouter } from './studyplan/routes';
 import { startBackupSchedule } from './backup';
+import { bindAddress, cacheControlFor } from './hosting';
 
 process.on('unhandledRejection', (reason) => {
   console.error('\n  ✗ Promise rejeitada sem tratamento:', reason, '\n');
@@ -81,14 +82,32 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 const distDir = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir));
+  app.use(
+    express.static(distDir, {
+      setHeaders: (res, filePath) => {
+        const cacheControl = cacheControlFor(path.relative(distDir, filePath));
+        if (cacheControl) res.setHeader('Cache-Control', cacheControl);
+      },
+    }),
+  );
   app.get('*', (_req: Request, res: Response) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`\n  ✓ Base Concurseira API rodando em http://localhost:${PORT}\n`);
-});
+let HOST: string | undefined;
+try {
+  HOST = bindAddress(process.env);
+} catch (err) {
+  // O handler de exceções acima só registra; aqui o erro precisa parar a subida de verdade.
+  console.error(`\n  ✗ ${err instanceof Error ? err.message : err}\n`);
+  process.exit(1);
+}
+const onListening = () => {
+  const where = HOST ? `${HOST}:${PORT}` : `localhost:${PORT}`;
+  console.log(`\n  ✓ Base Concurseira API rodando em http://${where}\n`);
+};
+if (HOST) app.listen(PORT, HOST, onListening);
+else app.listen(PORT, onListening);
 
 startBackupSchedule();

@@ -682,7 +682,7 @@ export function MockExamTake() {
         <button
           type="button"
           onClick={() => void leave()}
-          className="flex items-center gap-1.5 font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+          className="tap-area flex items-center gap-1.5 font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
         >
           <X size={16} />
           Sair
@@ -774,7 +774,7 @@ export function MockExamTake() {
           onClick={back}
           disabled={run.answers.length === 0}
           title="Voltar ao cartão anterior (←) e refazer a resposta dele."
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium sm:py-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
         >
           <Undo2 size={15} />
           Voltar
@@ -906,7 +906,7 @@ function ChoiceQuestionView({
         <button
           type="button"
           onClick={() => onPick(DONT_KNOW)}
-          className="mx-auto mt-4 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          className="mx-auto mt-4 flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm sm:py-1.5 font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
         >
           <CircleHelp size={15} />
           Não sei

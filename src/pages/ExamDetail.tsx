@@ -367,7 +367,7 @@ export function ExamDetail() {
                 type="button"
                 onClick={() => void openDisciplineMockExam(discipline)}
                 disabled={discipline.cards === 0 || mockExamBusy !== null}
-                className="btn-secondary shrink-0 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-secondary shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
                 title={
                   discipline.cards === 0
                     ? 'Nenhuma coleção com cartões está ligada aos tópicos desta disciplina.'

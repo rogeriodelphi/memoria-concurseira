@@ -66,7 +66,8 @@ processo só serve a interface e a API), numa porta própria para não colidir c
 o `npm run dev`:
 
 - Neste PC: http://localhost:3200
-- Outros aparelhos da mesma rede: `http://<IP-do-PC>:3200` (veja o IP com `ipconfig`)
+- Outros aparelhos da mesma rede: `http://<IP-do-PC>:3200` (veja o IP com `ipconfig`;
+  sem criptografia, veja "Usando no celular")
 
 ```bash
 npm run service:install   # registra a tarefa (uma vez; não exige administrador)
@@ -88,6 +89,51 @@ schtasks /run /tn BaseConcurseira               # sobe agora
 
 Não defina `NODE_ENV=production` nessa tarefa: o cookie de sessão passaria a
 ser `secure` e deixaria de funcionar em HTTP pelo IP da rede.
+
+## Usando no celular
+
+O app roda no seu PC e o celular só o acessa, então o PC precisa estar **ligado e sem
+suspender** (Configurações do Windows → Sistema → Energia: "Suspender" em "Nunca", na
+tomada). Há dois jeitos de chegar lá.
+
+### Tailscale (recomendado)
+
+O Tailscale cria uma rede privada e criptografada entre os seus aparelhos: funciona em casa e
+fora dela e **não expõe o app à internet**. O endereço `https://...ts.net` tem HTTPS de
+verdade, que é o que permite **instalar o app** na tela inicial.
+
+1. Instale o Tailscale no PC e no celular (tailscale.com/download) e entre nos dois com a
+   mesma conta.
+2. Uma vez só, no painel de administração (login.tailscale.com/admin/dns), ligue o
+   **MagicDNS** e os **HTTPS Certificates**.
+3. No PC, num terminal: `tailscale serve --bg 3200`. Ele mostra o endereço, algo como
+   `https://meu-pc.minha-rede.ts.net`. Para ver o que está ligado: `tailscale serve status`;
+   para desligar: `tailscale serve reset`. (Em versões antigas do Tailscale, veja
+   `tailscale serve --help`.) **Nunca use `tailscale funnel`**: ele publica o app na internet.
+4. No celular, com o Tailscale ligado, abra esse endereço. No Chrome (Android): menu ⋮ →
+   **Instalar app**. No Safari (iPhone): Compartilhar → **Adicionar à Tela de Início**. Entre
+   com a sua conta do app (a sessão dura 30 dias).
+
+O app instalado tem ícone próprio e abre em tela cheia. Se o PC estiver fora do ar (desligado,
+suspenso, ou o Tailscale desligado no celular), aparece "Não consegui falar com o seu
+computador" e o app volta sozinho assim que ele responde. O código do app nunca fica guardado
+no celular: depois de um `npm run deploy`, a próxima abertura já usa a versão nova.
+
+### Rede de casa, sem Tailscale
+
+`http://<IP-do-PC>:3200` já funciona no Wi-Fi de casa, mas só em casa e **sem criptografia**
+(a senha e a sessão passam em texto puro pelo Wi-Fi). Sem HTTPS o navegador também não instala o
+app; só dá para criar um atalho na tela inicial.
+
+### Fechar a porta para a rede de casa (opcional)
+
+Por padrão o servidor escuta em todas as interfaces, e o Windows está liberando o Node na rede
+de casa: qualquer aparelho dela (visitas, por exemplo) consegue abrir o app, criar uma conta e
+gastar a sua cota de IA. Se você passar a usar só o Tailscale, pode restringir o servidor ao
+próprio PC: ponha `BIND_ADDRESS=127.0.0.1` no `.env` e rode `npm run deploy`. O Tailscale
+continua funcionando (o `tailscale serve` conecta em `localhost`), e o acesso por
+`http://<IP-do-PC>:3200` deixa de funcionar. Um valor inválido impede o servidor de subir, com
+a mensagem no log, em vez de ignorar o pedido em silêncio.
 
 ## Backup do banco
 

@@ -48,4 +48,39 @@
   .label-field {
     @apply mb-1.5 block text-sm font-medium text-neutral-700 dark:text-neutral-300;
   }
+  /*
+   * Botões pequenos (ícones de 17px, links de texto) são difíceis de acertar com o dedo. Isto
+   * aumenta a área de toque sem mexer no tamanho nem no lugar do botão: no celular, cerca de 10px
+   * em volta; a partir de `sm` (mouse), quase nada.
+   */
+  .tap-area {
+    position: relative;
+  }
+  .tap-area::before {
+    content: '';
+    position: absolute;
+    inset: -0.6rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .tap-area::before {
+    inset: -0.25rem;
+  }
+}
+
+/* No celular, campos com letra menor que 16px fazem o iPhone dar zoom ao tocar neles. */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* No app instalado, puxar a tela para baixo recarregaria tudo e perderia o simulado em andamento. */
+@media (display-mode: standalone) {
+  main {
+    overscroll-behavior-y: contain;
+  }
 }
