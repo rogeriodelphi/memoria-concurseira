@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Info, Link2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Info, Link2, ListChecks, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
@@ -93,6 +93,8 @@ export function ExamDetail() {
   const [pickerTopicId, setPickerTopicId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** A disciplina cujo simulado está sendo criado, para desligar o botão dela enquanto isso. */
+  const [mockExamBusy, setMockExamBusy] = useState<string | null>(null);
   const initialized = useRef(false);
 
   async function load() {
@@ -149,6 +151,27 @@ export function ExamDetail() {
       const { added } = await examsApi.addLinks(id!, strongLinks);
       showToast(`${plural(added, 'vínculo criado', 'vínculos criados')}.`);
     }, 'Não foi possível criar os vínculos.');
+  }
+
+  /** Cria (ou atualiza) o simulado da disciplina com os cartões das coleções ligadas aos tópicos e o abre. */
+  async function openDisciplineMockExam(discipline: ExamDisciplineProgress) {
+    if (mockExamBusy) return;
+    setMockExamBusy(discipline.id);
+    try {
+      const { mockExam, added, created } = await examsApi.createDisciplineMockExam(id!, discipline.id);
+      showToast(
+        created
+          ? `Simulado criado com ${plural(added, 'cartão', 'cartões')}.`
+          : added > 0
+            ? `Simulado atualizado: ${plural(added, 'cartão novo', 'cartões novos')}.`
+            : 'O simulado desta disciplina já está em dia.',
+      );
+      navigate(`/simulados/${mockExam.id}`);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Não foi possível criar o simulado.', 'error');
+    } finally {
+      setMockExamBusy(null);
+    }
   }
 
   async function removeExam() {
@@ -334,6 +357,27 @@ export function ExamDetail() {
                 Esta disciplina não tem tópicos. Use “Editar” para adicionar.
               </li>
             )}
+            <li className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-800/30">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {discipline.cards > 0
+                  ? `Treine esta disciplina como numa prova, com os ${plural(discipline.cards, 'cartão', 'cartões')} das coleções ligadas.`
+                  : 'Ligue coleções aos tópicos para poder treinar esta disciplina como numa prova.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void openDisciplineMockExam(discipline)}
+                disabled={discipline.cards === 0 || mockExamBusy !== null}
+                className="btn-secondary shrink-0 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                title={
+                  discipline.cards === 0
+                    ? 'Nenhuma coleção com cartões está ligada aos tópicos desta disciplina.'
+                    : 'Cria um simulado só com os cartões desta disciplina (ou o atualiza, se já existir).'
+                }
+              >
+                {mockExamBusy === discipline.id ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
+                Simulado da disciplina
+              </button>
+            </li>
           </ul>
         )}
       </section>

@@ -422,6 +422,15 @@ export interface ChoiceQuestion {
   wrong: string[];
 }
 
+/** O simulado criado (ou atualizado) a partir de uma disciplina do concurso. */
+export interface DisciplineMockExam {
+  mockExam: MockExamSummary;
+  /** Cartões que entraram agora. */
+  added: number;
+  /** Era um simulado novo, e não um que já existia e foi atualizado. */
+  created: boolean;
+}
+
 export interface MockExamDetail {
   id: string;
   name: string;

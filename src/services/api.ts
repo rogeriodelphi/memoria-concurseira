@@ -9,6 +9,7 @@ import type {
   CollectionStats,
   CollectionSummary,
   DashboardData,
+  DisciplineMockExam,
   DocumentItem,
   DueFlashcard,
   DuplicateGroup,
@@ -260,6 +261,9 @@ export const examsApi = {
       method: 'PUT',
       body: JSON.stringify({ collectionIds }),
     }),
+  // Cria o simulado da disciplina com os cartões das coleções ligadas aos tópicos (ou o atualiza).
+  createDisciplineMockExam: (examId: string, disciplineId: string) =>
+    request<DisciplineMockExam>(`/exams/${examId}/disciplines/${disciplineId}/mock-exam`, { method: 'POST' }),
   addLinks: (examId: string, links: { topicId: string; collectionIds: string[] }[]) =>
     request<{ added: number }>(`/exams/${examId}/links`, { method: 'POST', body: JSON.stringify({ links }) }),
 };

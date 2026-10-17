@@ -7,6 +7,7 @@ import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { extractSyllabus, MAX_SYLLABUS_CHARS } from '../ai/router';
 import { withUsageContext } from '../ai/usage';
+import { mockExamFromDiscipline } from '../mockexams/fromDiscipline';
 import { LIMITS, normalizeDraft, type ExamDraft } from './draft';
 import {
   buildExamProgress,
@@ -479,6 +480,16 @@ examsRouter.put('/:id/topics/:topicId/collections', (req: AuthedRequest, res: Re
     }
   });
   res.json({ success: true });
+});
+
+// Cria (ou atualiza) o simulado da disciplina com os cartões das coleções ligadas aos tópicos dela.
+examsRouter.post('/:id/disciplines/:disciplineId/mock-exam', (req: AuthedRequest, res: Response) => {
+  const result = mockExamFromDiscipline(db, req.userId!, req.params.id, req.params.disciplineId);
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error });
+    return;
+  }
+  res.status(result.value.created ? 201 : 200).json({ success: true, ...result.value });
 });
 
 // Só acrescenta (nunca remove): é o que "aceitar sugestões" usa, em lote.

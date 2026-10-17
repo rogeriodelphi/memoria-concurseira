@@ -169,6 +169,13 @@ questões (10, 20, 30, 50 ou todas):
 - O histórico do simulado mostra o **tipo** de cada tentativa (autoavaliado ou múltipla
   escolha). Tentativas antigas contam como autoavaliadas.
 
+### Simulado de uma disciplina do concurso
+
+Em **Concursos**, abra uma disciplina e use **Simulado da disciplina**: o app cria um simulado
+chamado "Disciplina — Concurso" com os cartões de todas as coleções ligadas aos tópicos dela
+(sem repetir cartões). Usar o botão de novo, depois de ligar mais coleções, acrescenta só os
+cartões que faltam ao mesmo simulado; nada é removido.
+
 Nas telas de estudo comum também há atalhos: `Enter` mostra a resposta, `1` a `4` avaliam
 (errei, difícil, bom, fácil), `←` volta ao cartão anterior e `→` pula o cartão.
 
