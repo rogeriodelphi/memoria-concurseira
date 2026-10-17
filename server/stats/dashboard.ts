@@ -45,6 +45,8 @@ export interface DashboardData {
   };
   /** O limite diário de cartões novos (`null` = sem limite). */
   dailyNewLimit: number | null;
+  /** Tempo médio por revisão nos últimos 30 dias, em segundos (`null` sem revisões no período). */
+  recentPaceSec: number | null;
   remaining: {
     /** Os novos que entram na fila de hoje (todos, sem limite; com limite, só os que ainda cabem). */
     new: number;
@@ -301,6 +303,7 @@ export function buildDashboard(
       passRatePct: pct(todays.length - todayAgain, todays.length),
     },
     dailyNewLimit,
+    recentPaceSec: recentPace !== null ? recentPace / 1000 : null,
     remaining: {
       new: newToday,
       newWaiting: newCount - newToday,

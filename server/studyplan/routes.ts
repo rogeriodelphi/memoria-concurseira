@@ -2,6 +2,7 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { loadExamPlan } from './examPlan';
 import { getDailyNewLimit, setDailyNewLimit } from './store';
 
 export const studyPlanRouter = express.Router();
@@ -19,4 +20,9 @@ studyPlanRouter.put('/', (req: AuthedRequest, res: Response) => {
     return;
   }
   res.json({ success: true, dailyNewLimit: saved.value });
+});
+
+// A meta para a prova do concurso com data mais próxima (`plan: null` se não há nenhum com data).
+studyPlanRouter.get('/exam', (req: AuthedRequest, res: Response) => {
+  res.json({ success: true, plan: loadExamPlan(db, req.userId!) });
 });

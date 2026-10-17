@@ -277,6 +277,29 @@ entram na revisão de cada dia. Vazio (o padrão) = sem limite, como sempre foi.
   coleções usam a mesma conta. O Painel mostra os "Novos aguardando".
 - Estudar uma coleção direto (pelo botão "Estudar" dela) não tem limite: ali a escolha é sua.
 
+## Meta para a prova
+
+Se algum concurso tem **data da prova**, o Painel mostra "Meta para a prova" (do concurso com a
+data mais próxima que ainda não passou): quantos cartões novos e vencidos você tem, quanto
+você estuda por dia e o que cada tempo diário cobre até a prova.
+
+- **Cenários:** "No seu ritmo atual" (quantos novos cabem sem deixar as revisões para trás),
+  dois tempos fixos (30, 45, 60 ou 90 min, os que ficam entre o seu ritmo e o necessário) e "Ver
+  todos os cartões novos". Cada um diz quantos novos por dia, quanto trabalho dá, quanto tempo
+  leva e que parte dos novos é vista antes da prova. O gráfico mostra a carga de cada dia.
+- **Como é calculado:** uma simulação dia a dia com o **mesmo algoritmo de revisão do app**
+  (1 dia, depois 6, depois o intervalo × facilidade), e não uma regra de bolso: cada cartão novo
+  volta várias vezes antes da prova, e isso pesa mais do que parece. O tempo vem do **seu**
+  tempo médio por cartão nos últimos 30 dias (30 s se ainda não há medida).
+- **Suposições** (também escritas no rodapé do cartão): você acerta os cartões ("Bom"); os
+  últimos 7 dias antes da prova são só de revisão (3 dias ou menos: só revisar); os cartões já
+  vencidos são recuperados ao longo de uma semana; o tempo leva uma margem de 15% pelos erros;
+  o ritmo é a média dos últimos 14 dias, **contando os dias sem estudo**.
+- **"Usar N novos por dia"** grava o limite diário de cartões novos (o mesmo de Configurações →
+  Plano de estudo) e atualiza o contador de "Revisar pendentes". Nada é aplicado sem o clique.
+- O cartão some se nenhum concurso tem data. Um concurso sem data pode ganhar uma em
+  **Concursos → Editar**.
+
 ## Disciplinas (coleções agrupadas)
 
 Na lista de coleções, as coleções de **mesmo nome** (sem diferenciar maiúsculas nem acentos)

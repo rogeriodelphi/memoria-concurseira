@@ -107,6 +107,8 @@ export interface DashboardData {
   };
   /** O limite diário de cartões novos na fila de revisão (`null` = sem limite). */
   dailyNewLimit: number | null;
+  /** Tempo médio por revisão nos últimos 30 dias, em segundos. */
+  recentPaceSec: number | null;
   remaining: {
     /** Os novos que entram na fila de hoje: todos, sem limite; com limite, só os que ainda cabem. */
     new: number;
@@ -446,4 +448,38 @@ export interface MockExamAnswer {
   flashcardId: string;
   correct: boolean;
   durationMs?: number;
+}
+
+// ---------- Meta para a prova ----------
+
+export type PlanVerdict = 'on_track' | 'tight' | 'behind' | 'no_pace' | 'last_days' | 'exam_today';
+
+/** Um jeito de chegar à prova: quantos cartões novos por dia e o que isso custa e cobre (médias até a prova). */
+export interface PlanScenario {
+  kind: 'current' | 'budget' | 'all';
+  newPerDay: number;
+  cardsPerDay: number;
+  minutesPerDay: number;
+  newSeen: number;
+  coveragePct: number;
+  /** A carga de cada dia até a prova. */
+  perDay: number[];
+}
+
+export interface ExamPlan {
+  exam: { id: string; name: string; examDate: string; daysLeft: number };
+  verdict: PlanVerdict;
+  finalReviewDays: number;
+  newDays: number;
+  cards: { new: number; due: number; learned: number };
+  currentLimit: number | null;
+  pace: {
+    windowDays: number;
+    reviewsPerDay: number;
+    newPerDay: number;
+    activeDays: number;
+    secPerReview: number | null;
+  };
+  neededNewPerDay: number | null;
+  scenarios: PlanScenario[];
 }

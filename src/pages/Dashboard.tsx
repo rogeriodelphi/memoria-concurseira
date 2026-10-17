@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Headphones, Info, Play } from 'lucide-react';
 
+import { ExamPlanCard } from '../components/ExamPlanCard';
 import { statsApi } from '../services/api';
 import type { DashboardData } from '../types';
 
@@ -322,6 +323,14 @@ export function Dashboard() {
       .catch(() => setError('Não foi possível carregar o painel.'));
   }, []);
 
+  // Mudar o limite diário na "Meta para a prova" muda a fila de hoje: o contador do botão acompanha.
+  function reloadDashboard() {
+    statsApi
+      .dashboard()
+      .then(setData)
+      .catch(() => {});
+  }
+
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
@@ -358,6 +367,8 @@ export function Dashboard() {
           </p>
         )}
       </div>
+
+      <ExamPlanCard onLimitChanged={reloadDashboard} />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!data && !error && <p className="text-sm text-neutral-400 dark:text-neutral-500">Carregando...</p>}

@@ -12,6 +12,7 @@ import type {
   DisciplineMockExam,
   DocumentItem,
   DueFlashcard,
+  ExamPlan,
   DuplicateGroup,
   ExamDetail,
   ExamDraft,
@@ -276,6 +277,8 @@ export const statsApi = {
 // O plano de estudo: hoje, o limite diário de cartões novos na fila de revisão (`null` = sem limite).
 export const studyPlanApi = {
   get: () => request<{ dailyNewLimit: number | null }>('/study-plan'),
+  // A meta para a prova do concurso com data mais próxima (`null` se não há nenhum com data).
+  exam: () => request<{ plan: ExamPlan | null }>('/study-plan/exam'),
   setDailyNewLimit: (dailyNewLimit: number | null) =>
     request<{ dailyNewLimit: number | null }>('/study-plan', { method: 'PUT', body: JSON.stringify({ dailyNewLimit }) }),
 };
