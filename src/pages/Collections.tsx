@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowDown,
@@ -9,6 +9,7 @@ import {
   Layers,
   Pencil,
   Plus,
+  Search,
   Star,
   Trash2,
   Upload,
@@ -19,6 +20,7 @@ import { ApiError, collectionsApi, flashcardsApi } from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
 import type { CollectionSummary, DuplicateGroup } from '../types';
+import { filterCollections } from '../utils/collectionFilter';
 
 function stripHtml(value: string, format: string): string {
   return format === 'html' ? value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : value;
@@ -106,6 +108,25 @@ export function Collections() {
     });
     return copy;
   }, [collections, sortKey, sortDir]);
+
+  // A pesquisa fica no endereço (?q=...): ao abrir uma coleção e voltar, o filtro continua lá.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get('q') ?? '';
+  function setQuery(value: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set('q', value);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+  const visibleCollections = useMemo(
+    () => (sortedCollections ? filterCollections(sortedCollections, query) : sortedCollections),
+    [sortedCollections, query],
+  );
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -348,89 +369,138 @@ export function Collections() {
 
       {collections !== null && collections.length > 0 && (
         <>
-          {/* Tabela — telas médias e maiores. Em telas de celular uma tabela de
-              5 colunas não cabe, por isso ela fica escondida e substituída
-              pelos cards logo abaixo. */}
-          <div className="card hidden overflow-hidden md:block">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-neutral-100 bg-neutral-50/60 text-xs uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/60 dark:text-neutral-500">
-                <tr>
-                  <SortableHeader label="Nome da coleção" sortKeyName="name" />
-                  <SortableHeader label="Flashcards" sortKeyName="flashcardCount" />
-                  <SortableHeader label="Status" sortKeyName="status" />
-                  <SortableHeader label="Atualizada em" sortKeyName="updatedAt" />
-                  <th className="px-6 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedCollections!.map((c) => {
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500"
+              />
+              <input
+                type="text"
+                className="input-field pl-9 pr-9"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setQuery('');
+                }}
+                placeholder="Pesquisar por nome ou assunto..."
+                aria-label="Pesquisar coleções por nome ou assunto"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                  aria-label="Limpar pesquisa"
+                  title="Limpar pesquisa (Esc)"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+            {query.trim() && (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400" aria-live="polite">
+                {visibleCollections!.length} de {collections.length} coleç{collections.length === 1 ? 'ão' : 'ões'}
+              </p>
+            )}
+          </div>
+
+          {visibleCollections!.length === 0 ? (
+            <div className="card flex flex-col items-center gap-3 px-6 py-12 text-center">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Nenhuma coleção tem &quot;{query.trim()}&quot; no nome ou no assunto.
+              </p>
+              <button type="button" onClick={() => setQuery('')} className="btn-secondary">
+                Limpar pesquisa
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Tabela — telas médias e maiores. Em telas de celular uma tabela de
+                  5 colunas não cabe, por isso ela fica escondida e substituída
+                  pelos cards logo abaixo. */}
+              <div className="card hidden overflow-hidden md:block">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-neutral-100 bg-neutral-50/60 text-xs uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/60 dark:text-neutral-500">
+                    <tr>
+                      <SortableHeader label="Nome da coleção" sortKeyName="name" />
+                      <SortableHeader label="Flashcards" sortKeyName="flashcardCount" />
+                      <SortableHeader label="Status" sortKeyName="status" />
+                      <SortableHeader label="Atualizada em" sortKeyName="updatedAt" />
+                      <th className="px-6 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleCollections!.map((c) => {
+                      const status = STATUS_LABEL[c.status];
+                      return (
+                        <tr
+                          key={c.id}
+                          className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
+                        >
+                          <td className="px-6 py-4">{renderTitle(c, 'tabela')}</td>
+                          <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
+                            <div className="flex items-center gap-2">
+                              <span>{c.flashcardCount}</span>
+                              {c.dueCount > 0 && (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                                  {c.dueCount} a revisar
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
+                              {status.text}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-neutral-500 dark:text-neutral-400">
+                            {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
+                              Abrir
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Cards — só em telas de celular (abaixo de md). */}
+              <div className="space-y-3 md:hidden">
+                {visibleCollections!.map((c) => {
                   const status = STATUS_LABEL[c.status];
                   return (
-                    <tr
-                      key={c.id}
-                      className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
-                    >
-                      <td className="px-6 py-4">{renderTitle(c, 'tabela')}</td>
-                      <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
-                        <div className="flex items-center gap-2">
-                          <span>{c.flashcardCount}</span>
+                    <div key={c.id} className="card p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">{renderTitle(c, 'cartao')}</div>
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
+                          {status.text}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                        <span className="flex items-center gap-1.5">
+                          {c.flashcardCount} flashcard{c.flashcardCount === 1 ? '' : 's'} ·{' '}
+                          {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
                           {c.dueCount > 0 && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                               {c.dueCount} a revisar
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
-                          {status.text}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-neutral-500 dark:text-neutral-400">
-                        {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 text-right">
                         <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
                           Abrir
                         </Link>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Cards — só em telas de celular (abaixo de md). */}
-          <div className="space-y-3 md:hidden">
-            {sortedCollections!.map((c) => {
-              const status = STATUS_LABEL[c.status];
-              return (
-                <div key={c.id} className="card p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">{renderTitle(c, 'cartao')}</div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
-                      {status.text}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-                    <span className="flex items-center gap-1.5">
-                      {c.flashcardCount} flashcard{c.flashcardCount === 1 ? '' : 's'} ·{' '}
-                      {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
-                      {c.dueCount > 0 && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                          {c.dueCount} a revisar
-                        </span>
-                      )}
-                    </span>
-                    <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
-                      Abrir
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
