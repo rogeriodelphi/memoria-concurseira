@@ -86,6 +86,8 @@ const EXPORTED: ExportedTable[] = [
 export const EXCLUDED_TABLES: Record<string, string> = {
   users: 'vai no campo "usuario", sem a senha',
   ai_provider_status: 'estado do servidor (qual provedor de IA está funcionando); não é dado do usuário',
+  push_subscriptions: 'endereços e chaves de entrega de notificações dos aparelhos; só valem para este servidor e não são dado de estudo',
+  app_kv: 'configuração do servidor (as chaves VAPID dos lembretes); é segredo do servidor, não dado do usuário',
 };
 
 export const EXPORTED_TABLES: readonly string[] = EXPORTED.map((e) => e.table);

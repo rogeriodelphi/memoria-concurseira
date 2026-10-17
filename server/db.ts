@@ -3,6 +3,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './mockexams/schema';
+import { REMINDER_SCHEMA } from './reminders/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
 if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 5)) {
@@ -215,6 +216,15 @@ if (!usersColumns.some((c) => c.name === 'daily_new_limit')) {
   db.exec('ALTER TABLE users ADD COLUMN daily_new_limit INTEGER');
 }
 
+// Lembrete diário no celular: a hora (HH:MM, local) em que o usuário quer ser lembrado (NULL = sem
+// lembrete, o comportamento de sempre) e o dia (AAAA-MM-DD) do último envio, para mandar uma vez por dia.
+if (!usersColumns.some((c) => c.name === 'reminder_time')) {
+  db.exec('ALTER TABLE users ADD COLUMN reminder_time TEXT');
+}
+if (!usersColumns.some((c) => c.name === 'reminder_last_sent')) {
+  db.exec('ALTER TABLE users ADD COLUMN reminder_last_sent TEXT');
+}
+
 // Em que ordem os cartões novos entram na fila quando há limite diário: 'created' (a ordem de
 // criação, o comportamento de sempre) ou 'exam' (pelo peso das disciplinas do concurso mais próximo).
 // Todo mundo começa em 'created': ninguém muda de ordem sem pedir.
@@ -306,3 +316,6 @@ db.exec(`
 // Só tabelas próprias (o esquema fica em mockexams/schema, que os testes também usam).
 db.exec(MOCK_EXAM_SCHEMA);
 upgradeMockExamSchema(db);
+
+// Lembretes de estudo no celular (push): inscrições dos aparelhos e as chaves VAPID do servidor.
+db.exec(REMINDER_SCHEMA);

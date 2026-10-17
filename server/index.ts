@@ -7,6 +7,7 @@ import fs from 'node:fs';
 // módulo do server ser avaliado (db, auth, ai dependem de variáveis de ambiente).
 import './env';
 import { authRouter } from './auth/routes';
+import { db } from './db';
 import { collectionsRouter } from './collections/routes';
 import { documentsRouter } from './documents/routes';
 import { flashcardsRouter } from './flashcards/routes';
@@ -23,6 +24,8 @@ import { ankiImportRouter } from './anki/routes';
 import { examsRouter } from './exams/routes';
 import { ttsRouter } from './tts/routes';
 import { mockExamsRouter } from './mockexams/routes';
+import { remindersRouter } from './reminders/routes';
+import { startReminderSchedule } from './reminders/scheduler';
 import { studyPlanRouter } from './studyplan/routes';
 import { startBackupSchedule } from './backup';
 import { bindAddress, cacheControlFor } from './hosting';
@@ -68,6 +71,7 @@ app.use('/api/exams', examsRouter);
 app.use('/api/tts', ttsRouter);
 app.use('/api/mock-exams', mockExamsRouter);
 app.use('/api/study-plan', studyPlanRouter);
+app.use('/api/reminders', remindersRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, ok: true });
@@ -111,3 +115,4 @@ if (HOST) app.listen(PORT, HOST, onListening);
 else app.listen(PORT, onListening);
 
 startBackupSchedule();
+startReminderSchedule(db);

@@ -12,8 +12,31 @@ const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 type Listener = (event: unknown) => void;
 
-function loadWorker(network: (request: unknown) => Promise<Response>) {
+/** Uma janela do app aberta no aparelho, como o worker a enxerga. */
+interface FakeWindow {
+  focused: boolean;
+  navigated: string[];
+  focus(): Promise<FakeWindow>;
+  navigate(url: string): Promise<unknown>;
+}
+
+function fakeWindow(): FakeWindow {
+  const window: FakeWindow = {
+    focused: false,
+    navigated: [],
+    focus: async () => {
+      window.focused = true;
+      return window;
+    },
+    navigate: async (url: string) => void window.navigated.push(url),
+  };
+  return window;
+}
+
+function loadWorker(network: (request: unknown) => Promise<Response>, windows: FakeWindow[] = []) {
   const listeners: Record<string, Listener> = {};
+  const shown: { title: string; options: Record<string, any> }[] = [];
+  const opened: string[] = [];
   const caches = new Map<string, Map<string, Response>>();
   const clientsClaimed = { value: false };
 
@@ -41,7 +64,12 @@ function loadWorker(network: (request: unknown) => Promise<Response>) {
       listeners[type] = listener;
     },
     skipWaiting: async () => {},
-    clients: { claim: async () => void (clientsClaimed.value = true) },
+    clients: {
+      claim: async () => void (clientsClaimed.value = true),
+      matchAll: async () => windows,
+      openWindow: async (url: string) => void opened.push(url),
+    },
+    registration: { showNotification: async (title: string, options: Record<string, any>) => void shown.push({ title, options }) },
   };
 
   vm.runInNewContext(read('public/sw.js'), { self, caches: cacheApi, fetch: network, Response, Promise, Set });
@@ -59,7 +87,27 @@ function loadWorker(network: (request: unknown) => Promise<Response>) {
     return answer ? await answer : null;
   };
 
-  return { caches, clientsClaimed, lifecycle, handle };
+  /** Entrega um push ao worker (`payload` é o que o servidor mandou; `undefined` = push sem conteúdo) e espera a notificação aparecer. */
+  const push = async (payload: unknown, raw?: string) => {
+    let work: Promise<unknown> = Promise.resolve();
+    const data = raw !== undefined || payload !== undefined ? { json: () => (raw !== undefined ? JSON.parse(raw) : payload) } : null;
+    listeners.push({ data, waitUntil: (p: Promise<unknown>) => (work = p) });
+    await work;
+  };
+
+  /** O toque numa notificação (com o `data` que o worker pôs nela). */
+  const click = async (notificationData: unknown) => {
+    let work: Promise<unknown> = Promise.resolve();
+    const closed = { value: false };
+    listeners.notificationclick({
+      notification: { data: notificationData, close: () => void (closed.value = true) },
+      waitUntil: (p: Promise<unknown>) => (work = p),
+    });
+    await work;
+    return closed.value;
+  };
+
+  return { caches, clientsClaimed, lifecycle, handle, push, click, shown, opened };
 }
 
 const NAVIGATE = { mode: 'navigate', method: 'GET', url: 'https://pc.exemplo.ts.net/painel' };
@@ -225,4 +273,87 @@ test('index.html: liga o manifest, a cor do tema, o favicon e o ícone do iPhone
   }
   assert.deepEqual(pngSize('public/icons/apple-touch-icon.png'), { width: 180, height: 180 });
   assert.match(html, /apple-mobile-web-app-capable/);
+});
+
+// ---------- lembrete de estudo (push) ----------
+
+const REMINDER = { title: 'Hora de estudar', body: '42 cartões para revisar hoje', url: '/revisar', tag: 'lembrete-diario' };
+
+test('push: o lembrete vira uma notificação com título, texto, ícone, tag e o destino', async () => {
+  const worker = loadWorker(async () => app());
+  await worker.push(REMINDER);
+  assert.equal(worker.shown.length, 1);
+  const { title, options } = worker.shown[0];
+  assert.equal(title, 'Hora de estudar');
+  assert.equal(options.body, '42 cartões para revisar hoje');
+  assert.equal(options.tag, 'lembrete-diario');
+  assert.equal(options.icon, '/icons/icon-192.png');
+  assert.equal(options.data.url, '/revisar');
+  assert.ok(fs.existsSync(path.join(ROOT, 'public', options.icon)), 'o ícone da notificação existe');
+});
+
+test('push: sem conteúdo, ou com conteúdo que não é JSON, ainda mostra uma notificação (o navegador exige)', async () => {
+  const empty = loadWorker(async () => app());
+  await empty.push(undefined);
+  assert.equal(empty.shown.length, 1);
+  assert.equal(empty.shown[0].title, 'Memória Concurseira');
+  assert.equal(empty.shown[0].options.data.url, '/painel');
+  assert.equal(empty.shown[0].options.tag, undefined);
+
+  const broken = loadWorker(async () => app());
+  await broken.push(undefined, 'isto não é json');
+  assert.equal(broken.shown.length, 1);
+  assert.equal(broken.shown[0].title, 'Memória Concurseira');
+});
+
+test('push: textos de tamanho absurdo são cortados e tipos errados caem no padrão', async () => {
+  const worker = loadWorker(async () => app());
+  await worker.push({ title: 'T'.repeat(500), body: 'B'.repeat(900), tag: 'x'.repeat(300), url: '/revisar' });
+  const { title, options } = worker.shown[0];
+  assert.equal(title.length, 80);
+  assert.equal(options.body.length, 200);
+  assert.equal(options.tag.length, 64);
+
+  const wrongTypes = loadWorker(async () => app());
+  await wrongTypes.push({ title: 123, body: { x: 1 }, tag: 5, url: ['/revisar'] });
+  assert.equal(wrongTypes.shown[0].title, 'Memória Concurseira');
+  assert.equal(wrongTypes.shown[0].options.body, '');
+  assert.equal(wrongTypes.shown[0].options.tag, undefined);
+  assert.equal(wrongTypes.shown[0].options.data.url, '/painel');
+});
+
+test('push: o destino só pode ser uma tela do próprio app (nunca outro site)', async () => {
+  for (const url of ['https://evil.com', '//evil.com', 'javascript:alert(1)', '/a?x=1', 'revisar', '/a\\b', '/a:b']) {
+    const worker = loadWorker(async () => app());
+    await worker.push({ ...REMINDER, url });
+    assert.equal(worker.shown[0].options.data.url, '/painel', url);
+  }
+  for (const url of ['/revisar', '/colecoes/abc-123/estudar', '/concursos/x']) {
+    const worker = loadWorker(async () => app());
+    await worker.push({ ...REMINDER, url });
+    assert.equal(worker.shown[0].options.data.url, url);
+  }
+});
+
+test('toque na notificação: fecha, e abre o app na tela do lembrete quando não há janela aberta', async () => {
+  const worker = loadWorker(async () => app());
+  assert.equal(await worker.click({ url: '/revisar' }), true, 'a notificação some');
+  assert.deepEqual([...worker.opened], ['/revisar']);
+});
+
+test('toque na notificação: com o app já aberto, usa a janela dele e vai para a tela do lembrete', async () => {
+  const window = fakeWindow();
+  const worker = loadWorker(async () => app(), [window]);
+  await worker.click({ url: '/revisar' });
+  assert.equal(window.focused, true);
+  assert.deepEqual([...window.navigated], ['/revisar']);
+  assert.equal(worker.opened.length, 0, 'não abriu uma segunda janela');
+});
+
+test('toque na notificação: dado ausente ou fora do padrão abre o painel, nunca um endereço de fora', async () => {
+  for (const data of [undefined, null, {}, { url: 'https://evil.com' }, { url: '//evil.com' }]) {
+    const worker = loadWorker(async () => app());
+    await worker.click(data);
+    assert.deepEqual([...worker.opened], ['/painel'], JSON.stringify(data));
+  }
 });

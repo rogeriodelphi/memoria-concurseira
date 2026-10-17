@@ -159,6 +159,32 @@ continua funcionando (o `tailscale serve` conecta em `localhost`), e o acesso po
 `http://<IP-do-PC>:3200` deixa de funcionar. Um valor inválido impede o servidor de subir, com
 a mensagem no log, em vez de ignorar o pedido em silêncio.
 
+### Lembrete de estudo no celular
+
+Em **Configurações → Lembrete de estudo** o celular passa a receber **uma notificação por dia**, na
+hora que você escolher (padrão 19h), do tipo "56 cartões para revisar hoje · faltam 50 dias para a
+prova". Começa desligado.
+
+- **Para funcionar:** abra o app pelo endereço `https://...ts.net` do Tailscale (sem HTTPS o
+  navegador não oferece notificações), instale-o na tela inicial (no iPhone é obrigatório: iOS 16.4 ou
+  mais novo, e só funciona com o app aberto pelo ícone da tela inicial), toque em **Ativar neste
+  aparelho** e permita as notificações. **Enviar um teste** confere na hora. Cada aparelho se ativa por
+  si; a hora vale para a conta toda.
+- **Quando manda:** na hora escolhida (ou até 3 horas depois, se o PC estava desligado nela; depois
+  disso fica para o dia seguinte), no máximo **uma vez por dia**, e só se houver cartões na fila de
+  revisão e você **ainda não tiver estudado hoje**. O PC precisa estar ligado e o servidor rodando.
+  A verificação roda a cada 5 minutos.
+- **Tocar na notificação** abre a revisão do dia (ou usa a janela do app, se já estiver aberta).
+- **Como funciona:** é o Web Push padrão (RFC 8030, 8291 e 8292), escrito só com o `crypto` do Node,
+  sem pacote novo. O conteúdo é cifrado de ponta a ponta para o aparelho; o serviço de push do
+  navegador (Google, Mozilla, Apple ou Microsoft) só vê bytes cifrados e o tamanho. O servidor só aceita
+  inscrições desses serviços (um endereço qualquer seria o servidor fazendo requisições para onde o
+  usuário mandasse). As chaves VAPID do servidor são geradas na primeira vez e ficam no banco
+  (`app_kv`): trocá-las invalidaria todas as inscrições. Para o contato exigido pelo protocolo, o
+  padrão é o endereço do repositório; troque com `VAPID_SUBJECT=mailto:voce@exemplo.com` no `.env`.
+- Desativar neste aparelho cancela a inscrição; **Desligar o lembrete** apaga a hora. Uma inscrição que
+  o navegador cancelou ou deixou expirar é removida sozinha na próxima tentativa.
+
 ## Backup do banco
 
 O servidor tira um backup do banco (`backups/app-AAAAMMDD-HHMMSS.db`) assim

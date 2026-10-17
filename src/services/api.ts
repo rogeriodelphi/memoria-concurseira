@@ -295,6 +295,17 @@ export const studyPlanApi = {
     request<{ order: NewCardOrder }>('/study-plan/new-order', { method: 'PUT', body: JSON.stringify({ order }) }),
 };
 
+// Lembrete diário de estudo no celular (notificação push): a hora, os aparelhos inscritos e o teste.
+export const remindersApi = {
+  get: () => request<{ publicKey: string; time: string | null; devices: number }>('/reminders'),
+  setTime: (time: string | null) => request<{ time: string | null }>('/reminders', { method: 'PUT', body: JSON.stringify({ time }) }),
+  subscribe: (subscription: PushSubscriptionJSON) =>
+    request<{ devices: number }>('/reminders/subscribe', { method: 'POST', body: JSON.stringify({ subscription }) }),
+  unsubscribe: (endpoint: string) =>
+    request<{ devices: number }>('/reminders/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
+  test: () => request<{ delivered: number }>('/reminders/test', { method: 'POST' }),
+};
+
 export const pomodoroApi = {
   logTask: (input: {
     mode: PomodoroMode;
