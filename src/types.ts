@@ -372,3 +372,51 @@ export interface SearchResults {
   mindMaps: SearchResultItem[];
   bulletPoints: SearchResultItem[];
 }
+
+// ---------- Simulados ----------
+
+export interface MockExamSummary {
+  id: string;
+  name: string;
+  cardCount: number;
+  attemptCount: number;
+  lastAttempt: { finishedAt: string; total: number; correct: number } | null;
+  /** Só quando a lista foi pedida para um cartão: ele já está neste simulado? */
+  containsCard?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MockExamCard {
+  id: string;
+  question: string;
+  answer: string;
+  format: FlashcardFormat;
+  collectionId: string;
+  collectionName: string;
+}
+
+export interface MockExamAttempt {
+  id: string;
+  finishedAt: string;
+  durationMs: number;
+  total: number;
+  correct: number;
+}
+
+export interface MockExamDetail {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  cards: MockExamCard[];
+  attempts: MockExamAttempt[];
+  /** Os cartões que o usuário errou na tentativa mais recente (e que ainda estão no simulado). */
+  lastWrongFlashcardIds: string[];
+}
+
+export interface MockExamAnswer {
+  flashcardId: string;
+  correct: boolean;
+  durationMs?: number;
+}

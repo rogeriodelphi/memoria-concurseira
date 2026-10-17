@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Pencil, Star, Volume2, VolumeX } from 'lucide-react';
 
+import { AddToMockExamButton } from './AddToMockExamButton';
 import { FormattedText } from './FormattedText';
 import { RichTextEditor } from './RichTextEditor';
 import { useStudySettings } from '../contexts/StudySettingsContext';
@@ -213,6 +214,10 @@ export function FlashcardReviewer({
     <div className="card relative flex min-h-[320px] flex-col justify-between p-8">
       {(onUpdated || onToggleFavorite) && (
         <div className="absolute right-4 top-4 flex items-center gap-2.5">
+          <AddToMockExamButton
+            flashcardId={current.id}
+            className="text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+          />
           {onUpdated && (
             <button
               type="button"

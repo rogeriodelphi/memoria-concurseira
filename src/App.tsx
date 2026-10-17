@@ -37,6 +37,9 @@ import { BulletPointsNew } from './pages/BulletPointsNew';
 import { BulletPointsList } from './pages/BulletPointsList';
 import { GlobalSearch } from './pages/GlobalSearch';
 import { AnkiImport } from './pages/AnkiImport';
+import { MockExams } from './pages/MockExams';
+import { MockExamDetail } from './pages/MockExamDetail';
+import { MockExamTake } from './pages/MockExamTake';
 
 export default function App() {
   return (
@@ -57,6 +60,9 @@ export default function App() {
                       <Route path="/concursos/novo" element={<ExamNew />} />
                       <Route path="/concursos/:id" element={<ExamDetail />} />
                       <Route path="/concursos/:id/editar" element={<ExamEdit />} />
+                      <Route path="/simulados" element={<MockExams />} />
+                      <Route path="/simulados/:id" element={<MockExamDetail />} />
+                      <Route path="/simulados/:id/fazer" element={<MockExamTake />} />
                       <Route path="/colecoes" element={<Collections />} />
                       <Route path="/colecoes/nova" element={<CollectionNew />} />
                       <Route path="/colecoes/:id" element={<CollectionDetail />} />

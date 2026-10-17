@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+import { MOCK_EXAM_SCHEMA } from './mockexams/schema';
+
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
 if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 5)) {
   throw new Error(
@@ -286,3 +288,7 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_exam_topic_collections_collection ON exam_topic_collections(collection_id);
 `);
+
+// Simulados: listas de cartões escolhidos pelo usuário e o histórico de cada tentativa.
+// Só tabelas novas (o esquema fica em mockexams/schema, que os testes também usam).
+db.exec(MOCK_EXAM_SCHEMA);

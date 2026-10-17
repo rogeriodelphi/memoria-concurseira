@@ -22,6 +22,7 @@ import { aiUsageRouter } from './aiusage/routes';
 import { ankiImportRouter } from './anki/routes';
 import { examsRouter } from './exams/routes';
 import { ttsRouter } from './tts/routes';
+import { mockExamsRouter } from './mockexams/routes';
 import { startBackupSchedule } from './backup';
 
 process.on('unhandledRejection', (reason) => {
@@ -63,6 +64,7 @@ app.use('/api/ai-usage', aiUsageRouter);
 app.use('/api/anki-import', ankiImportRouter);
 app.use('/api/exams', examsRouter);
 app.use('/api/tts', ttsRouter);
+app.use('/api/mock-exams', mockExamsRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, ok: true });

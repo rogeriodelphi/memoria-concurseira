@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+
+import { useModalKeys } from '../hooks/useModalKeys';
 
 /**
  * Uma imagem de cartão ou resumo em tela cheia. Abre ajustada à tela; um clique na imagem
@@ -10,26 +12,8 @@ import { X } from 'lucide-react';
 export function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   const [actualSize, setActualSize] = useState(false);
 
-  useEffect(() => {
-    // Em captura e parando a propagação: com a imagem aberta, nenhuma tecla chega aos atalhos da
-    // tela por baixo (Enter mostraria a resposta, 1 a 4 avaliariam o cartão sem o usuário ver).
-    function onKeyDown(event: KeyboardEvent) {
-      event.stopPropagation();
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown, true);
-
-    // A página por trás não rola enquanto a imagem está aberta.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKeyDown, true);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose]);
+  // Esc fecha, a página por trás não rola e nenhuma tecla chega aos atalhos da tela por baixo.
+  useModalKeys(onClose);
 
   // Num portal: o cartão tem posicionamento próprio, e a imagem precisa cobrir a tela toda.
   return createPortal(

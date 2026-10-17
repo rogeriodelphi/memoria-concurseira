@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import type { StudyResult } from '../types';
 import { studyShortcut } from '../utils/studyKeys';
+import { useKeyboardNavigationFlag } from './useKeyboardNavigationFlag';
 
 interface StudyShortcutHandlers {
   /** Desligado (por exemplo, com o cartão em edição) os atalhos não fazem nada. */
@@ -26,24 +27,8 @@ export function useStudyShortcuts(handlers: StudyShortcutHandlers): void {
   const latest = useRef(handlers);
   latest.current = handlers;
 
-  // O usuário chegou ao foco atual andando com Tab (e não clicando)? Quem navega por teclado
-  // espera que o Enter "clique" no botão focado; depois de um clique do mouse, não. Sempre
-  // ligado, também com a resposta à mostra: um clique durante a avaliação conta.
-  const keyboardNavigation = useRef(false);
-  useEffect(() => {
-    const onTab = (event: KeyboardEvent) => {
-      if (event.key === 'Tab') keyboardNavigation.current = true;
-    };
-    const onPointerDown = () => {
-      keyboardNavigation.current = false;
-    };
-    window.addEventListener('keydown', onTab, true);
-    window.addEventListener('pointerdown', onPointerDown, true);
-    return () => {
-      window.removeEventListener('keydown', onTab, true);
-      window.removeEventListener('pointerdown', onPointerDown, true);
-    };
-  }, []);
+  // O usuário chegou ao foco atual andando com Tab (e não clicando)?
+  const keyboardNavigation = useKeyboardNavigationFlag();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

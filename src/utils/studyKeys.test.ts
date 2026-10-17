@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { studyShortcut, type KeyEventLike, type ShortcutContext, type StudyShortcut } from './studyKeys';
+import {
+  mockExamShortcut,
+  studyShortcut,
+  type KeyEventLike,
+  type MockExamShortcutContext,
+  type ShortcutContext,
+  type StudyShortcut,
+} from './studyKeys';
 
 interface FakeTarget {
   tagName: string;
@@ -118,4 +125,47 @@ test('1 a 4 e as setas valem com um botão focado: não são teclas de botão', 
   assert.deepEqual(press('3', tabbed, {}, { tagName: 'BUTTON' }), { type: 'rate', result: 'bom' });
   assert.deepEqual(press('ArrowRight', tabbed, {}, { tagName: 'BUTTON' }), { type: 'skip' });
   assert.deepEqual(press('ArrowLeft', tabbed, {}, { tagName: 'A' }), { type: 'back' });
+});
+
+// ---------- simulado ----------
+
+const EXAM_QUESTION: MockExamShortcutContext = { revealed: false, canGoBack: true, keyboardNavigation: false };
+const EXAM_ANSWER: MockExamShortcutContext = { ...EXAM_QUESTION, revealed: true };
+
+function examPress(
+  key: string,
+  context: MockExamShortcutContext = EXAM_QUESTION,
+  extra: Partial<KeyEventLike> = {},
+  t: FakeTarget | null = BODY,
+) {
+  return mockExamShortcut(
+    { key, ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, target: t ? target(t) : null, ...extra },
+    context,
+  );
+}
+
+test('simulado: Enter mostra a resposta; 1 marca errei e 2 marca acertei, só com a resposta à mostra', () => {
+  assert.deepEqual(examPress('Enter'), { type: 'reveal' });
+  assert.equal(examPress('Enter', EXAM_ANSWER), null);
+  assert.deepEqual(examPress('1', EXAM_ANSWER), { type: 'answer', correct: false });
+  assert.deepEqual(examPress('2', EXAM_ANSWER), { type: 'answer', correct: true });
+  assert.equal(examPress('1', EXAM_QUESTION), null, 'antes de ver a resposta não dá para marcar');
+  assert.equal(examPress('2', EXAM_QUESTION), null);
+  for (const key of ['3', '4', 'ArrowRight', ' ', 'a']) assert.equal(examPress(key, EXAM_ANSWER), null, key);
+});
+
+test('simulado: ← desfaz a última resposta, só se há uma', () => {
+  assert.deepEqual(examPress('ArrowLeft', EXAM_QUESTION), { type: 'back' });
+  assert.equal(examPress('ArrowLeft', { ...EXAM_QUESTION, canGoBack: false }), null);
+});
+
+test('simulado: as mesmas proteções do estudo (modificador, repetida, composição, campo de texto, botão por Tab)', () => {
+  for (const modifier of ['ctrlKey', 'altKey', 'metaKey', 'shiftKey'] as const) {
+    assert.equal(examPress('Enter', EXAM_QUESTION, { [modifier]: true }), null, modifier);
+  }
+  assert.equal(examPress('2', EXAM_ANSWER, { repeat: true }), null);
+  assert.equal(examPress('Enter', EXAM_QUESTION, { isComposing: true }), null);
+  assert.equal(examPress('2', EXAM_ANSWER, {}, { tagName: 'INPUT' }), null);
+  assert.equal(examPress('Enter', { ...EXAM_QUESTION, keyboardNavigation: true }, {}, { tagName: 'BUTTON' }), null);
+  assert.deepEqual(examPress('Enter', EXAM_QUESTION, {}, { tagName: 'BUTTON' }), { type: 'reveal' }, 'botão do mouse');
 });

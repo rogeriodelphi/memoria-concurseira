@@ -17,6 +17,10 @@ import type {
   GenerationOptions,
   MindMapDetail,
   MindMapSummary,
+  MockExamAnswer,
+  MockExamAttempt,
+  MockExamDetail,
+  MockExamSummary,
   PomodoroMode,
   PomodoroTask,
   SearchResults,
@@ -391,3 +395,29 @@ export function exportAnki(collectionId: string, name: string, flashcardIds?: st
 export function exportPdf(collectionId: string, name: string, flashcardIds?: string[]) {
   return downloadExport('/exports/pdf', `${name}.pdf`, collectionId, flashcardIds);
 }
+
+export const mockExamsApi = {
+  // Com `flashcardId`, cada simulado diz se já tem esse cartão (o seletor "Adicionar ao simulado").
+  list: (flashcardId?: string) =>
+    request<{ mockExams: MockExamSummary[] }>(
+      `/mock-exams${flashcardId ? `?flashcardId=${encodeURIComponent(flashcardId)}` : ''}`,
+    ),
+  create: (name: string) =>
+    request<{ mockExam: MockExamSummary }>('/mock-exams', { method: 'POST', body: JSON.stringify({ name }) }),
+  get: (id: string) => request<{ mockExam: MockExamDetail }>(`/mock-exams/${id}`),
+  rename: (id: string, name: string) =>
+    request<{ mockExam: MockExamSummary }>(`/mock-exams/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+  remove: (id: string) => request<{ success: true }>(`/mock-exams/${id}`, { method: 'DELETE' }),
+  addCards: (id: string, flashcardIds: string[]) =>
+    request<{ added: number; alreadyInside: number }>(`/mock-exams/${id}/cards`, {
+      method: 'POST',
+      body: JSON.stringify({ flashcardIds }),
+    }),
+  removeCard: (id: string, flashcardId: string) =>
+    request<{ success: true }>(`/mock-exams/${id}/cards/${flashcardId}`, { method: 'DELETE' }),
+  recordAttempt: (id: string, durationMs: number, answers: MockExamAnswer[]) =>
+    request<{ attempt: MockExamAttempt }>(`/mock-exams/${id}/attempts`, {
+      method: 'POST',
+      body: JSON.stringify({ durationMs, answers }),
+    }),
+};

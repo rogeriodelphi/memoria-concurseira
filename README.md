@@ -130,3 +130,20 @@ arquivo de backup desejado (renomeando-o para `app.db`), apague eventuais
 7. Exportar para Anki (`.apkg`: pergunta → Frente, resposta → Verso, dificuldade
    vira tag da nota).
 8. No Anki: Arquivo → Importar → selecionar o `.apkg` (ou dar duplo clique nele).
+
+## Simulados
+
+Listas de cartões para treinar como numa prova, separadas da revisão espaçada:
+
+1. Em qualquer cartão (no estudo ou na lista da coleção), o botão "Adicionar ao simulado"
+   abre a lista dos seus simulados: marque os que devem ter o cartão ou crie um novo ali
+   mesmo. Um cartão pode estar em vários simulados.
+2. Em **Simulados**, "Fazer simulado" mostra um cartão por vez, com cronômetro: você
+   mostra a resposta e marca "Errei" ou "Acertei". Atalhos: `Enter` mostra a resposta,
+   `1` errei, `2` acertei, `←` volta ao cartão anterior.
+3. No fim há a nota, o tempo, a lista do que errou e a opção de refazer só os erros.
+   Cada tentativa fica no histórico do simulado.
+4. O simulado não mexe no agendamento dos cartões nem no painel de estudo.
+
+Nas telas de estudo comum também há atalhos: `Enter` mostra a resposta, `1` a `4` avaliam
+(errei, difícil, bom, fácil), `←` volta ao cartão anterior e `→` pula o cartão.

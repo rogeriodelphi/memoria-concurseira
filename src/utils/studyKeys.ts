@@ -39,6 +39,62 @@ function isTyping(target: Partial<HTMLElement> | null): boolean {
   return !!target && (TEXT_ENTRY_TAGS.has(target.tagName ?? '') || !!target.isContentEditable);
 }
 
+/** Teclas que nenhum atalho de estudo usa: com modificador, em composição, repetidas, ou dentro de um campo de texto. */
+function isIgnored(event: KeyEventLike): boolean {
+  return (
+    event.ctrlKey ||
+    event.altKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    !!event.isComposing ||
+    !!event.repeat ||
+    isTyping(event.target as Partial<HTMLElement> | null)
+  );
+}
+
+/**
+ * O Enter mostra a resposta, a menos que ela já esteja à mostra ou que o foco esteja num botão ou
+ * link a que o usuário chegou com Tab (ali o Enter é "clicar", como quem navega por teclado espera).
+ */
+function revealsOnEnter(
+  event: KeyEventLike,
+  context: { revealed: boolean; keyboardNavigation: boolean },
+): boolean {
+  if (context.revealed) return false;
+  const target = event.target as Partial<HTMLElement> | null;
+  const activatable =
+    !!target &&
+    typeof target.tagName === 'string' &&
+    (ACTIVATABLE_TAGS.has(target.tagName) || target.getAttribute?.('role') === 'button');
+  return !(activatable && context.keyboardNavigation);
+}
+
+/** O que um atalho de teclado pode fazer na tela do simulado. */
+export type MockExamShortcut = { type: 'reveal' } | { type: 'answer'; correct: boolean } | { type: 'back' };
+
+export interface MockExamShortcutContext {
+  revealed: boolean;
+  /** Há uma resposta anterior a desfazer. */
+  canGoBack: boolean;
+  keyboardNavigation: boolean;
+}
+
+/**
+ * Os atalhos do simulado, com as mesmas regras de `studyShortcut` (o que nunca aciona, e o Enter com
+ * botão focado): Enter mostra a resposta; 1 marca "errei" e 2 marca "acertei", só com a resposta à
+ * mostra; ← desfaz a última resposta.
+ */
+export function mockExamShortcut(event: KeyEventLike, context: MockExamShortcutContext): MockExamShortcut | null {
+  if (isIgnored(event)) return null;
+
+  if (event.key === 'Enter') return revealsOnEnter(event, context) ? { type: 'reveal' } : null;
+  if (event.key === '1' || event.key === '2') {
+    return context.revealed ? { type: 'answer', correct: event.key === '2' } : null;
+  }
+  if (event.key === 'ArrowLeft') return context.canGoBack ? { type: 'back' } : null;
+  return null;
+}
+
 /**
  * Qual atalho, se algum, um evento de teclado aciona na tela de estudo.
  *
@@ -58,19 +114,9 @@ function isTyping(target: Partial<HTMLElement> | null): boolean {
  *   foco (menos num campo de texto).
  */
 export function studyShortcut(event: KeyEventLike, context: ShortcutContext): StudyShortcut | null {
-  if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || event.isComposing || event.repeat) {
-    return null;
-  }
-  const target = event.target as Partial<HTMLElement> | null;
-  if (isTyping(target)) return null;
+  if (isIgnored(event)) return null;
 
-  if (event.key === 'Enter') {
-    if (context.revealed) return null;
-    const activatable =
-      !!target && typeof target.tagName === 'string' &&
-      (ACTIVATABLE_TAGS.has(target.tagName) || target.getAttribute?.('role') === 'button');
-    return activatable && context.keyboardNavigation ? null : { type: 'reveal' };
-  }
+  if (event.key === 'Enter') return revealsOnEnter(event, context) ? { type: 'reveal' } : null;
 
   const result = RATING_KEYS[event.key];
   if (result) return context.revealed ? { type: 'rate', result } : null;
