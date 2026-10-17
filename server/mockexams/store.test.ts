@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
-import { MOCK_EXAM_SCHEMA } from './schema';
+import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './schema';
 import {
   addCards,
   createMockExam,
@@ -331,4 +331,50 @@ test('apagar um cartão preserva o placar do histórico; só o detalhe daquele c
   assert.deepEqual(detail.attempts.map((t) => [t.total, t.correct]), [[2, 1]], 'o placar continua 1 de 2');
   assert.equal(count(db, 'mock_exam_answers'), 1);
   assert.deepEqual(detail.lastWrongFlashcardIds, []);
+});
+
+// ---------- tipo da tentativa (autoavaliado ou múltipla escolha) ----------
+
+test('tentativa: sem informar o tipo é autoavaliada; "choice" guarda múltipla escolha; qualquer outro valor vira autoavaliada', () => {
+  const db = newDb();
+  const a = value(createMockExam(db, 'u1', 'Redes'));
+  value(addCards(db, 'u1', a.id, ['f1']));
+  const answers = [{ flashcardId: 'f1', correct: true }];
+
+  assert.equal(value(recordAttempt(db, 'u1', a.id, { answers })).mode, 'self');
+  assert.equal(value(recordAttempt(db, 'u1', a.id, { answers, mode: 'choice' })).mode, 'choice');
+  assert.equal(value(recordAttempt(db, 'u1', a.id, { answers, mode: 'qualquer' })).mode, 'self');
+  assert.equal(value(recordAttempt(db, 'u1', a.id, { answers, mode: 7 })).mode, 'self');
+
+  const modes = value(getMockExamDetail(db, 'u1', a.id)).attempts.map((t) => t.mode);
+  assert.equal(modes.length, 4);
+  assert.equal(modes.filter((m) => m === 'choice').length, 1);
+});
+
+test('migração: um banco anterior às alternativas ganha a coluna "mode", e as tentativas antigas ficam autoavaliadas', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`
+    CREATE TABLE users (id TEXT PRIMARY KEY);
+    CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL);
+    CREATE TABLE flashcards (id TEXT PRIMARY KEY, collection_id TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain');
+    CREATE TABLE mock_exams (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE mock_exam_attempts (
+      id TEXT PRIMARY KEY, mock_exam_id TEXT NOT NULL, user_id TEXT NOT NULL,
+      finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, total INTEGER NOT NULL, correct INTEGER NOT NULL
+    );
+    INSERT INTO mock_exams VALUES ('m1', 'u1', 'Antigo', 'x', 'x');
+    INSERT INTO mock_exam_attempts VALUES ('t1', 'm1', 'u1', '2026-10-01T10:00:00.000Z', 1000, 5, 3);
+  `);
+
+  db.exec(MOCK_EXAM_SCHEMA); // não mexe em tabela que já existe
+  upgradeMockExamSchema(db);
+  upgradeMockExamSchema(db); // rodar de novo é inofensivo
+
+  const old = db.prepare('SELECT total, correct, mode FROM mock_exam_attempts WHERE id = ?').get('t1') as {
+    total: number;
+    correct: number;
+    mode: string;
+  };
+  assert.deepEqual({ ...old }, { total: 5, correct: 3, mode: 'self' });
+  assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'card_choices'").get(), 'a tabela de alternativas existe');
 });

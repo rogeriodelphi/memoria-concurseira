@@ -152,6 +152,39 @@ test('mapa mental e bullet points passam pela mesma validação dos outros prove
   assert.deepEqual(bullets, { title: 'Pontos', points: ['um', 'dois'] });
 });
 
+test('alternativas: os cartões vão numerados no pedido e a resposta passa pela validação compartilhada', async () => {
+  const sources = [
+    { n: 1, question: 'Qual protocolo resolve nomes?', answer: 'O DNS.' },
+    { n: 2, question: 'Qual a porta do SSH?', answer: 'A porta TCP 22.' },
+  ];
+  setup(() => ({
+    status: 200,
+    body: toolUse({
+      questions: [
+        { n: 1, correct: 'a) O DNS', wrong: ['O DHCP', 'O ARP', 'Todas as anteriores', 'O ICMP', 'O DHCP'] },
+        { n: 2, correct: 'A porta 22', wrong: ['A porta 23'] }, // poucas erradas: fica de fora
+      ],
+    }),
+  }));
+
+  const choices = await claude.generateChoicesClaude(sources);
+  assert.deepEqual(choices, [{ n: 1, correct: 'O DNS', wrong: ['O DHCP', 'O ARP', 'O ICMP'] }]);
+
+  const body = fake.requests[0].body;
+  assert.match(body.system, /múltipla escolha/);
+  assert.match(body.messages[0].content, /\[n=1\]\nPergunta: Qual protocolo resolve nomes\?\nResposta: O DNS\./);
+  assert.match(body.messages[0].content, /\[n=2\]/);
+  assert.equal(body.tools[0].input_schema.properties.questions.items.required.join(','), 'n,correct,wrong');
+});
+
+test('alternativas: resposta sem nenhuma questão aproveitável é erro (a cadeia tenta o próximo provedor)', async () => {
+  setup(() => ({ status: 200, body: toolUse({ questions: [{ n: 9, correct: 'x', wrong: ['a', 'b', 'c'] }] }) }));
+  await assert.rejects(
+    claude.generateChoicesClaude([{ n: 1, question: 'P', answer: 'R' }]),
+    /formato esperado/,
+  );
+});
+
 test('edital: texto e PDF escaneado, com o cargo pedido na instrução', async () => {
   setup(() => ({
     status: 200,

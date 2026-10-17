@@ -2,6 +2,9 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { generateChoices } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
+import { listChoices, prepareChoices } from './choices';
 import {
   addCards,
   createMockExam,
@@ -63,7 +66,30 @@ mockExamsRouter.delete('/:id/cards/:flashcardId', (req: AuthedRequest, res: Resp
   res.json({ success: true });
 });
 
-mockExamsRouter.post('/:id/attempts', (req: AuthedRequest, res: Response) => {
+// As alternativas já geradas (e ainda válidas) dos cartões do simulado, e quais cartões ainda não têm.
+mockExamsRouter.get('/:id/choices', (req: AuthedRequest, res: Response) => {
+  const listed = listChoices(db, req.userId!, req.params.id);
+  if (!listed.ok) return sendFailure(res, listed);
+  res.json({ success: true, ...listed.value });
+});
+
+// Gera (uma chamada de IA por pedido) as alternativas dos cartões que ainda não têm e as guarda.
+// O navegador pede em lotes pequenos e mostra o progresso. Falha da IA (cota, rede) é 422 com o
+// motivo, como nas demais gerações; o que já foi guardado em lotes anteriores continua valendo.
+mockExamsRouter.post('/:id/choices', async (req: AuthedRequest, res: Response) => {
+  try {
+    const prepared = await withUsageContext({ userId: req.userId!, feature: 'choices' }, () =>
+      prepareChoices(db, req.userId!, req.params.id, req.body?.flashcardIds, generateChoices),
+    );
+    if (!prepared.ok) return sendFailure(res, prepared);
+    res.json({ success: true, ...prepared.value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Não foi possível gerar as alternativas.';
+    res.status(422).json({ success: false, error: message });
+  }
+});
+
+mockExamsRouter.post('/:id/attempts',(req: AuthedRequest, res: Response) => {
   const attempt = recordAttempt(db, req.userId!, req.params.id, req.body);
   if (!attempt.ok) return sendFailure(res, attempt);
   res.status(201).json({ success: true, attempt: attempt.value });

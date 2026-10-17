@@ -2,6 +2,13 @@ import { GoogleGenAI, Type, FileState, ApiError, createPartFromUri, createUserCo
 import type { GenerateContentParameters, GenerateContentResponse } from '@google/genai';
 
 import { decodeGeminiAudio, type DecodedAudio } from '../tts/audio';
+import {
+  CHOICES_SYSTEM_PROMPT,
+  choicesUserPrompt,
+  parseChoicesResponse,
+  type ChoiceSource,
+  type GeneratedChoice,
+} from './choices';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 
 export interface GenerationOptions {
@@ -704,6 +711,40 @@ function parseBulletPointsResponse(rawText: string | undefined): GeneratedBullet
     throw new Error('A IA não conseguiu gerar bullet points a partir deste texto.');
   }
   return { title, points };
+}
+
+const CHOICES_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    questions: {
+      type: Type.ARRAY,
+      description: 'Uma questão por cartão.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          n: { type: Type.INTEGER, description: 'O número do cartão, como no pedido.' },
+          correct: { type: Type.STRING, description: 'A alternativa correta.' },
+          wrong: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'As alternativas incorretas.' },
+        },
+        required: ['n', 'correct', 'wrong'],
+      },
+    },
+  },
+  required: ['questions'],
+};
+
+export async function generateChoicesGemini(sources: ChoiceSource[]): Promise<GeneratedChoice[]> {
+  const client = getClient();
+  const response = await generateContentWithRetry(client, {
+    model: MODEL,
+    contents: choicesUserPrompt(sources),
+    config: {
+      systemInstruction: CHOICES_SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+      responseSchema: CHOICES_SCHEMA,
+    },
+  });
+  return parseChoicesResponse(response.text, sources);
 }
 
 // Modelo de voz do Gemini. Existe uma versão "lite" (gemini-3.8-flash-lite-tts), mais

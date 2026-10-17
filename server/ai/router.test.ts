@@ -83,6 +83,26 @@ test('só o Claude configurado: tópico, resumo, bullet points e mapa mental pas
   });
 });
 
+test('alternativas: passam pela cadeia de provedores como as demais gerações', async () => {
+  const sources = [{ n: 1, question: 'P', answer: 'R' }];
+  onlyClaude(toolUse({ questions: [{ n: 1, correct: 'Certa', wrong: ['E1', 'E2', 'E3', 'E4'] }] }));
+  assert.deepEqual(await router.generateChoices(sources), [{ n: 1, correct: 'Certa', wrong: ['E1', 'E2', 'E3', 'E4'] }]);
+
+  // Resposta inutilizável do único provedor: o erro chega a quem chamou, sem inventar alternativas.
+  onlyClaude(toolUse({ questions: [] }));
+  await assert.rejects(router.generateChoices(sources), /formato esperado/);
+
+  // Sem nenhum provedor configurado.
+  onlyClaude();
+  const savedKey = process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    await assert.rejects(router.generateChoices(sources), notConfigured);
+  } finally {
+    if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
+  }
+});
+
 test('mídia que o Claude não processa não é enviada: sem outro provedor, vira erro de configuração', async () => {
   onlyClaude();
   await assert.rejects(router.generateFlashcards({ type: 'youtube', url: 'https://youtu.be/x' }, OPTIONS), notConfigured);

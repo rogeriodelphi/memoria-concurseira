@@ -12,6 +12,14 @@ import {
   type MindMapNode,
   type SummaryMode,
 } from './gemini';
+import {
+  CHOICES_JSON_SCHEMA,
+  CHOICES_SYSTEM_PROMPT,
+  choicesUserPrompt,
+  parseChoicesResponse,
+  type ChoiceSource,
+  type GeneratedChoice,
+} from './choices';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 
 // gpt-4o-mini: barato e rápido, com suporte a saída estruturada (JSON
@@ -438,6 +446,22 @@ function parseBulletPointsResponse(rawText: string | undefined): GeneratedBullet
     throw new Error('A IA não conseguiu gerar bullet points a partir deste texto.');
   }
   return { title, points };
+}
+
+export async function generateChoicesOpenAI(sources: ChoiceSource[]): Promise<GeneratedChoice[]> {
+  const client = getClient();
+  const response = await chatCompletionWithRetry(client, {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: CHOICES_SYSTEM_PROMPT },
+      { role: 'user', content: choicesUserPrompt(sources) },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'choices', strict: true, schema: CHOICES_JSON_SCHEMA },
+    },
+  });
+  return parseChoicesResponse(response.choices[0]?.message?.content ?? undefined, sources);
 }
 
 // O modo estrito da OpenAI exige todos os campos como obrigatórios; "não

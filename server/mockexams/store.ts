@@ -13,8 +13,8 @@ const ATTEMPTS_IN_DETAIL = 20;
 export type Failure = { ok: false; status: 400 | 404 | 409; error: string };
 export type Result<T> = { ok: true; value: T } | Failure;
 
-const fail = (status: Failure['status'], error: string): Failure => ({ ok: false, status, error });
-const ok = <T>(value: T): Result<T> => ({ ok: true, value });
+export const fail = (status: Failure['status'], error: string): Failure => ({ ok: false, status, error });
+export const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 
 export interface MockExamSummary {
   id: string;
@@ -37,12 +37,16 @@ export interface MockExamCard {
   collectionName: string;
 }
 
+/** Como a tentativa foi feita: o usuário se avaliando (`self`) ou respondendo questões de múltipla escolha (`choice`). */
+export type AttemptMode = 'self' | 'choice';
+
 export interface MockExamAttempt {
   id: string;
   finishedAt: string;
   durationMs: number;
   total: number;
   correct: number;
+  mode: AttemptMode;
 }
 
 export interface MockExamDetail {
@@ -190,7 +194,7 @@ export function getMockExamDetail(db: DatabaseSync, userId: string, id: string):
 
   const attempts = db
     .prepare(
-      `SELECT id, finished_at, duration_ms, total, correct FROM mock_exam_attempts
+      `SELECT id, finished_at, duration_ms, total, correct, mode FROM mock_exam_attempts
        WHERE mock_exam_id = ? ORDER BY finished_at DESC, rowid DESC LIMIT ?`,
     )
     .all(id, ATTEMPTS_IN_DETAIL) as unknown as {
@@ -199,6 +203,7 @@ export function getMockExamDetail(db: DatabaseSync, userId: string, id: string):
     duration_ms: number;
     total: number;
     correct: number;
+    mode: string;
   }[];
 
   const wrong =
@@ -231,6 +236,7 @@ export function getMockExamDetail(db: DatabaseSync, userId: string, id: string):
       durationMs: a.duration_ms,
       total: a.total,
       correct: a.correct,
+      mode: a.mode === 'choice' ? 'choice' : 'self',
     })),
     lastWrongFlashcardIds: wrong.map((w) => w.flashcard_id),
   });
@@ -301,7 +307,12 @@ export function recordAttempt(
 ): Result<MockExamAttempt> {
   if (!loadExam(db, userId, id)) return fail(404, NOT_FOUND);
 
-  const { durationMs, answers } = (body ?? {}) as { durationMs?: unknown; answers?: unknown };
+  const { durationMs, answers, mode: rawMode } = (body ?? {}) as {
+    durationMs?: unknown;
+    answers?: unknown;
+    mode?: unknown;
+  };
+  const mode: AttemptMode = rawMode === 'choice' ? 'choice' : 'self';
   if (!Array.isArray(answers) || answers.length === 0) return fail(400, 'Não há respostas para guardar.');
   if (answers.length > MAX_ANSWERS_PER_ATTEMPT) return fail(400, 'Respostas demais para uma tentativa.');
 
@@ -338,8 +349,8 @@ export function recordAttempt(
   db.exec('BEGIN');
   try {
     db.prepare(
-      'INSERT INTO mock_exam_attempts (id, mock_exam_id, user_id, finished_at, duration_ms, total, correct) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(attemptId, id, userId, finishedAt, duration, total, correct);
+      'INSERT INTO mock_exam_attempts (id, mock_exam_id, user_id, finished_at, duration_ms, total, correct, mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    ).run(attemptId, id, userId, finishedAt, duration, total, correct, mode);
     const insert = db.prepare(
       'INSERT INTO mock_exam_answers (attempt_id, flashcard_id, correct, duration_ms) VALUES (?, ?, ?, ?)',
     );
@@ -350,5 +361,5 @@ export function recordAttempt(
     db.exec('ROLLBACK');
     throw err;
   }
-  return ok({ id: attemptId, finishedAt, durationMs: duration, total, correct });
+  return ok({ id: attemptId, finishedAt, durationMs: duration, total, correct, mode });
 }

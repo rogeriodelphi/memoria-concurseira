@@ -145,6 +145,30 @@ Listas de cartões para treinar como numa prova, separadas da revisão espaçada
    Cada tentativa fica no histórico do simulado.
 4. O simulado não mexe no agendamento dos cartões nem no painel de estudo.
 
+### Múltipla escolha (gerada por IA)
+
+Autoavaliar é otimista: quem se marca "Fácil" nem sempre acerta quando precisa escolher entre
+alternativas parecidas. Ao fazer um simulado, escolha **Múltipla escolha** e a quantidade de
+questões (10, 20, 30, 50 ou todas):
+
+- Cada cartão vira uma questão com **cinco alternativas** (uma correta e quatro erradas
+  plausíveis), geradas pela IA pelo mesmo caminho dos outros recursos (`AI_PROVIDER_ORDER`:
+  OpenAI, Gemini e Claude, nesta ordem, passando ao próximo se um falha).
+- As alternativas são geradas **uma única vez por cartão** e ficam guardadas no banco
+  (tabela `card_choices`). A preparação pede à IA só o que falta, em lotes de 8 cartões (uma
+  chamada por lote), com barra de progresso e botão de cancelar. Se a cota acabar no meio,
+  a tela oferece começar com as questões já prontas ou tentar de novo; o que foi gerado antes
+  continua guardado. O gasto aparece em **Uso de IA**, como "Alternativas de simulado".
+- Se você editar a pergunta ou a resposta do cartão, as alternativas dele são geradas de novo
+  na próxima prova (mudar só a formatação não conta). Cartões só com imagem não viram questão.
+- A posição da correta é sorteada a cada prova. Depois de responder, aparecem o gabarito e
+  a **resposta do próprio cartão** (a IA pode errar; vale o que está no cartão). "Não sei"
+  conta como erro, sem chute.
+- Atalhos: `1` a `5` (ou `A` a `E`) escolhem, `0` é "não sei", `Enter` segue para a próxima,
+  `←` volta e refaz a anterior.
+- O histórico do simulado mostra o **tipo** de cada tentativa (autoavaliado ou múltipla
+  escolha). Tentativas antigas contam como autoavaliadas.
+
 Nas telas de estudo comum também há atalhos: `Enter` mostra a resposta, `1` a `4` avaliam
 (errei, difícil, bom, fácil), `←` volta ao cartão anterior e `→` pula o cartão.
 

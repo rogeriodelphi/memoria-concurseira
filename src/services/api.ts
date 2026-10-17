@@ -2,7 +2,9 @@ import type {
   AiUsage,
   AnkiImportPreview,
   AnkiImportResult,
+  AttemptMode,
   BulletPoints,
+  ChoiceQuestion,
   CollectionDetail,
   CollectionStats,
   CollectionSummary,
@@ -44,7 +46,7 @@ export const AI_USAGE_EVENT = 'ai-usage-changed';
 // bullet points, transcrever) — depois dela o contador de tokens mudou, então
 // quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
 // erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
-const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract/;
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/mock-exams\/[^/]+\/choices/;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
@@ -428,9 +430,18 @@ export const mockExamsApi = {
     }),
   removeCard: (id: string, flashcardId: string) =>
     request<{ success: true }>(`/mock-exams/${id}/cards/${flashcardId}`, { method: 'DELETE' }),
-  recordAttempt: (id: string, durationMs: number, answers: MockExamAnswer[]) =>
+  recordAttempt: (id: string, durationMs: number, answers: MockExamAnswer[], mode: AttemptMode = 'self') =>
     request<{ attempt: MockExamAttempt }>(`/mock-exams/${id}/attempts`, {
       method: 'POST',
-      body: JSON.stringify({ durationMs, answers }),
+      body: JSON.stringify({ durationMs, answers, mode }),
+    }),
+  // As alternativas de múltipla escolha já guardadas e quais cartões ainda não têm.
+  choices: (id: string) =>
+    request<{ questions: ChoiceQuestion[]; missing: string[] }>(`/mock-exams/${id}/choices`),
+  // Gera (com IA) as alternativas de um lote pequeno de cartões e as guarda.
+  prepareChoices: (id: string, flashcardIds: string[]) =>
+    request<{ questions: ChoiceQuestion[]; failed: string[] }>(`/mock-exams/${id}/choices`, {
+      method: 'POST',
+      body: JSON.stringify({ flashcardIds }),
     }),
 };

@@ -1,6 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import {
+  CHOICES_JSON_SCHEMA,
+  CHOICES_SYSTEM_PROMPT,
+  choicesUserPrompt,
+  parseChoicesResponse,
+  type ChoiceSource,
+  type GeneratedChoice,
+} from './choices';
+import {
   parseSyllabusResponse,
   SYLLABUS_SYSTEM_PROMPT,
   syllabusUserPrompt,
@@ -260,6 +268,16 @@ export async function generateBulletPointsClaude(text: string): Promise<Generate
     maxTokens: 4_000,
   });
   return parseBulletPointsResponse(JSON.stringify(result));
+}
+
+export async function generateChoicesClaude(sources: ChoiceSource[]): Promise<GeneratedChoice[]> {
+  const result = await callStructured({
+    system: CHOICES_SYSTEM_PROMPT,
+    content: choicesUserPrompt(sources),
+    schema: CHOICES_JSON_SCHEMA,
+    maxTokens: 6_000,
+  });
+  return parseChoicesResponse(JSON.stringify(result), sources);
 }
 
 export type ClaudeSyllabusSource = { type: 'text'; text: string } | { type: 'pdf'; base64: string };

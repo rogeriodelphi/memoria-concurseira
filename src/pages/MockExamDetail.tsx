@@ -173,6 +173,7 @@ export function MockExamDetail() {
               <thead className="border-b border-neutral-100 bg-neutral-50/60 text-xs uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/60 dark:text-neutral-500">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Quando</th>
+                  <th className="px-4 py-2.5 font-medium">Tipo</th>
                   <th className="px-4 py-2.5 font-medium">Nota</th>
                   <th className="px-4 py-2.5 font-medium">Acertos</th>
                   <th className="px-4 py-2.5 font-medium">Tempo</th>
@@ -183,6 +184,9 @@ export function MockExamDetail() {
                   <tr key={attempt.id} className="border-b border-neutral-50 last:border-0 dark:border-neutral-800">
                     <td className="px-4 py-2.5 text-neutral-600 dark:text-neutral-300">
                       {new Date(attempt.finishedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-500 dark:text-neutral-400">
+                      {attempt.mode === 'choice' ? 'Múltipla escolha' : 'Autoavaliado'}
                     </td>
                     <td className="px-4 py-2.5 font-semibold text-neutral-900 dark:text-neutral-100">
                       {percentage(attempt.correct, attempt.total)}%

@@ -1,7 +1,17 @@
 import { useEffect, useRef } from 'react';
 
-import { mockExamShortcut } from '../utils/studyKeys';
+import { choiceShortcut, mockExamShortcut } from '../utils/studyKeys';
 import { useKeyboardNavigationFlag } from './useKeyboardNavigationFlag';
+
+/** Na prova de múltipla escolha, o que cada atalho faz (no lugar de mostrar a resposta e marcar acertei/errei). */
+interface ChoiceHandlers {
+  optionCount: number;
+  /** Já escolheu (ou desistiu): o gabarito está à mostra. */
+  picked: boolean;
+  onPick: (index: number) => void;
+  onDontKnow: () => void;
+  onNext: () => void;
+}
 
 interface MockExamShortcutHandlers {
   /** Fora da prova (tela inicial, resultado) os atalhos não fazem nada. */
@@ -11,11 +21,14 @@ interface MockExamShortcutHandlers {
   onReveal: () => void;
   onAnswer: (correct: boolean) => void;
   onBack: () => void;
+  /** Presente só na prova de múltipla escolha. */
+  choice?: ChoiceHandlers;
 }
 
 /**
- * Os atalhos da prova: Enter mostra a resposta, 1 marca "errei", 2 marca "acertei", ← desfaz a
- * última resposta. `mockExamShortcut` decide, para cada tecla, se ela vale agora.
+ * Os atalhos da prova. Autoavaliada: Enter mostra a resposta, 1 marca "errei", 2 marca "acertei".
+ * Múltipla escolha: 1 a 5 (ou A a E) escolhem, 0 é "não sei", Enter segue. Nas duas, ← desfaz a
+ * última resposta. `mockExamShortcut` e `choiceShortcut` decidem, para cada tecla, se ela vale agora.
  */
 export function useMockExamShortcuts(handlers: MockExamShortcutHandlers): void {
   const latest = useRef(handlers);
@@ -24,8 +37,24 @@ export function useMockExamShortcuts(handlers: MockExamShortcutHandlers): void {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      const { enabled, revealed, canGoBack, onReveal, onAnswer, onBack } = latest.current;
+      const { enabled, revealed, canGoBack, onReveal, onAnswer, onBack, choice } = latest.current;
       if (!enabled) return;
+
+      if (choice) {
+        const shortcut = choiceShortcut(event, {
+          optionCount: choice.optionCount,
+          picked: choice.picked,
+          canGoBack,
+          keyboardNavigation: keyboardNavigation.current,
+        });
+        if (!shortcut) return;
+        event.preventDefault();
+        if (shortcut.type === 'pick') choice.onPick(shortcut.index);
+        else if (shortcut.type === 'dontknow') choice.onDontKnow();
+        else if (shortcut.type === 'next') choice.onNext();
+        else onBack();
+        return;
+      }
 
       const shortcut = mockExamShortcut(event, { revealed, canGoBack, keyboardNavigation: keyboardNavigation.current });
       if (!shortcut) return;

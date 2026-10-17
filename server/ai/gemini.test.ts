@@ -222,3 +222,35 @@ test('geração comum: chave inválida marca o status', async () => {
   await assert.rejects(gemini.generateSummaryGemini('texto longo', 'padrao'));
   assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'invalid_key' }]);
 });
+
+// ---------- alternativas de múltipla escolha ----------
+
+test('alternativas: o pedido leva os cartões numerados e o esquema; a resposta passa pela validação', async () => {
+  const questions = [{ n: 1, correct: 'O DNS', wrong: ['O DHCP', 'O ARP', 'O ICMP', 'O SNMP'] }];
+  setup(() => textReply(JSON.stringify({ questions })));
+
+  const choices = await gemini.generateChoicesGemini([
+    { n: 1, question: 'Qual protocolo resolve nomes?', answer: 'O DNS.' },
+    { n: 2, question: 'Qual a porta do SSH?', answer: 'A porta TCP 22.' },
+  ]);
+  assert.deepEqual(choices, questions, 'o cartão 2 não voltou e fica de fora, sem derrubar o 1');
+
+  assert.equal(requests.length, 1, 'uma chamada para o lote todo');
+  const sent = requests[0].body;
+  const prompt: string = sent.contents[0].parts[0].text;
+  assert.match(prompt, /\[n=1\]\nPergunta: Qual protocolo resolve nomes\?\nResposta: O DNS\./);
+  assert.match(prompt, /\[n=2\]/);
+  assert.match(sent.systemInstruction.parts[0].text, /múltipla escolha/);
+  assert.equal(sent.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(sent.generationConfig.responseSchema.properties.questions.items.required, ['n', 'correct', 'wrong']);
+  assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'ok' }]);
+});
+
+test('alternativas: JSON fora do formato é erro, e cota esgotada aparece como nas demais gerações', async () => {
+  setup(() => textReply('isto não é json'));
+  await assert.rejects(gemini.generateChoicesGemini([{ n: 1, question: 'P', answer: 'R' }]), /formato esperado/);
+
+  setup(() => quotaError('0.05s'));
+  await assert.rejects(gemini.generateChoicesGemini([{ n: 1, question: 'P', answer: 'R' }]), /Limite de uso gratuito/);
+  assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'quota_exhausted' }]);
+});

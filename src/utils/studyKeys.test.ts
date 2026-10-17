@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  choiceShortcut,
   mockExamShortcut,
   studyShortcut,
+  type ChoiceShortcutContext,
   type KeyEventLike,
   type MockExamShortcutContext,
   type ShortcutContext,
@@ -168,4 +170,68 @@ test('simulado: as mesmas proteções do estudo (modificador, repetida, composi�
   assert.equal(examPress('2', EXAM_ANSWER, {}, { tagName: 'INPUT' }), null);
   assert.equal(examPress('Enter', { ...EXAM_QUESTION, keyboardNavigation: true }, {}, { tagName: 'BUTTON' }), null);
   assert.deepEqual(examPress('Enter', EXAM_QUESTION, {}, { tagName: 'BUTTON' }), { type: 'reveal' }, 'botão do mouse');
+});
+
+// ---------- múltipla escolha ----------
+
+const PICKING: ChoiceShortcutContext = { optionCount: 5, picked: false, canGoBack: true, keyboardNavigation: false };
+const PICKED: ChoiceShortcutContext = { ...PICKING, picked: true };
+
+function choicePress(
+  key: string,
+  context: ChoiceShortcutContext = PICKING,
+  extra: Partial<KeyEventLike> = {},
+  t: FakeTarget | null = BODY,
+) {
+  return choiceShortcut(
+    { key, ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, target: t ? target(t) : null, ...extra },
+    context,
+  );
+}
+
+test('múltipla escolha: 1 a 5 e A a E escolhem a alternativa; 0 é "não sei"', () => {
+  for (let i = 0; i < 5; i++) {
+    assert.deepEqual(choicePress(String(i + 1)), { type: 'pick', index: i });
+    assert.deepEqual(choicePress('abcde'[i]), { type: 'pick', index: i });
+    assert.deepEqual(choicePress('ABCDE'[i]), { type: 'pick', index: i }, 'Caps Lock ligado');
+  }
+  assert.deepEqual(choicePress('0'), { type: 'dontknow' });
+});
+
+test('múltipla escolha: só valem as alternativas que a questão tem', () => {
+  const four: ChoiceShortcutContext = { ...PICKING, optionCount: 4 };
+  assert.deepEqual(choicePress('4', four), { type: 'pick', index: 3 });
+  assert.equal(choicePress('5', four), null);
+  assert.equal(choicePress('e', four), null);
+  for (const key of ['6', '9', 'f', 'z', ' ', 'Escape', 'ArrowRight']) assert.equal(choicePress(key), null, key);
+});
+
+test('múltipla escolha: depois de responder, as alternativas não mudam e Enter segue para a próxima', () => {
+  for (const key of ['1', '3', 'a', 'e', '0']) assert.equal(choicePress(key, PICKED), null, key);
+  assert.deepEqual(choicePress('Enter', PICKED), { type: 'next' });
+  assert.equal(choicePress('Enter', PICKING), null, 'Enter não responde por você');
+});
+
+test('múltipla escolha: Enter num botão focado por Tab é "clicar" nele; focado pelo mouse, segue', () => {
+  const tabbed: ChoiceShortcutContext = { ...PICKED, keyboardNavigation: true };
+  assert.equal(choicePress('Enter', tabbed, {}, { tagName: 'BUTTON' }), null);
+  assert.deepEqual(choicePress('Enter', PICKED, {}, { tagName: 'BUTTON' }), { type: 'next' });
+  assert.deepEqual(choicePress('Enter', tabbed, {}, BODY), { type: 'next' });
+});
+
+test('múltipla escolha: ← volta a qualquer momento, se há o que desfazer', () => {
+  assert.deepEqual(choicePress('ArrowLeft', PICKING), { type: 'back' });
+  assert.deepEqual(choicePress('ArrowLeft', PICKED), { type: 'back' });
+  assert.equal(choicePress('ArrowLeft', { ...PICKING, canGoBack: false }), null);
+});
+
+test('múltipla escolha: as mesmas proteções (modificador, repetida, composição, campo de texto)', () => {
+  for (const modifier of ['ctrlKey', 'altKey', 'metaKey', 'shiftKey'] as const) {
+    assert.equal(choicePress('1', PICKING, { [modifier]: true }), null, modifier);
+    assert.equal(choicePress('Enter', PICKED, { [modifier]: true }), null, modifier);
+  }
+  assert.equal(choicePress('1', PICKING, { repeat: true }), null);
+  assert.equal(choicePress('Enter', PICKED, { isComposing: true }), null);
+  assert.equal(choicePress('a', PICKING, {}, { tagName: 'INPUT' }), null);
+  assert.equal(choicePress('Enter', PICKED, {}, { tagName: 'TEXTAREA' }), null);
 });

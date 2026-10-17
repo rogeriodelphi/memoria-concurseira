@@ -330,7 +330,7 @@ export interface AnkiImportResult {
   collection: { id: string; name: string } | null;
 }
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices';
 export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type AiProviderStatus =
   | 'ok'
@@ -403,12 +403,23 @@ export interface MockExamCard {
   collectionName: string;
 }
 
+/** Como a tentativa foi feita: o usuário se avaliando (`self`) ou respondendo questões de múltipla escolha (`choice`). */
+export type AttemptMode = 'self' | 'choice';
+
 export interface MockExamAttempt {
   id: string;
   finishedAt: string;
   durationMs: number;
   total: number;
   correct: number;
+  mode: AttemptMode;
+}
+
+/** As alternativas de um cartão, geradas pela IA: uma correta e de três a quatro erradas. */
+export interface ChoiceQuestion {
+  flashcardId: string;
+  correct: string;
+  wrong: string[];
 }
 
 export interface MockExamDetail {

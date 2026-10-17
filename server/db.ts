@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-import { MOCK_EXAM_SCHEMA } from './mockexams/schema';
+import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './mockexams/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
 if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 5)) {
@@ -296,5 +296,6 @@ db.exec(`
 `);
 
 // Simulados: listas de cartões escolhidos pelo usuário e o histórico de cada tentativa.
-// Só tabelas novas (o esquema fica em mockexams/schema, que os testes também usam).
+// Só tabelas próprias (o esquema fica em mockexams/schema, que os testes também usam).
 db.exec(MOCK_EXAM_SCHEMA);
+upgradeMockExamSchema(db);

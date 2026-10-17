@@ -1,9 +1,11 @@
 import pdfParse from 'pdf-parse';
 
 import { parseProviderOrder, runChain, UNSUPPORTED, type ChainSteps, type ProviderName } from './chain';
+import type { ChoiceSource, GeneratedChoice } from './choices';
 import {
   extractSyllabusClaude,
   generateBulletPointsClaude,
+  generateChoicesClaude,
   generateFlashcardsClaude,
   generateMindMapClaude,
   generateSummaryClaude,
@@ -17,6 +19,7 @@ import {
   generateMindMapGemini,
   generateSummaryGemini,
   generateBulletPointsGemini,
+  generateChoicesGemini,
   hasGemini,
   type GenerationOptions,
   type GenerationSource,
@@ -34,6 +37,7 @@ import {
   generateMindMapOpenAI,
   generateSummaryOpenAI,
   generateBulletPointsOpenAI,
+  generateChoicesOpenAI,
   hasOpenAI,
   type OpenAISource,
 } from './openai';
@@ -215,6 +219,15 @@ export function generateBulletPoints(text: string): Promise<GeneratedBulletPoint
     openai: () => generateBulletPointsOpenAI(text),
     gemini: () => generateBulletPointsGemini(text),
     claude: () => generateBulletPointsClaude(text),
+  });
+}
+
+/** Alternativas de múltipla escolha para vários cartões de uma vez (uma chamada por lote). */
+export function generateChoices(sources: ChoiceSource[]): Promise<GeneratedChoice[]> {
+  return chainFor('gerar alternativas', {
+    openai: () => generateChoicesOpenAI(sources),
+    gemini: () => generateChoicesGemini(sources),
+    claude: () => generateChoicesClaude(sources),
   });
 }
 
