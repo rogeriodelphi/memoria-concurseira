@@ -182,7 +182,8 @@ export const flashcardsApi = {
       method: 'POST',
       body: JSON.stringify({ sessionId }),
     }),
-  due: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/due'),
+  // `waitingNew`: novos que ficaram de fora da fila por causa do limite diário (0 sem limite).
+  due: () => request<{ flashcards: DueFlashcard[]; waitingNew: number }>('/flashcards/due'),
   copyToCollection: (flashcardIds: string[], targetCollectionId: string, mode: 'copy' | 'move' = 'copy') =>
     request<{ flashcards: Flashcard[]; count: number; skippedDuplicates: number }>('/flashcards/copy', {
       method: 'POST',
@@ -259,6 +260,13 @@ export const examsApi = {
 export const statsApi = {
   get: () => request<StatsData>('/stats'),
   dashboard: () => request<DashboardData>('/stats/dashboard'),
+};
+
+// O plano de estudo: hoje, o limite diário de cartões novos na fila de revisão (`null` = sem limite).
+export const studyPlanApi = {
+  get: () => request<{ dailyNewLimit: number | null }>('/study-plan'),
+  setDailyNewLimit: (dailyNewLimit: number | null) =>
+    request<{ dailyNewLimit: number | null }>('/study-plan', { method: 'PUT', body: JSON.stringify({ dailyNewLimit }) }),
 };
 
 export const pomodoroApi = {

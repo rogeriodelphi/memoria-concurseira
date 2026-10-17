@@ -9,8 +9,23 @@ import { shuffle } from '../utils/studyQueue';
 import { studiedCount } from '../utils/studySession';
 import type { DueFlashcard } from '../types';
 
+/** Lembra dos cartões novos que ficaram para outro dia por causa do limite diário (configurável em Configurações). */
+function WaitingNote({ count }: { count: number }) {
+  return (
+    <p className="text-xs text-neutral-400 dark:text-neutral-500">
+      {count.toLocaleString('pt-BR')} {count === 1 ? 'cartão novo aguarda' : 'cartões novos aguardam'} os próximos dias. O
+      limite diário está em{' '}
+      <Link to="/configuracoes" className="underline hover:text-brand-600">
+        Configurações
+      </Link>
+      .
+    </p>
+  );
+}
+
 interface ReviewSessionProps {
-  fetchQueue: () => Promise<{ flashcards: DueFlashcard[] }>;
+  // `waitingNew`: cartões novos que ficaram de fora da fila pelo limite diário (só a revisão global informa).
+  fetchQueue: () => Promise<{ flashcards: DueFlashcard[]; waitingNew?: number }>;
   loadErrorMessage: string;
   backTo: string;
   backLabel: string;
@@ -37,12 +52,16 @@ export function ReviewSession({
   completedTitle,
 }: ReviewSessionProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [waitingNew, setWaitingNew] = useState(0);
   const study = useStudySession<DueFlashcard>();
   const { session, current } = study;
 
   useEffect(() => {
     fetchQueue()
-      .then(({ flashcards }) => study.start(shuffle(flashcards)))
+      .then(({ flashcards, waitingNew: waiting = 0 }) => {
+        setWaitingNew(waiting);
+        study.start(shuffle(flashcards));
+      })
       .catch(() => setLoadError(loadErrorMessage));
     // fetchQueue/loadErrorMessage vêm de props definidas uma vez pelo componente pai, na montagem.
   }, []);
@@ -92,8 +111,15 @@ export function ReviewSession({
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400">
             <EmptyIcon size={22} />
           </div>
-          <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{emptyTitle}</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{emptyMessage}</p>
+          <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+            {waitingNew > 0 ? 'Meta de hoje concluída!' : emptyTitle}
+          </h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            {waitingNew > 0
+              ? 'Você não tem mais revisões para hoje e já chegou ao limite de cartões novos do dia.'
+              : emptyMessage}
+          </p>
+          {waitingNew > 0 && <WaitingNote count={waitingNew} />}
           <Link to={backTo} className="btn-primary mt-2">
             {backLabel}
           </Link>
@@ -108,6 +134,7 @@ export function ReviewSession({
             Você revisou {studiedSoFar} flashcard{studiedSoFar === 1 ? '' : 's'}
             {skipped > 0 && ` e pulou ${skipped}`}.
           </p>
+          {waitingNew > 0 && <WaitingNote count={waitingNew} />}
           <div className="mt-2 flex gap-4 text-sm">
             <span className="text-red-600 dark:text-red-400">{counts.errei} errei</span>
             <span className="text-amber-600 dark:text-amber-400">{counts.dificil} difícil</span>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Circle, Info, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Info, Play } from 'lucide-react';
 
 import { statsApi } from '../services/api';
 import type { DashboardData } from '../types';
@@ -335,6 +335,18 @@ export function Dashboard() {
             Revisar pendentes ({formatInt(data.remaining.total)})
           </Link>
         )}
+        {data && data.remaining.total === 0 && data.dailyNewLimit !== null && (
+          <p className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+            <CheckCircle2 size={16} />
+            Meta de hoje concluída
+            {data.remaining.newWaiting > 0 && (
+              <span className="font-normal">
+                {' '}
+                · {formatInt(data.remaining.newWaiting)} {data.remaining.newWaiting === 1 ? 'novo aguarda' : 'novos aguardam'}
+              </span>
+            )}
+          </p>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -390,6 +402,11 @@ export function Dashboard() {
                 <strong>Precisão</strong>: parcela dos cartões que você não errou.
               </p>
               <p>
+                <strong>Novos</strong>: cartões que você ainda não estudou. Com o <strong>limite diário</strong> ligado (em
+                Configurações), só entram aqui os que ainda cabem hoje; o resto aparece como <strong>Novos aguardando</strong> e
+                entra nos próximos dias. As revisões dos cartões que você já estudou nunca são limitadas.
+              </p>
+              <p>
                 <strong>Aprender</strong>: cartões que você errou e voltam hoje. <strong>Maduros</strong>: cartões com intervalo de 21
                 dias ou mais. <strong>Tempo est.</strong>: o que falta revisar, no seu ritmo dos últimos 30 dias.
               </p>
@@ -417,6 +434,15 @@ export function Dashboard() {
               title="Restantes"
               rows={[
                 { label: 'Novos', value: formatInt(data.remaining.new), className: 'text-blue-500 dark:text-blue-400' },
+                ...(data.dailyNewLimit !== null
+                  ? [
+                      {
+                        label: `Novos aguardando (limite ${formatInt(data.dailyNewLimit)}/dia)`,
+                        value: formatInt(data.remaining.newWaiting),
+                        className: 'text-neutral-400 dark:text-neutral-500',
+                      },
+                    ]
+                  : []),
                 { label: 'Aprender', value: formatInt(data.remaining.learning), className: 'text-red-500 dark:text-red-400' },
                 { label: 'Revisar', value: formatInt(data.remaining.due), className: 'text-green-600 dark:text-green-400' },
                 { label: 'Total', value: formatInt(data.remaining.total), className: 'text-amber-500 dark:text-amber-400' },

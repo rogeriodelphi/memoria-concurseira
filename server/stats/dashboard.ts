@@ -1,4 +1,5 @@
 import type { StudyResult } from '../srs';
+import { newCardsForToday } from '../studyplan/limit';
 
 /**
  * Teto de tempo atribuído a uma única revisão. Um cartão que ficou aberto
@@ -42,8 +43,13 @@ export interface DashboardData {
     cardsPerMin: number | null;
     passRatePct: number | null;
   };
+  /** O limite diário de cartões novos (`null` = sem limite). */
+  dailyNewLimit: number | null;
   remaining: {
+    /** Os novos que entram na fila de hoje (todos, sem limite; com limite, só os que ainda cabem). */
     new: number;
+    /** Novos que ficaram de fora por causa do limite diário (0 sem limite). */
+    newWaiting: number;
     learning: number;
     due: number;
     total: number;
@@ -179,7 +185,12 @@ function buildHeatmap(reviews: Enriched[], now: Date): Heatmap {
  * é uma revisão normal. O app não tem passos de aprendizado como o Anki, então
  * essa é a leitura equivalente.
  */
-export function buildDashboard(sessions: DashboardSession[], cards: DashboardCard[], now: Date): DashboardData {
+export function buildDashboard(
+  sessions: DashboardSession[],
+  cards: DashboardCard[],
+  now: Date,
+  dailyNewLimit: number | null = null,
+): DashboardData {
   const ordered = [...sessions].sort((a, b) => a.studiedAt.localeCompare(b.studiedAt));
 
   // Tempo de cada revisão: o medido, quando existe; senão o intervalo até a
@@ -266,7 +277,12 @@ export function buildDashboard(sessions: DashboardSession[], cards: DashboardCar
       dueTomorrow++;
     }
   }
-  const total = newCount + learning + due;
+  // Com limite diário de novos, só entram na conta de hoje os que ainda cabem (o limite menos os
+  // que já foram estudados pela primeira vez hoje) — a mesma regra da fila da revisão global,
+  // para o painel e o botão "Revisar pendentes" nunca discordarem.
+  const newLearnedToday = todays.filter((r) => r.kind === 'new').length;
+  const newToday = newCardsForToday(newCount, dailyNewLimit, newLearnedToday);
+  const total = newToday + learning + due;
 
   const recentPace = recent.length > 0 ? recentTime / recent.length : null;
 
@@ -284,8 +300,10 @@ export function buildDashboard(sessions: DashboardSession[], cards: DashboardCar
       cardsPerMin: todays.length > 0 && todayTime > 0 ? todays.length / (todayTime / 60_000) : null,
       passRatePct: pct(todays.length - todayAgain, todays.length),
     },
+    dailyNewLimit,
     remaining: {
-      new: newCount,
+      new: newToday,
+      newWaiting: newCount - newToday,
       learning,
       due,
       total,

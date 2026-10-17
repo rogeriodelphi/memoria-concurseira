@@ -2,6 +2,7 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { getDailyNewLimit } from '../studyplan/store';
 import { buildDashboard, type DashboardCard, type DashboardSession } from './dashboard';
 
 export const statsRouter = express.Router();
@@ -160,6 +161,7 @@ statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {
     ),
     cards.map((c): DashboardCard => ({ dueAt: c.due_at, repetitions: c.repetitions, intervalDays: c.interval_days })),
     new Date(),
+    getDailyNewLimit(db, userId),
   );
 
   res.json({ success: true, ...dashboard });

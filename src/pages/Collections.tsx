@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CheckCircle2,
   GraduationCap,
   Layers,
   Pencil,
@@ -16,10 +17,10 @@ import {
   X,
 } from 'lucide-react';
 
-import { ApiError, collectionsApi, flashcardsApi } from '../services/api';
+import { ApiError, collectionsApi, flashcardsApi, statsApi } from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
-import type { CollectionSummary, DuplicateGroup } from '../types';
+import type { CollectionSummary, DashboardData, DuplicateGroup } from '../types';
 import { filterCollections } from '../utils/collectionFilter';
 
 function stripHtml(value: string, format: string): string {
@@ -61,6 +62,16 @@ export function Collections() {
   useEffect(() => {
     loadDuplicates();
   }, [loadDuplicates]);
+
+  // O plano do dia (os números do Painel): com limite diário de novos, o aviso mostra a meta de
+  // hoje em vez de todo o acervo pendente.
+  const [plan, setPlan] = useState<DashboardData | null>(null);
+  useEffect(() => {
+    statsApi
+      .dashboard()
+      .then(setPlan)
+      .catch(() => {});
+  }, []);
 
   async function handleDeleteDuplicate(fcId: string) {
     const ok = await confirm({ message: 'Excluir este flashcard duplicado? Essa ação não pode ser desfeita.', danger: true });
@@ -298,19 +309,53 @@ export function Collections() {
         </div>
       </div>
 
-      {totalDue > 0 && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-900 dark:bg-brand-950/30">
-          <div className="flex items-center gap-2 text-sm text-brand-800 dark:text-brand-300">
-            <GraduationCap size={16} className="shrink-0" />
-            <span>
-              Você tem {totalDue} flashcard{totalDue === 1 ? '' : 's'} para revisar hoje, em {collectionsWithDue}{' '}
-              coleç{collectionsWithDue === 1 ? 'ão' : 'ões'}.
-            </span>
+      {plan && plan.dailyNewLimit !== null ? (
+        // Com limite diário de novos: a meta de hoje (a mesma conta do Painel e da revisão), não todo o acervo pendente.
+        plan.remaining.total > 0 ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-900 dark:bg-brand-950/30">
+            <div className="flex items-center gap-2 text-sm text-brand-800 dark:text-brand-300">
+              <GraduationCap size={16} className="shrink-0" />
+              <span>
+                Meta de hoje: <strong>{plan.remaining.total.toLocaleString('pt-BR')}</strong> cartões (
+                {(plan.remaining.learning + plan.remaining.due).toLocaleString('pt-BR')} revisões +{' '}
+                {plan.remaining.new.toLocaleString('pt-BR')} novos)
+                {plan.remaining.estimatedMin !== null && ` · cerca de ${Math.max(1, Math.round(plan.remaining.estimatedMin))} min`}
+                {plan.remaining.newWaiting > 0 &&
+                  ` · ${plan.remaining.newWaiting.toLocaleString('pt-BR')} ${plan.remaining.newWaiting === 1 ? 'novo aguarda' : 'novos aguardam'}`}
+                .
+              </span>
+            </div>
+            <Link to="/revisar" className="btn-primary shrink-0">
+              Revisar agora
+            </Link>
           </div>
-          <Link to="/revisar" className="btn-primary shrink-0">
-            Revisar agora
-          </Link>
-        </div>
+        ) : (
+          (totalDue > 0 || plan.remaining.newWaiting > 0) && (
+            <div className="mb-6 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-950/30 dark:text-brand-300">
+              <CheckCircle2 size={16} className="shrink-0" />
+              <span>
+                Meta de hoje concluída!
+                {plan.remaining.newWaiting > 0 &&
+                  ` ${plan.remaining.newWaiting.toLocaleString('pt-BR')} ${plan.remaining.newWaiting === 1 ? 'cartão novo aguarda' : 'cartões novos aguardam'} os próximos dias (limite de ${plan.dailyNewLimit.toLocaleString('pt-BR')} por dia).`}
+              </span>
+            </div>
+          )
+        )
+      ) : (
+        totalDue > 0 && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-900 dark:bg-brand-950/30">
+            <div className="flex items-center gap-2 text-sm text-brand-800 dark:text-brand-300">
+              <GraduationCap size={16} className="shrink-0" />
+              <span>
+                Você tem {totalDue} flashcard{totalDue === 1 ? '' : 's'} para revisar hoje, em {collectionsWithDue}{' '}
+                coleç{collectionsWithDue === 1 ? 'ão' : 'ões'}.
+              </span>
+            </div>
+            <Link to="/revisar" className="btn-primary shrink-0">
+              Revisar agora
+            </Link>
+          </div>
+        )
       )}
 
       {totalFavorites > 0 && (

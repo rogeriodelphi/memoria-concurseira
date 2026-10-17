@@ -209,6 +209,12 @@ if (!usersColumns.some((c) => c.name === 'monthly_token_budget')) {
   db.exec('ALTER TABLE users ADD COLUMN monthly_token_budget INTEGER');
 }
 
+// Limite diário de cartões NOVOS (nunca estudados) na fila de revisão. NULL = sem
+// limite, que é o comportamento de sempre: ninguém passa a ter limite sem pedir.
+if (!usersColumns.some((c) => c.name === 'daily_new_limit')) {
+  db.exec('ALTER TABLE users ADD COLUMN daily_new_limit INTEGER');
+}
+
 // Migração para "favorite" em flashcards — marca manual do usuário pra
 // montar um baralho rápido de revisão sem depender de agendamento.
 const flashcardsColumnsForFavorite = db.prepare('PRAGMA table_info(flashcards)').all() as unknown as {

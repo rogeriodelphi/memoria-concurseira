@@ -147,3 +147,15 @@ Listas de cartões para treinar como numa prova, separadas da revisão espaçada
 
 Nas telas de estudo comum também há atalhos: `Enter` mostra a resposta, `1` a `4` avaliam
 (errei, difícil, bom, fácil), `←` volta ao cartão anterior e `→` pula o cartão.
+
+## Limite diário de cartões novos
+
+Em **Configurações → Plano de estudo** dá para limitar quantos cartões que você nunca estudou
+entram na revisão de cada dia. Vazio (o padrão) = sem limite, como sempre foi.
+
+- Só os cartões **novos** são limitados; as revisões dos que você já estudou entram todas.
+- Os novos que entram são os mais antigos (na ordem em que foram criados ou importados). O
+  que já foi estudado pela primeira vez hoje desconta do limite, e amanhã ele recomeça.
+- A revisão global, o botão "Revisar pendentes" do Painel e o aviso "Meta de hoje" da lista de
+  coleções usam a mesma conta. O Painel mostra os "Novos aguardando".
+- Estudar uma coleção direto (pelo botão "Estudar" dela) não tem limite: ali a escolha é sua.

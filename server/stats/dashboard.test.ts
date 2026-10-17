@@ -282,3 +282,60 @@ test('mapa de calor: por ano, o período vai da primeira revisão (ou 1º de jan
   // 2026: de 1º de janeiro até 10 de outubro = 283 dias
   assert.deepEqual(heatmap.years[2], { year: 2026, reviews: 1, activeDays: 1, periodDays: 283 });
 });
+
+// ---------- limite diário de cartões novos ----------
+
+const newCards = (n: number) => Array.from({ length: n }, () => card(null));
+
+test('sem limite, o painel conta todos os novos, como sempre', () => {
+  const d = buildDashboard([], [...newCards(50), card(at(-1, 9), 2, 6)], NOW);
+  assert.equal(d.dailyNewLimit, null);
+  assert.equal(d.remaining.new, 50);
+  assert.equal(d.remaining.newWaiting, 0);
+  assert.equal(d.remaining.total, 51);
+});
+
+test('com limite, só entram na conta de hoje os novos que cabem; o resto fica aguardando', () => {
+  const d = buildDashboard([], [...newCards(50), card(at(-1, 9), 2, 6), card(at(-2, 9), 3, 10)], NOW, 20);
+  assert.equal(d.dailyNewLimit, 20);
+  assert.equal(d.remaining.new, 20);
+  assert.equal(d.remaining.newWaiting, 30);
+  assert.equal(d.remaining.due, 2, 'as revisões vencidas nunca são limitadas');
+  assert.equal(d.remaining.total, 22);
+});
+
+test('o que já foi aprendido hoje desconta do limite', () => {
+  const learned = [session('a', 'bom', at(0, 9, 0), 10_000), session('b', 'facil', at(0, 9, 5), 10_000)];
+  const cards = [card(at(3, 9), 1, 1), card(at(3, 9), 1, 1), ...newCards(50)];
+  const d = buildDashboard(learned, cards, NOW, 20);
+  assert.equal(d.doneToday.newLearned, 2);
+  assert.equal(d.remaining.new, 18, '20 menos os 2 de hoje');
+  assert.equal(d.remaining.newWaiting, 32);
+});
+
+test('limite cumprido: nenhum novo, o total é só o que já foi estudado e venceu', () => {
+  const learned = Array.from({ length: 5 }, (_, i) => session(`n${i}`, 'bom', at(0, 9, i), 10_000));
+  const d = buildDashboard(learned, [...newCards(10), card(at(-1, 9), 2, 6)], NOW, 5);
+  assert.equal(d.remaining.new, 0);
+  assert.equal(d.remaining.newWaiting, 10);
+  assert.equal(d.remaining.total, 1);
+});
+
+test('limite zero: nenhum novo entra, mas as revisões continuam', () => {
+  const d = buildDashboard([], [...newCards(7), card(at(-1, 9), 2, 6)], NOW, 0);
+  assert.equal(d.remaining.new, 0);
+  assert.equal(d.remaining.newWaiting, 7);
+  assert.equal(d.remaining.total, 1);
+});
+
+test('o tempo estimado acompanha o total de hoje, não o de todos os novos', () => {
+  const learned = [session('x', 'bom', at(0, 9, 0), 30_000), session('y', 'bom', at(0, 9, 5), 30_000)];
+  const cards = [card(at(3, 9), 1, 1), card(at(3, 9), 1, 1), ...newCards(100)];
+  const limited = buildDashboard(learned, cards, NOW, 10);
+  const unlimited = buildDashboard(learned, cards, NOW);
+  // ritmo medido: 30 s por cartão
+  assert.equal(limited.remaining.total, 8);
+  assert.equal(limited.remaining.estimatedMin, 4, '8 cartões × 30 s');
+  assert.equal(unlimited.remaining.total, 100);
+  assert.equal(unlimited.remaining.estimatedMin, 50);
+});

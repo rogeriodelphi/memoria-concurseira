@@ -103,8 +103,13 @@ export interface DashboardData {
     cardsPerMin: number | null;
     passRatePct: number | null;
   };
+  /** O limite diário de cartões novos na fila de revisão (`null` = sem limite). */
+  dailyNewLimit: number | null;
   remaining: {
+    /** Os novos que entram na fila de hoje: todos, sem limite; com limite, só os que ainda cabem. */
     new: number;
+    /** Novos que ficaram de fora por causa do limite diário (0 sem limite). */
+    newWaiting: number;
     learning: number;
     due: number;
     total: number;

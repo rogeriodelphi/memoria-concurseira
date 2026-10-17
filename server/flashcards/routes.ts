@@ -9,6 +9,7 @@ import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 import type { StudyResult } from '../srs';
 import { MAX_REVIEW_MS } from '../stats/dashboard';
+import { selectDueCards } from '../studyplan/store';
 import { recordStudy, undoStudy } from './study';
 
 export const flashcardsRouter = express.Router();
@@ -263,19 +264,16 @@ flashcardsRouter.post('/copy', (req: AuthedRequest, res: Response) => {
   });
 });
 
+
 flashcardsRouter.get('/due', (req: AuthedRequest, res: Response) => {
-  const rows = db
-    .prepare(
-      `SELECT f.*, c.name as collection_name FROM flashcards f
-       JOIN collections c ON c.id = f.collection_id
-       WHERE c.user_id = ? AND (f.due_at IS NULL OR f.due_at <= ?)
-       ORDER BY f.due_at IS NULL DESC, f.due_at ASC`,
-    )
-    .all(req.userId!, new Date().toISOString()) as unknown as (FlashcardRow & { collection_name: string })[];
+  // Com um limite diário de novos configurado, só entram os novos que ainda cabem hoje
+  // (`waitingNew` diz quantos ficaram de fora); sem limite, é a fila completa de sempre.
+  const { cards, waitingNew } = selectDueCards(db, req.userId!);
 
   res.json({
     success: true,
-    flashcards: rows.map((row) => ({ ...mapFlashcard(row), collectionName: row.collection_name })),
+    flashcards: cards.map((row) => ({ ...mapFlashcard(row), collectionName: row.collection_name })),
+    waitingNew,
   });
 });
 

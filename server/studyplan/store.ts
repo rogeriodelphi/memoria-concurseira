@@ -1,0 +1,82 @@
+import type { DatabaseSync } from 'node:sqlite';
+
+import type { FlashcardRow } from '../mappers';
+import { newCardsForToday, parseDailyNewLimit } from './limit';
+
+export type DueRow = FlashcardRow & { collection_name: string };
+
+export function getDailyNewLimit(db: DatabaseSync, userId: string): number | null {
+  const row = db.prepare('SELECT daily_new_limit AS limit_value FROM users WHERE id = ?').get(userId) as unknown as
+    | { limit_value: number | null }
+    | undefined;
+  return row?.limit_value ?? null;
+}
+
+export function setDailyNewLimit(db: DatabaseSync, userId: string, raw: unknown) {
+  const parsed = parseDailyNewLimit(raw);
+  if (!parsed.ok) return parsed;
+  db.prepare('UPDATE users SET daily_new_limit = ? WHERE id = ?').run(parsed.value, userId);
+  return parsed;
+}
+
+/** O começo do dia local (do servidor, que é o mesmo computador do navegador) e o do dia seguinte. */
+export function localDayBounds(now: Date): { start: string; end: string } {
+  return {
+    start: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
+    end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString(),
+  };
+}
+
+/**
+ * Quantos cartões foram estudados pela PRIMEIRA vez hoje: os que têm a primeira revisão de todos
+ * os tempos dentro do dia. É a mesma definição de "novo aprendido" do painel. Desfazer uma
+ * avaliação apaga a revisão e o cartão volta a contar como novo.
+ */
+export function countNewLearnedToday(db: DatabaseSync, userId: string, now: Date): number {
+  const { start, end } = localDayBounds(now);
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT MIN(studied_at) AS first_review FROM study_sessions WHERE user_id = ? GROUP BY flashcard_id
+       ) WHERE first_review >= ? AND first_review < ?`,
+    )
+    .get(userId, start, end) as unknown as { n: number };
+  return row.n;
+}
+
+const SELECT_CARDS = `SELECT f.*, c.name AS collection_name FROM flashcards f JOIN collections c ON c.id = f.collection_id`;
+
+export interface DueSelection {
+  /** Os cartões da fila de revisão: os novos primeiro, depois os vencidos. */
+  cards: DueRow[];
+  /** Cartões novos que ficaram de fora por causa do limite diário (0 sem limite). */
+  waitingNew: number;
+}
+
+/**
+ * A fila da revisão global: todos os cartões já estudados e vencidos, mais os novos — todos eles
+ * sem limite diário, ou só quantos ainda cabem hoje. Os novos que entram são os mais antigos
+ * (na ordem em que foram criados ou importados), para um lote de cartões ser estudado
+ * por inteiro antes do seguinte.
+ */
+export function selectDueCards(db: DatabaseSync, userId: string, now: Date = new Date()): DueSelection {
+  const limit = getDailyNewLimit(db, userId);
+  const totalNew = (
+    db
+      .prepare(`SELECT COUNT(*) AS n FROM flashcards f JOIN collections c ON c.id = f.collection_id WHERE c.user_id = ? AND f.due_at IS NULL`)
+      .get(userId) as unknown as { n: number }
+  ).n;
+  const allowed = newCardsForToday(totalNew, limit, limit === null ? 0 : countNewLearnedToday(db, userId, now));
+
+  const newCards =
+    allowed === 0
+      ? []
+      : (db
+          .prepare(`${SELECT_CARDS} WHERE c.user_id = ? AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC LIMIT ?`)
+          .all(userId, allowed) as unknown as DueRow[]);
+  const dueCards = db
+    .prepare(`${SELECT_CARDS} WHERE c.user_id = ? AND f.due_at IS NOT NULL AND f.due_at <= ? ORDER BY f.due_at ASC`)
+    .all(userId, now.toISOString()) as unknown as DueRow[];
+
+  return { cards: [...newCards, ...dueCards], waitingNew: totalNew - newCards.length };
+}
