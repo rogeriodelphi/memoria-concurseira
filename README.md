@@ -162,10 +162,17 @@ a mensagem no log, em vez de ignorar o pedido em silêncio.
 ## Backup do banco
 
 O servidor tira um backup do banco (`backups/app-AAAAMMDD-HHMMSS.db`) assim
-que sobe, e depois a cada 6 horas enquanto estiver rodando — mantém os 14
-mais recentes, os mais antigos são apagados automaticamente. Usa a API nativa
+que sobe, e depois a cada 6 horas enquanto estiver rodando. Usa a API nativa
 de backup do SQLite (`node:sqlite`'s `backup()`), que gera um snapshot
 consistente mesmo com o banco aberto e em uso.
+
+**Quais ficam:** os **14 mais recentes** e, além deles, **o último backup de cada um dos
+últimos 30 dias**. Só os 14 não bastavam: cada vez que o servidor sobe (um deploy, o PC
+reiniciando) sai um backup novo, e num dia movimentado os 14 caíam todos em um ou dois dias,
+sem ter para onde voltar de um problema notado uma semana depois. O resto é apagado
+automaticamente. Só se mexe em arquivos com o nome de backup (`app-AAAAMMDD-HHMMSS.db`);
+qualquer outro arquivo na pasta é deixado em paz. Com o banco em ~10 MB, a pasta chega a uns
+450 MB no máximo (o OneDrive sincroniza tudo isso).
 
 `backups/` fica dentro do projeto e é ignorada pelo git — mas como o projeto
 todo mora numa pasta sincronizada pelo OneDrive, o próprio OneDrive replica

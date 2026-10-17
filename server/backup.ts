@@ -3,27 +3,15 @@ import path from 'node:path';
 import { backup } from 'node:sqlite';
 
 import { db } from './db';
+import { pruneBackupDir } from './backupRetention';
 
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
-const MAX_BACKUPS = 14;
 const INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function timestampedFilename(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return `app-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.db`;
-}
-
-function pruneOldBackups() {
-  const files = fs
-    .readdirSync(BACKUP_DIR)
-    .filter((f) => f.endsWith('.db'))
-    .map((f) => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
-    .sort((a, b) => b.mtime - a.mtime);
-
-  for (const file of files.slice(MAX_BACKUPS)) {
-    fs.unlinkSync(path.join(BACKUP_DIR, file.name));
-  }
 }
 
 /**
@@ -36,7 +24,8 @@ export async function runBackup(): Promise<void> {
   const dest = path.join(BACKUP_DIR, timestampedFilename());
   try {
     const pages = await backup(db, dest);
-    pruneOldBackups();
+    const removed = pruneBackupDir(BACKUP_DIR);
+    if (removed.length > 0) console.log(`  ✓ ${removed.length} backup(s) antigo(s) apagado(s)`);
     console.log(`  ✓ Backup do banco criado: ${dest} (${pages} páginas)`);
   } catch (err) {
     console.error('  ✗ Falha ao criar backup do banco:', err);
