@@ -1,3 +1,5 @@
+export * from './questionBankTypes';
+
 export interface User {
   id: string;
   name: string;
@@ -482,7 +484,7 @@ export interface AnkiImportResult {
   collection: { id: string; name: string } | null;
 }
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify' | 'questions';
 export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type AiProviderStatus =
   | 'ok'

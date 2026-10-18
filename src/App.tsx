@@ -45,6 +45,12 @@ import { AnkiImport } from './pages/AnkiImport';
 import { MockExams } from './pages/MockExams';
 import { MockExamDetail } from './pages/MockExamDetail';
 import { MockExamTake } from './pages/MockExamTake';
+import { QuestionBank } from './pages/QuestionBank';
+import { PastExams } from './pages/PastExams';
+import { PastExamImport } from './pages/PastExamImport';
+import { QuestionNotebooks } from './pages/QuestionNotebooks';
+import { QuestionNotebook } from './pages/QuestionNotebook';
+import { QuestionRun } from './pages/QuestionRun';
 
 export default function App() {
   return (
@@ -68,6 +74,12 @@ export default function App() {
                       <Route path="/simulados" element={<MockExams />} />
                       <Route path="/simulados/:id" element={<MockExamDetail />} />
                       <Route path="/simulados/:id/fazer" element={<MockExamTake />} />
+                      <Route path="/questoes" element={<QuestionBank />} />
+                      <Route path="/questoes/provas" element={<PastExams />} />
+                      <Route path="/questoes/importar" element={<PastExamImport />} />
+                      <Route path="/questoes/cadernos" element={<QuestionNotebooks />} />
+                      <Route path="/questoes/cadernos/:id" element={<QuestionNotebook />} />
+                      <Route path="/questoes/cadernos/:id/resolver" element={<QuestionRun />} />
                       <Route path="/colecoes" element={<Collections />} />
                       <Route path="/colecoes/nova" element={<CollectionNew />} />
                       <Route path="/colecoes/:id" element={<CollectionDetail />} />

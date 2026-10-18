@@ -276,3 +276,97 @@ test('ordem da conferência: o contrário da geração (para tender a ser outro 
   assert.deepEqual(router.verifyProviderOrder({ AI_VERIFY_ORDER: 'lixo' }), ['openai', 'gemini', 'claude'], 'só lixo cai na ordem padrão de geração');
 });
 
+// ---------- provas anteriores ----------
+
+const examReply = (numbers: number[], extra: Record<string, unknown> = {}) =>
+  toolUse({
+    exam: { name: 'Prova Teste', board: 'FGV', organ: '', year: 2023, position: '', level: 'Superior' },
+    supports: [],
+    questions: numbers.map((number) => ({
+      number,
+      supportId: 0,
+      statement: `Enunciado da questão ${number} sobre licitações públicas`,
+      alternatives: ['A', 'B', 'C', 'D'].map((letter) => ({ letter, text: `Alternativa ${letter}` })),
+      discipline: 'Direito',
+      subject: 'Licitações',
+      needsFigure: false,
+      complete: true,
+    })),
+    answerKey: [],
+    ...extra,
+  });
+
+test('prova: texto curto vai num trecho só e o progresso é avisado', async () => {
+  onlyClaude(examReply([1, 2]));
+  const progress: [number, number][] = [];
+  const reading = await router.extractPastExam({ type: 'text', text: 'QUESTÃO 1 ... QUESTÃO 2 ...' }, { board: 'FGV' }, { onProgress: (d, t) => progress.push([d, t]) });
+  assert.equal(fake.requests.length, 1);
+  assert.deepEqual(reading.chunks[0].questions.map((q) => q.number), [1, 2]);
+  assert.equal(reading.text, 'QUESTÃO 1 ... QUESTÃO 2 ...');
+  assert.deepEqual(progress, [[0, 1], [1, 1]]);
+  const content = fake.requests[0].body.messages[0].content as string;
+  assert.match(content, /banca: FGV/);
+  assert.match(content, /--- TEXTO DO PDF ---\nQUESTÃO 1/);
+  assert.doesNotMatch(content, /trecho 1 de/, 'trecho único não precisa dizer a posição');
+});
+
+test('prova: texto longo é lido em vários trechos que se sobrepõem, e o resultado vem na ordem', async () => {
+  const lines = Array.from({ length: 1500 }, (_, i) => `linha ${i} do texto da prova com enunciado e alternativas`);
+  const text = lines.join('\n'); // ~ 80 mil caracteres
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.AI_PROVIDER_ORDER;
+  let call = 0;
+  fake.respond(() => ({ status: 200, body: examReply([++call]) }));
+  const progress: number[] = [];
+  const reading = await router.extractPastExam({ type: 'text', text }, {}, { onProgress: (d) => progress.push(d) });
+
+  assert.ok(reading.chunks.length >= 5, `${reading.chunks.length} trechos`);
+  assert.equal(fake.requests.length, reading.chunks.length);
+  const prompts = fake.requests.map((r) => r.body.messages[0].content as string);
+  assert.ok(prompts.some((p) => new RegExp(`trecho 1 de ${reading.chunks.length}`).test(p)));
+  assert.ok(prompts.some((p) => new RegExp(`trecho ${reading.chunks.length} de ${reading.chunks.length}`).test(p)));
+  assert.deepEqual(progress.at(-1), reading.chunks.length, 'o último aviso é o total');
+  assert.equal(progress.length, reading.chunks.length + 1);
+  // Cada linha do texto foi enviada em algum trecho.
+  const sent = prompts.join('\n');
+  for (const line of [lines[0], lines[700], lines[1499]]) assert.ok(sent.includes(line));
+});
+
+test('prova: PDF com texto vai como texto; escaneado vai inteiro ao Claude; texto demais é recusado antes de chamar', async () => {
+  onlyClaude(examReply([1]));
+  const withText = pdfWith({ text: LONG_TEXT, pages: 30 });
+  const read = await router.extractPastExam(file(withText.buffer, 'application/pdf'), {}, {}, withText.deps);
+  assert.equal(read.text, LONG_TEXT);
+  assert.match(fake.requests[0].body.messages[0].content, /--- TEXTO DO PDF ---\nConteudo programatico/);
+
+  onlyClaude(examReply([1]));
+  const scanned = pdfWith({ text: '', pages: 12 });
+  const scannedRead = await router.extractPastExam(file(scanned.buffer, 'application/pdf'), {}, {}, scanned.deps);
+  assert.equal(scannedRead.text, null);
+  const blocks = fake.requests[0].body.messages[0].content;
+  assert.equal(blocks[0].type, 'document');
+  assert.equal(blocks[0].source.data, scanned.base64);
+
+  onlyClaude(examReply([1]));
+  const huge = pdfWith({ text: 'x'.repeat(400_001), pages: 900 });
+  await assert.rejects(router.extractPastExam(file(huge.buffer, 'application/pdf'), {}, {}, huge.deps), /longo demais/);
+  assert.equal(fake.requests.length, 0);
+});
+
+test('prova: um gabarito curto (poucas letras) ainda conta como texto, com o limite menor', async () => {
+  onlyClaude(examReply([], { answerKey: [{ number: 1, answer: 'C' }, { number: 2, answer: 'ANULADA' }] }));
+  const shortKey = pdfWith({ text: 'GABARITO 1 C 2 X 3 A 4 B 5 D', pages: 1 });
+  const read = await router.extractPastExam(file(shortKey.buffer, 'application/pdf'), {}, { minTextChars: 20 }, shortKey.deps);
+  assert.equal(read.text, 'GABARITO 1 C 2 X 3 A 4 B 5 D');
+  assert.deepEqual([...read.chunks[0].answerKey], [[1, 'C'], [2, 'ANULADA']]);
+  assert.match(fake.requests[0].body.messages[0].content, /--- TEXTO DO PDF ---\nGABARITO/);
+});
+
+test('prova: se um trecho falha, a leitura toda falha com o motivo e não segue chamando', async () => {
+  const lines = Array.from({ length: 1500 }, (_, i) => `linha ${i} do texto da prova com enunciado e alternativas`);
+  onlyClaude();
+  fake.respond(() => ({ status: 400, body: { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } } }));
+  await assert.rejects(router.extractPastExam({ type: 'text', text: lines.join('\n') }, {}), (e: Error) => e.message.length > 0);
+  assert.ok(fake.requests.length <= 2, `parou depois de ${fake.requests.length} chamadas`);
+});

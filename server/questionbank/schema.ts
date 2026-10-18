@@ -1,0 +1,107 @@
+/**
+ * Banco de questões: provas anteriores importadas de PDF, com as questões de múltipla escolha, o gabarito, o
+ * histórico de respostas do usuário, os cadernos (listas de questões) e as tentativas de simulado.
+ * Só tabelas próprias — nenhuma tabela do resto do app é alterada, e as questões NÃO são cartões: não entram
+ * na fila de revisão nem nas estatísticas de cartões.
+ *
+ * - Apagar uma prova leva junto as questões dela, as respostas a essas questões e o lugar delas nos cadernos.
+ * - Apagar um caderno leva junto as tentativas de simulado; as respostas ficam (a questão continua "resolvida"),
+ *   só deixam de apontar para a tentativa.
+ * - O gabarito (`answer`) fica vazio quando o PDF não trazia: a questão existe, mas não dá para corrigi-la até o
+ *   usuário informar a alternativa certa. `annulled` marca a questão anulada pela banca (não vale resposta).
+ * - `suspect` avisa que o texto lido pela IA não bate com o do PDF (possível erro de leitura): é só um aviso.
+ * - Os nomes (prova, caderno, filtro) são únicos por usuário, sem diferenciar maiúsculas de minúsculas.
+ *
+ * Fica num módulo à parte para o banco do app e os testes usarem exatamente o mesmo esquema.
+ */
+export const QUESTION_BANK_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS qb_exams (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    board      TEXT NOT NULL DEFAULT '',
+    organ      TEXT NOT NULL DEFAULT '',
+    year       INTEGER,
+    position   TEXT NOT NULL DEFAULT '',
+    level      TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_qb_exams_user_name ON qb_exams(user_id, name COLLATE NOCASE);
+
+  CREATE TABLE IF NOT EXISTS qb_questions (
+    id                TEXT PRIMARY KEY,
+    user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exam_id           TEXT NOT NULL REFERENCES qb_exams(id) ON DELETE CASCADE,
+    number            INTEGER NOT NULL,
+    support           TEXT NOT NULL DEFAULT '',
+    statement         TEXT NOT NULL,
+    alternatives_json TEXT NOT NULL,
+    answer            TEXT NOT NULL DEFAULT '',
+    annulled          INTEGER NOT NULL DEFAULT 0,
+    discipline        TEXT NOT NULL DEFAULT '',
+    subject           TEXT NOT NULL DEFAULT '',
+    needs_figure      INTEGER NOT NULL DEFAULT 0,
+    suspect           INTEGER NOT NULL DEFAULT 0,
+    note              TEXT NOT NULL DEFAULT '',
+    created_at        TEXT NOT NULL,
+    UNIQUE (exam_id, number)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_qb_questions_user ON qb_questions(user_id, discipline);
+
+  CREATE TABLE IF NOT EXISTS qb_notebooks (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_qb_notebooks_user_name ON qb_notebooks(user_id, name COLLATE NOCASE);
+
+  CREATE TABLE IF NOT EXISTS qb_notebook_questions (
+    notebook_id TEXT NOT NULL REFERENCES qb_notebooks(id) ON DELETE CASCADE,
+    question_id TEXT NOT NULL REFERENCES qb_questions(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    PRIMARY KEY (notebook_id, question_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_qb_notebook_questions_question ON qb_notebook_questions(question_id);
+
+  CREATE TABLE IF NOT EXISTS qb_attempts (
+    id          TEXT PRIMARY KEY,
+    notebook_id TEXT NOT NULL REFERENCES qb_notebooks(id) ON DELETE CASCADE,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    finished_at TEXT NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    total       INTEGER NOT NULL,
+    correct     INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_qb_attempts_notebook ON qb_attempts(notebook_id);
+
+  CREATE TABLE IF NOT EXISTS qb_answers (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id TEXT NOT NULL REFERENCES qb_questions(id) ON DELETE CASCADE,
+    attempt_id  TEXT REFERENCES qb_attempts(id) ON DELETE SET NULL,
+    chosen      TEXT NOT NULL,
+    correct     INTEGER NOT NULL,
+    answered_at TEXT NOT NULL,
+    duration_ms INTEGER
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_qb_answers_question ON qb_answers(question_id, answered_at);
+  CREATE INDEX IF NOT EXISTS idx_qb_answers_attempt ON qb_answers(attempt_id);
+
+  CREATE TABLE IF NOT EXISTS qb_saved_filters (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    filter_json TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_qb_saved_filters_user_name ON qb_saved_filters(user_id, name COLLATE NOCASE);
+`;

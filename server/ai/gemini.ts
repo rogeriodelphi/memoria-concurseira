@@ -11,6 +11,14 @@ import {
 } from './choices';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 import { parseVerifyResponse, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
+import {
+  parsePastExamResponse,
+  pastExamUserPrompt,
+  PASTEXAM_SYSTEM_PROMPT,
+  type Chunk,
+  type ChunkPosition,
+  type PastExamHints,
+} from './pastexam';
 
 export interface GenerationOptions {
   quantity: 'auto' | number;
@@ -918,6 +926,101 @@ export async function extractSyllabusGemini(source: SyllabusSource, positionHint
       config,
     });
     return parseSyllabusResponse(response.text);
+  });
+}
+
+// Provas anteriores: o trecho do PDF (ou o PDF escaneado inteiro) vira questões e gabarito. Mesmo conteúdo do
+// PASTEXAM_JSON_SCHEMA, no formato do Gemini (o nível fica como texto livre; a validação normaliza).
+const PASTEXAM_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    exam: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING },
+        board: { type: Type.STRING },
+        organ: { type: Type.STRING },
+        year: { type: Type.INTEGER },
+        position: { type: Type.STRING },
+        level: { type: Type.STRING, description: 'Fundamental, Médio, Técnico, Superior ou vazio.' },
+      },
+      required: ['name', 'board', 'organ', 'year', 'position', 'level'],
+    },
+    supports: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: { id: { type: Type.INTEGER }, text: { type: Type.STRING } },
+        required: ['id', 'text'],
+      },
+    },
+    questions: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          number: { type: Type.INTEGER },
+          supportId: { type: Type.INTEGER },
+          statement: { type: Type.STRING },
+          alternatives: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: { letter: { type: Type.STRING }, text: { type: Type.STRING } },
+              required: ['letter', 'text'],
+            },
+          },
+          discipline: { type: Type.STRING },
+          subject: { type: Type.STRING },
+          needsFigure: { type: Type.BOOLEAN },
+          complete: { type: Type.BOOLEAN },
+        },
+        required: ['number', 'supportId', 'statement', 'alternatives', 'discipline', 'subject', 'needsFigure', 'complete'],
+      },
+    },
+    answerKey: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: { number: { type: Type.INTEGER }, answer: { type: Type.STRING } },
+        required: ['number', 'answer'],
+      },
+    },
+  },
+  required: ['exam', 'supports', 'questions', 'answerKey'],
+};
+
+export async function extractPastExamGemini(
+  source: SyllabusSource,
+  hints: PastExamHints,
+  position: ChunkPosition | null,
+): Promise<Chunk> {
+  const client = getClient();
+  const config = {
+    systemInstruction: PASTEXAM_SYSTEM_PROMPT,
+    responseMimeType: 'application/json',
+    responseSchema: PASTEXAM_SCHEMA,
+  };
+  const instruction = pastExamUserPrompt(hints, position);
+
+  if (source.type === 'text') {
+    const response = await generateContentWithRetry(client, {
+      model: MODEL,
+      contents: [instruction, '', '--- TEXTO DO PDF ---', source.text].join('\n'),
+      config,
+    });
+    return parsePastExamResponse(response.text);
+  }
+
+  // PDF sem texto extraível (escaneado): o Gemini lê a imagem das páginas, todas de uma vez.
+  const prompt = ['O arquivo em anexo é uma prova de concurso (ou o gabarito dela); leia o texto das páginas.', instruction].join('\n');
+  return withUploadedFile(client, source.buffer, source.mimeType, async (uri, mimeType) => {
+    const response = await generateContentWithRetry(client, {
+      model: MODEL,
+      contents: createUserContent([createPartFromUri(uri, mimeType), prompt]),
+      config,
+    });
+    return parsePastExamResponse(response.text);
   });
 }
 

@@ -7,6 +7,7 @@ import fs from 'node:fs';
 // módulo do server ser avaliado (db, auth, ai dependem de variáveis de ambiente).
 import './env';
 import { aiReviewRouter } from './aireview/routes';
+import { questionBankRouter } from './questionbank/routes';
 import { authRouter } from './auth/routes';
 import { db } from './db';
 import { collectionsRouter } from './collections/routes';
@@ -74,6 +75,7 @@ app.use('/api/mock-exams', mockExamsRouter);
 app.use('/api/study-plan', studyPlanRouter);
 app.use('/api/reminders', remindersRouter);
 app.use('/api/ai-review', aiReviewRouter);
+app.use('/api/question-bank', questionBankRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, ok: true });

@@ -75,6 +75,17 @@ const EXPORTED: ExportedTable[] = [
     sql: `SELECT ma.* FROM mock_exam_answers ma JOIN mock_exam_attempts a ON a.id = ma.attempt_id
           WHERE a.user_id = ? ORDER BY ma.rowid`,
   },
+  { table: 'qb_exams', sql: 'SELECT * FROM qb_exams WHERE user_id = ? ORDER BY rowid' },
+  { table: 'qb_questions', sql: 'SELECT * FROM qb_questions WHERE user_id = ? ORDER BY rowid' },
+  { table: 'qb_notebooks', sql: 'SELECT * FROM qb_notebooks WHERE user_id = ? ORDER BY rowid' },
+  {
+    table: 'qb_notebook_questions',
+    sql: `SELECT nq.* FROM qb_notebook_questions nq JOIN qb_notebooks n ON n.id = nq.notebook_id
+          WHERE n.user_id = ? ORDER BY nq.rowid`,
+  },
+  { table: 'qb_attempts', sql: 'SELECT * FROM qb_attempts WHERE user_id = ? ORDER BY rowid' },
+  { table: 'qb_answers', sql: 'SELECT * FROM qb_answers WHERE user_id = ? ORDER BY rowid' },
+  { table: 'qb_saved_filters', sql: 'SELECT * FROM qb_saved_filters WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_tasks', sql: 'SELECT * FROM pomodoro_tasks WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_notes', sql: 'SELECT * FROM pomodoro_notes WHERE user_id = ? ORDER BY rowid' },
   { table: 'ai_usage', sql: 'SELECT * FROM ai_usage WHERE user_id = ? ORDER BY rowid' },

@@ -23,6 +23,7 @@ export const FEATURE_LABEL: Record<AiFeature, string> = {
   tts: 'Leitura em voz alta',
   choices: 'Alternativas de simulado',
   verify: 'Conferência de cartões',
+  questions: 'Leitura de provas',
 };
 
 export const STATUS_LABEL: Record<AiProviderStatus, string> = {

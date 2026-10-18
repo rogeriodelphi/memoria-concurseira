@@ -372,6 +372,35 @@ Em **Cartões da IA a conferir** (`/conferir-cartoes`), cada coleção gerada mo
 - Os rascunhos entram na exportação dos seus dados. Cartões gerados antes desta conferência existir
   continuam como estavam (já são cartões comuns).
 
+## Banco de questões (provas anteriores)
+
+No menu lateral, **Banco de questões** (`/questoes`) guarda as questões de provas antigas da banca, com o
+gabarito, para você resolver no estilo dela. As questões **não são cartões**: não entram na fila de revisão
+nem nas estatísticas dos cartões.
+
+- **Importar uma prova** (`/questoes/importar`): envie o PDF da prova e diga onde está o gabarito (no mesmo
+  PDF, em outro PDF ou colado). A IA copia enunciados e alternativas como estão no PDF e **nunca escolhe a
+  alternativa certa**: o gabarito vem só do que está escrito. A leitura roda em segundo plano (pode levar
+  alguns minutos) e a página mostra o andamento. Sem gabarito a prova entra do mesmo jeito, e você informa a
+  letra depois, questão por questão.
+- **Conferir antes de salvar:** nada é gravado até você confirmar. A tela lista os avisos: questões que
+  faltam na numeração, gabarito conflitante ou com letra que a questão não tem, texto que não bate com o do
+  PDF (a IA pode ter reescrito), questões que dependem de figura e PDF escaneado. Tudo se edita ali.
+- **Questões de múltipla escolha** (2 a 5 alternativas) e **Certo/Errado**. Questão sem alternativas
+  (discursiva) é descartada.
+- **Resolver** (aba Questões): filtros por Minhas questões (resolvidas, não resolvidas, acertei, errei,
+  pela última resposta), palavra, disciplina, assunto, banca, nível, cargo, ano, órgão e prova, o que
+  excluir (já em caderno, anuladas, sem gabarito) e "só com minhas anotações". Há **Salvar filtro**,
+  **Meus filtros** e **Aplicar último filtro**. A correção é feita no servidor, que só manda o gabarito
+  depois que você responde. O botão **Corrigir** edita texto, gabarito, disciplina ou anula a questão
+  (mudar o gabarito refaz o acerto e o erro das respostas e dos simulados já feitos).
+- **Cadernos e simulados:** **Gerar caderno** guarda as questões do filtro que têm gabarito (até 300);
+  **Criar simulado** faz o mesmo, sorteando, e já começa cronometrado, com a correção só no final e o
+  histórico no caderno. **Praticar as que errei** refaz as pendentes.
+- **Provas** (aba Provas): editar os dados de uma prova ou apagá-la (leva as questões e as suas respostas).
+- Os dados entram na exportação da conta (`qb_*`). Como a leitura gasta IA, ela aparece em
+  "Leitura de provas" no uso de IA.
+
 ## Limite diário de cartões novos
 
 Em **Configurações → Plano de estudo** dá para limitar quantos cartões que você nunca estudou

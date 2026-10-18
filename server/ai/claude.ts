@@ -10,6 +10,15 @@ import {
 } from './choices';
 import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
+  parsePastExamResponse,
+  pastExamUserPrompt,
+  PASTEXAM_JSON_SCHEMA,
+  PASTEXAM_SYSTEM_PROMPT,
+  type Chunk,
+  type ChunkPosition,
+  type PastExamHints,
+} from './pastexam';
+import {
   parseSyllabusResponse,
   SYLLABUS_SYSTEM_PROMPT,
   syllabusUserPrompt,
@@ -309,4 +318,24 @@ export async function extractSyllabusClaude(
     maxTokens: 16_000,
   });
   return parseSyllabusResponse(JSON.stringify(result));
+}
+
+/** Um trecho de texto de uma prova, ou o PDF escaneado inteiro (o Claude lê a imagem das páginas). */
+export async function extractPastExamClaude(
+  source: ClaudeSyllabusSource,
+  hints: PastExamHints,
+  position: ChunkPosition | null,
+): Promise<Chunk> {
+  const instruction = pastExamUserPrompt(hints, position);
+  const content =
+    source.type === 'text'
+      ? `${instruction}\n\n--- TEXTO DO PDF ---\n${source.text}`
+      : buildUserContent({ type: 'pdf', base64: source.base64 }, instruction);
+  const result = await callStructured({
+    system: PASTEXAM_SYSTEM_PROMPT,
+    content,
+    schema: PASTEXAM_JSON_SCHEMA,
+    maxTokens: 16_000,
+  });
+  return parsePastExamResponse(JSON.stringify(result));
 }

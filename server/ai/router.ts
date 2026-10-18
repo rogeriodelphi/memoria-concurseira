@@ -3,7 +3,9 @@ import pdfParse from 'pdf-parse';
 import { parseProviderOrder, runChain, UNSUPPORTED, type ChainSteps, type ProviderName } from './chain';
 import type { ChoiceSource, GeneratedChoice } from './choices';
 import type { VerifiedCard, VerifySource } from './verify';
+import { MAX_EXAM_CHARS, splitIntoChunks, type Chunk, type PastExamHints } from './pastexam';
 import {
+  extractPastExamClaude,
   extractSyllabusClaude,
   generateBulletPointsClaude,
   generateChoicesClaude,
@@ -16,6 +18,7 @@ import {
   type ClaudeSource,
 } from './claude';
 import {
+  extractPastExamGemini,
   extractSyllabusGemini,
   generateFlashcardsGemini,
   generateMindMapGemini,
@@ -35,6 +38,7 @@ import {
   type SyllabusSource,
 } from './gemini';
 import {
+  extractPastExamOpenAI,
   extractSyllabusOpenAI,
   generateFlashcardsOpenAI,
   generateMindMapOpenAI,
@@ -307,4 +311,100 @@ export async function extractSyllabus(
           ? () => extractSyllabusClaude({ type: 'pdf', base64: scanned.buffer.toString('base64') }, positionHint)
           : null,
   });
+}
+
+export interface PastExamReading {
+  chunks: Chunk[];
+  /** O texto lido do PDF (ou colado); null no PDF escaneado, em que a IA lê a imagem e não há texto para conferir. */
+  text: string | null;
+}
+
+export interface PastExamReadOptions {
+  /** Menos texto que isto num PDF e ele é tratado como escaneado. O gabarito é curto: o limite dele é menor. */
+  minTextChars?: number;
+  /** Chamado com quantos trechos já foram lidos e quantos são no total (0 de N no começo). */
+  onProgress?: (done: number, total: number) => void;
+}
+
+/** Quantos trechos vão para a IA ao mesmo tempo: o bastante para encurtar a espera sem estourar o limite por minuto. */
+const PAST_EXAM_CONCURRENCY = 2;
+
+/** Roda `fn` em todos os itens, `limit` por vez, mantendo a ordem; no primeiro erro para de começar novos e o repassa. */
+async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  let failure: { error: unknown } | null = null;
+  const worker = async () => {
+    while (!failure) {
+      const index = next++;
+      if (index >= items.length) return;
+      try {
+        results[index] = await fn(items[index], index);
+      } catch (error) {
+        failure ??= { error };
+        return;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  if (failure) throw (failure as { error: unknown }).error;
+  return results;
+}
+
+/**
+ * Lê uma prova (ou o gabarito dela) e devolve as questões e o gabarito encontrados, trecho a trecho. O texto do PDF
+ * é cortado em trechos que se sobrepõem um pouco (uma questão cortada na emenda aparece inteira no trecho seguinte);
+ * cada trecho é uma chamada à cadeia de provedores. PDF escaneado vai inteiro, numa chamada só, para o Gemini ou o Claude.
+ */
+export async function extractPastExam(
+  source: SyllabusSource,
+  hints: PastExamHints,
+  options: PastExamReadOptions = {},
+  deps: RouterDeps = defaultDeps,
+): Promise<PastExamReading> {
+  const minText = options.minTextChars ?? MIN_PDF_TEXT_LENGTH;
+  let text: string | null = null;
+  let pages = 0;
+  if (source.type === 'text') {
+    text = source.text.trim();
+  } else {
+    const info = await lazyPdfInfo(source.buffer, deps)();
+    pages = info.pages;
+    if (info.text.length >= minText) text = info.text;
+  }
+
+  if (text !== null && text.length > MAX_EXAM_CHARS) {
+    throw new Error('O PDF é longo demais para uma prova só. Envie apenas a prova (sem apostilas ou outros cadernos).');
+  }
+
+  if (text === null) {
+    if (source.type !== 'file') throw new Error('Não há texto para ler.');
+    const scanned = source;
+    const canClaude = claudeCanTakePdf(scanned.buffer, pages);
+    options.onProgress?.(0, 1);
+    const chunk = await chainFor('ler a prova', {
+      openai: null,
+      gemini: () => extractPastExamGemini(scanned, hints, null),
+      claude: canClaude
+        ? () => extractPastExamClaude({ type: 'pdf', base64: scanned.buffer.toString('base64') }, hints, null)
+        : null,
+    });
+    options.onProgress?.(1, 1);
+    return { chunks: [chunk], text: null };
+  }
+
+  const pieces = splitIntoChunks(text);
+  let done = 0;
+  options.onProgress?.(0, pieces.length);
+  const chunks = await mapLimited(pieces, PAST_EXAM_CONCURRENCY, async (piece, index) => {
+    const position = { index, total: pieces.length };
+    const chunk = await chainFor('ler a prova', {
+      openai: () => extractPastExamOpenAI(piece, hints, position),
+      gemini: () => extractPastExamGemini({ type: 'text', text: piece }, hints, position),
+      claude: () => extractPastExamClaude({ type: 'text', text: piece }, hints, position),
+    });
+    options.onProgress?.(++done, pieces.length);
+    return chunk;
+  });
+  return { chunks, text };
 }

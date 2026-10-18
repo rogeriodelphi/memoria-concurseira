@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './mockexams/schema';
 import { AI_REVIEW_SCHEMA } from './aireview/schema';
+import { QUESTION_BANK_SCHEMA } from './questionbank/schema';
 import { REMINDER_SCHEMA } from './reminders/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
@@ -324,3 +325,5 @@ db.exec(REMINDER_SCHEMA);
 // Cartões de IA esperando conferência (rascunhos, fora da tabela de cartões até o usuário aprovar).
 db.exec(AI_REVIEW_SCHEMA);
 
+// Banco de questões: provas anteriores importadas (múltipla escolha com gabarito), cadernos e simulados.
+db.exec(QUESTION_BANK_SCHEMA);

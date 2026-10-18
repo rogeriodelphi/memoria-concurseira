@@ -6,6 +6,7 @@ import {
   Headphones,
   LayoutDashboard,
   LayoutGrid,
+  Library,
   ListChecks,
   LogOut,
   Network,
@@ -135,6 +136,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             >
               <ClipboardCheck size={18} />
               Simulados
+            </NavLink>
+            <NavLink
+              to="/questoes"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-brand-800' : 'text-brand-50 hover:bg-brand-700'
+                }`
+              }
+            >
+              <Library size={18} />
+              Banco de questões
             </NavLink>
             <NavLink
               to="/maos-livres"

@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 
 import { db } from '../db';
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify' | 'questions';
 export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type ProviderStatus = 'ok' | 'quota_exhausted' | 'no_credits' | 'rate_limited' | 'invalid_key' | 'unavailable';
 

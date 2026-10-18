@@ -22,6 +22,15 @@ import {
 } from './choices';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
+import {
+  parsePastExamResponse,
+  pastExamUserPrompt,
+  PASTEXAM_JSON_SCHEMA,
+  PASTEXAM_SYSTEM_PROMPT,
+  type Chunk,
+  type ChunkPosition,
+  type PastExamHints,
+} from './pastexam';
 
 // gpt-4o-mini: barato e rápido, com suporte a saída estruturada (JSON
 // Schema) e visão (imagem) — suficiente pra tópico/texto/imagem. PDF e
@@ -524,6 +533,26 @@ export async function extractSyllabusOpenAI(text: string, positionHint: string):
     },
   });
   return parseSyllabusResponse(response.choices[0]?.message?.content ?? undefined);
+}
+
+/** Um trecho de texto de uma prova (a OpenAI não lê PDF escaneado: esse caso é do Gemini e do Claude). */
+export async function extractPastExamOpenAI(text: string, hints: PastExamHints, position: ChunkPosition | null): Promise<Chunk> {
+  const client = getClient();
+  const response = await chatCompletionWithRetry(client, {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: PASTEXAM_SYSTEM_PROMPT },
+      { role: 'user', content: `${pastExamUserPrompt(hints, position)}\n\n--- TEXTO DO PDF ---\n${text}` },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'past_exam', strict: true, schema: PASTEXAM_JSON_SCHEMA },
+    },
+  });
+  if (response.choices[0]?.finish_reason === 'length') {
+    throw new Error('A resposta da OpenAI ficou grande demais e foi cortada.');
+  }
+  return parsePastExamResponse(response.choices[0]?.message?.content ?? undefined);
 }
 
 function sanitizeMindMapNode(node: unknown): MindMapNode | null {

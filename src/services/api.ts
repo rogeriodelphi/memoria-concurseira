@@ -56,9 +56,9 @@ export const AI_USAGE_EVENT = 'ai-usage-changed';
 // bullet points, transcrever) — depois dela o contador de tokens mudou, então
 // quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
 // erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
-const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices/;
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices|\/question-bank\/import/;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     const res = await fetch(`/api${path}`, {
       credentials: 'include',
