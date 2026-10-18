@@ -403,6 +403,34 @@ você estuda por dia e o que cada tempo diário cobre até a prova.
 - O cartão some se nenhum concurso tem data. Um concurso sem data pode ganhar uma em
   **Concursos → Editar**.
 
+## Meu desempenho
+
+No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou num período, por
+**nome da coleção** e por **assunto**. A página de Estatísticas continua como era.
+
+- **Período:** Hoje, 7, 15 e 30 dias, Desde o início, ou um período personalizado (o ícone do
+  calendário: dois dias, os dois inclusos, de até 10 anos). "7 dias" é hoje e os 6 anteriores,
+  em dias do calendário local.
+- **Os números:** *cartões estudados* (cartões diferentes com ao menos uma revisão no período; um
+  cartão revisto três vezes conta uma), taxa de acerto, acertos e erros. **Acerto = Bom ou Fácil;
+  erro = Errei ou Difícil.** O cartão "Cartões estudados" também diz que parte dos seus cartões
+  isso representa.
+- **Gráficos:** revisões por dia, separadas em acertos (verde) e erros (vermelho), em curva suave
+  (períodos longos agrupam os dias; com um ou dois pontos só, viram barras); uma rosca com as
+  revisões por resultado (Fácil, Bom, Difícil, Errei); barras de cartões estudados por nome da
+  coleção e por assunto (com a chave "Cartões / Revisões"); e a tabela "Desempenho por nome da
+  coleção", em que cada nome abre e mostra os assuntos dele.
+- **Tendência:** na tabela, a seta compara o acerto com o **período anterior de mesma duração**
+  (sobe, cai ou estável: menos de 2 pontos de diferença é estável). "Desde o início" não tem
+  período anterior, então não mostra seta.
+- **Filtros:** "Todos os filtros" (nome e assunto), ou tocar numa barra ou no funil de uma linha da
+  tabela: a página inteira passa a valer só para aquele nome ou assunto. "Meu concurso" (se você tem
+  concurso) limita aos cartões das coleções ligadas ao edital do concurso de data mais próxima (sem
+  data futura, o criado por último). O período e os filtros ficam no endereço da página.
+- Nomes e assuntos são agrupados como na lista de coleções (sem diferenciar maiúsculas nem
+  acentos); coleções sem assunto entram em "Sem assunto". Tudo vem do histórico de revisões: nada é
+  guardado à parte, e a página não altera nem apaga nada.
+
 ## Disciplinas (coleções agrupadas)
 
 Na lista de coleções, as coleções de **mesmo nome** (sem diferenciar maiúsculas nem acentos)

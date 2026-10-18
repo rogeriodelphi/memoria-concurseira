@@ -3,6 +3,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { getDailyNewLimit } from '../studyplan/store';
+import { loadPerformance, parsePerformanceQuery } from './performance';
 import { buildDashboard, type DashboardCard, type DashboardSession } from './dashboard';
 
 export const statsRouter = express.Router();
@@ -128,6 +129,17 @@ statsRouter.get('/', (req: AuthedRequest, res: Response) => {
     dailyActivity,
     byCollection,
   });
+});
+
+// "Meu desempenho": o que foi estudado num período, por nome de coleção e por assunto. Parâmetros: days (1, 7, 15,
+// 30 ou 0 = desde o início) ou from e to (AAAA-MM-DD), scope (all ou exam), name e subject (filtros).
+statsRouter.get('/performance', (req: AuthedRequest, res: Response) => {
+  const parsed = parsePerformanceQuery(req.query as Record<string, unknown>);
+  if (!parsed.ok) {
+    res.status(400).json({ success: false, error: parsed.error });
+    return;
+  }
+  res.json({ success: true, ...loadPerformance(db, req.userId!, new Date(), parsed.value) });
 });
 
 statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {

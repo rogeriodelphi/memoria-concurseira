@@ -23,6 +23,7 @@ import { DisciplineStudy } from './pages/DisciplineStudy';
 import { HandsFree } from './pages/HandsFree';
 import { FavoritesReview } from './pages/FavoritesReview';
 import { Settings } from './pages/Settings';
+import { Performance } from './pages/Performance';
 import { Stats } from './pages/Stats';
 import { Profile } from './pages/Profile';
 import { Pomodoro } from './pages/Pomodoro';
@@ -76,6 +77,7 @@ export default function App() {
                       <Route path="/buscar" element={<GlobalSearch />} />
                       <Route path="/importar-anki" element={<AnkiImport />} />
                       <Route path="/configuracoes" element={<Settings />} />
+                      <Route path="/desempenho" element={<Performance />} />
                       <Route path="/estatisticas" element={<Stats />} />
                       <Route path="/perfil" element={<Profile />} />
                       <Route path="/pomodoro" element={<Pomodoro />} />

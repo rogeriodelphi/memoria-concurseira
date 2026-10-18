@@ -91,6 +91,76 @@ export interface StatsData {
   byCollection: { id: string | null; name: string; reviews: number; accuracyPct: number }[];
 }
 
+// ---------- Meu desempenho ----------
+
+/** Os números de um grupo (nome de coleção, assunto) no período. */
+export interface PerformanceCounts {
+  /** Cartões diferentes estudados. */
+  cards: number;
+  reviews: number;
+  /** Revisões "Bom" ou "Fácil". */
+  good: number;
+  /** Revisões "Errei" ou "Difícil". */
+  bad: number;
+  accuracyPct: number;
+  /** O acerto do período anterior, de mesma duração; `null` se não há (ou sem revisões nele). */
+  previousAccuracyPct: number | null;
+}
+
+export interface PerformanceSubject extends PerformanceCounts {
+  key: string;
+  label: string;
+}
+
+export interface PerformanceName extends PerformanceCounts {
+  key: string;
+  label: string;
+  /** As coleções deste nome com cartões estudados (se for uma só, o nome vira link). */
+  collectionIds: string[];
+  /** Os assuntos dentro deste nome. */
+  subjects: PerformanceSubject[];
+}
+
+export interface PerformanceSubjectGroup extends PerformanceCounts {
+  key: string;
+  label: string;
+  /** Os nomes de coleção que trazem este assunto. */
+  names: string[];
+}
+
+export interface PerformanceData {
+  /** O período como foi entendido: dias locais, AAAA-MM-DD, os dois inclusive. */
+  range: { from: string; to: string };
+  /** O período pronto escolhido (0 = desde o início); `null` se é personalizado. */
+  days: number | null;
+  scope: 'all' | 'exam';
+  /** O concurso do "Meu concurso"; `null` se o usuário não tem nenhum. */
+  exam: { id: string; name: string } | null;
+  totalCards: number;
+  totals: {
+    cards: number;
+    reviews: number;
+    good: number;
+    bad: number;
+    accuracyPct: number | null;
+    byResult: Record<StudyResult, number>;
+  };
+  /** Só os dias com revisão; os dias sem estudo valem zero. */
+  daily: { date: string; good: number; bad: number }[];
+  byName: PerformanceName[];
+  bySubject: PerformanceSubjectGroup[];
+  options: { names: { key: string; label: string }[]; subjects: { key: string; label: string }[] };
+}
+
+/** O que a página pede ao servidor; ver `GET /api/stats/performance`. */
+export interface PerformanceQuery {
+  days: number;
+  range: { from: string; to: string } | null;
+  scope: 'all' | 'exam';
+  name: string | null;
+  subject: string | null;
+}
+
 export interface DashboardData {
   consistency: { date: string; count: number }[];
   efficiencyPct: number | null;

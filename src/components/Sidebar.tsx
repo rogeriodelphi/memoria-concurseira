@@ -13,6 +13,7 @@ import {
   Settings,
   Target,
   Timer,
+  TrendingUp,
   X,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -189,6 +190,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             >
               <ListChecks size={18} />
               Bullet points
+            </NavLink>
+            <NavLink
+              to="/desempenho"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-brand-800' : 'text-brand-50 hover:bg-brand-700'
+                }`
+              }
+            >
+              <TrendingUp size={18} />
+              Meu desempenho
             </NavLink>
             <NavLink
               to="/estatisticas"

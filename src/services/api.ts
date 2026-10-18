@@ -30,6 +30,8 @@ import type {
   PomodoroMode,
   PomodoroTask,
   SearchResults,
+  PerformanceData,
+  PerformanceQuery,
   StatsData,
   StudyResult,
   TtsInfo,
@@ -280,6 +282,20 @@ export const examsApi = {
 export const statsApi = {
   get: () => request<StatsData>('/stats'),
   dashboard: () => request<DashboardData>('/stats/dashboard'),
+  // "Meu desempenho": o estudado num período por nome de coleção e por assunto, com filtros.
+  performance: (q: PerformanceQuery) => {
+    const params = new URLSearchParams();
+    if (q.range) {
+      params.set('from', q.range.from);
+      params.set('to', q.range.to);
+    } else {
+      params.set('days', String(q.days));
+    }
+    if (q.scope === 'exam') params.set('scope', 'exam');
+    if (q.name) params.set('name', q.name);
+    if (q.subject) params.set('subject', q.subject);
+    return request<PerformanceData>(`/stats/performance?${params.toString()}`);
+  },
 };
 
 // O plano de estudo: hoje, o limite diário de cartões novos na fila de revisão (`null` = sem limite).
