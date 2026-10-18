@@ -4,6 +4,7 @@ import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { getDailyNewLimit } from '../studyplan/store';
 import { loadPerformance, parsePerformanceQuery } from './performance';
+import { loadStudyTime } from './studyTime';
 import { buildDashboard, type DashboardCard, type DashboardSession } from './dashboard';
 
 export const statsRouter = express.Router();
@@ -140,6 +141,17 @@ statsRouter.get('/performance', (req: AuthedRequest, res: Response) => {
     return;
   }
   res.json({ success: true, ...loadPerformance(db, req.userId!, new Date(), parsed.value) });
+});
+
+// "Tempo de estudo" do Meu desempenho: onde o tempo vai (Pomodoro e cartões, sem contar em dobro), por nome de coleção e
+// por disciplina do edital, com o peso de cada uma. Os mesmos parâmetros do /performance.
+statsRouter.get('/study-time', (req: AuthedRequest, res: Response) => {
+  const parsed = parsePerformanceQuery(req.query as Record<string, unknown>);
+  if (!parsed.ok) {
+    res.status(400).json({ success: false, error: parsed.error });
+    return;
+  }
+  res.json({ success: true, ...loadStudyTime(db, req.userId!, new Date(), parsed.value) });
 });
 
 statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {

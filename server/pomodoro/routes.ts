@@ -5,6 +5,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { mapPomodoroTask, type PomodoroTaskRow } from '../mappers';
+import { pomodoroSuggestions } from './suggestions';
 
 export const pomodoroRouter = express.Router();
 pomodoroRouter.use(requireAuth);
@@ -80,6 +81,12 @@ pomodoroRouter.get('/tasks', (req: AuthedRequest, res: Response) => {
 
   const rows = db.prepare(query).all(...params) as unknown as PomodoroTaskRow[];
   res.json({ success: true, tasks: rows.map(mapPomodoroTask) });
+});
+
+// O que sugerir nos campos "Disciplina" e "Assunto": as disciplinas dos seus concursos, os nomes e os assuntos das
+// suas coleções. Digitar um desses nomes faz o tempo do Pomodoro casar com os cartões e com o edital no Meu desempenho.
+pomodoroRouter.get('/suggestions', (req: AuthedRequest, res: Response) => {
+  res.json({ success: true, ...pomodoroSuggestions(db, req.userId!) });
 });
 
 pomodoroRouter.delete('/tasks/:id', (req: AuthedRequest, res: Response) => {

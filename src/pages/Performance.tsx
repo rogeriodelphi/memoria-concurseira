@@ -6,8 +6,9 @@ import { AttentionPoints } from '../components/performance/AttentionPoints';
 import { ActiveFilters, FilterBar } from '../components/performance/Filters';
 import { BarList, DailyChart, DistributionDonut } from '../components/performance/Charts';
 import { NameTable } from '../components/performance/NameTable';
+import { StudyTimePanel } from '../components/performance/StudyTimePanel';
 import { statsApi } from '../services/api';
-import type { PerformanceData, PerformanceQuery } from '../types';
+import type { PerformanceData, PerformanceQuery, StudyTimeData } from '../types';
 import {
   accuracyTone,
   METRIC_LABEL,
@@ -71,6 +72,8 @@ export function Performance() {
   const query = useMemo(() => queryFromParams(new URLSearchParams(paramsText)), [paramsText]);
 
   const [data, setData] = useState<PerformanceData | null>(null);
+  // O tempo de estudo vem à parte: se falhar, o resto da página segue valendo.
+  const [time, setTime] = useState<StudyTimeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metric, setMetric] = useState<Metric>('cards');
@@ -86,6 +89,10 @@ export function Performance() {
       .then((result) => current && setData(result))
       .catch(() => current && setError('Não foi possível carregar o desempenho.'))
       .finally(() => current && setLoading(false));
+    statsApi
+      .studyTime(query)
+      .then((result) => current && setTime(result))
+      .catch(() => current && setTime(null));
     return () => {
       current = false;
     };
@@ -174,6 +181,7 @@ export function Performance() {
           </div>
 
           {!hasData ? (
+            <>
             <div className="card flex flex-col items-center gap-3 px-6 py-14 text-center">
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
                 {scope === 'exam' && data.totalCards === 0
@@ -184,6 +192,9 @@ export function Performance() {
                 {scope === 'exam' && data.totalCards === 0 ? 'Abrir o concurso' : 'Revisar pendentes'}
               </Link>
             </div>
+            {/* Sem revisões de cartões, ainda pode haver tempo de Pomodoro no período */}
+            {time && time.totals.totalSec > 0 && <StudyTimePanel key={time.byDiscipline ? 'edital' : 'nome'} data={time} />}
+            </>
           ) : (
             <>
               <AttentionPoints
@@ -191,6 +202,8 @@ export function Performance() {
                 returnTo={`/desempenho${paramsText ? `?${paramsText}` : ''}`}
                 onFilter={(nameKey, subjectKey) => change({ ...query, name: nameKey, subject: subjectKey })}
               />
+
+              {time && <StudyTimePanel key={time.byDiscipline ? 'edital' : 'nome'} data={time} />}
 
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <section className="card p-6 lg:col-span-2" aria-label="Revisões por dia">

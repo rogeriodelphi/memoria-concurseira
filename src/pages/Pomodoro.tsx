@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, Play, Square } from 'lucide-react';
 
 import { usePomodoro, type SimplesPhase } from '../contexts/PomodoroContext';
+import { pomodoroApi } from '../services/api';
 import type { PomodoroTask } from '../types';
 
 function formatTimer(totalSec: number): string {
@@ -50,8 +52,28 @@ export function Pomodoro() {
     setNotes,
   } = usePomodoro();
 
+  // Sugestões para Disciplina e Assunto: as dos seus concursos e coleções. Digitar um desses nomes liga o tempo do
+  // Pomodoro aos cartões e ao edital no Meu desempenho. Sem elas, os campos seguem livres como sempre foram.
+  const [suggestions, setSuggestions] = useState<{ disciplines: string[]; subjects: string[] }>({ disciplines: [], subjects: [] });
+  useEffect(() => {
+    pomodoroApi
+      .suggestions()
+      .then(setSuggestions)
+      .catch(() => {});
+  }, []);
+
   return (
     <div>
+      <datalist id="pomodoro-disciplines">
+        {suggestions.disciplines.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+      <datalist id="pomodoro-subjects">
+        {suggestions.subjects.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
       <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Pomodoro de estudos</h1>
@@ -161,6 +183,7 @@ export function Pomodoro() {
               <input
                 type="text"
                 disabled={simplesRunning}
+                list="pomodoro-disciplines"
                 className="input-field"
                 placeholder="Ex.: Direito Administrativo"
                 value={simplesDiscipline}
@@ -172,6 +195,7 @@ export function Pomodoro() {
               <input
                 type="text"
                 disabled={simplesRunning}
+                list="pomodoro-subjects"
                 className="input-field"
                 placeholder="Ex.: Poder de polícia"
                 value={simplesSubject}
@@ -222,6 +246,7 @@ export function Pomodoro() {
               <input
                 type="text"
                 disabled={superRunning}
+                list="pomodoro-disciplines"
                 className="input-field"
                 placeholder="Ex.: Direito Constitucional"
                 value={superDiscipline}
@@ -233,6 +258,7 @@ export function Pomodoro() {
               <input
                 type="text"
                 disabled={superRunning}
+                list="pomodoro-subjects"
                 className="input-field"
                 placeholder="Ex.: Controle de constitucionalidade"
                 value={superSubject}

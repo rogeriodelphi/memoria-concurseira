@@ -12,7 +12,7 @@ const MATURE_INTERVAL_DAYS = 21;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WINDOW_DAYS = 30;
-const FALLBACK_REVIEW_MS = 20_000;
+export const FALLBACK_REVIEW_MS = 20_000;
 
 export interface DashboardSession {
   flashcardId: string;

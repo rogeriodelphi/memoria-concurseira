@@ -462,6 +462,27 @@ No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou n
   **Difícil**) no período da página, **vencidos ou não**, os que mais errou primeiro (até 200). É uma
   revisão extra: o que você avaliar entra no agendamento como qualquer revisão. O "voltar" leva à página
   com o mesmo período e filtros.
+- **Tempo de estudo:** um painel mostra onde o seu tempo vai, com o mesmo período, escopo e filtros da
+  página. Há duas fontes, mostradas lado a lado e **nunca somadas em dobro**:
+  - **Pomodoro:** o tempo de foco que você registrou, com a disciplina e o assunto que digitou.
+  - **Cartões:** o tempo de cada revisão. É o medido; se não foi medido (revisões antigas), é o
+    intervalo até a revisão anterior quando plausível (de 1 s a 2 min); senão a mediana. É a mesma regra do
+    Painel, e o painel diz quantas revisões tiveram o tempo estimado.
+  - Uma revisão feita **dentro de um Pomodoro** (do começo ao fim dele) já está no tempo do Pomodoro: fica
+    de fora do tempo dos cartões, e o painel mostra quanto foi descontado. Vale a disciplina que você
+    declarou no Pomodoro. O acerto dos cartões continua contando por coleção.
+  - **Por disciplina do edital** (quando há concurso): cada disciplina mostra o **peso na prova** (questões ×
+    peso, como na ordem dos cartões novos), a fatia do seu tempo e o acerto, e uma leitura: **Pouco tempo
+    para o peso** (menos de 70% do que o peso pede e ao menos 5 pontos de diferença), **Equilibrado** ou
+    **Tempo de sobra** (mais de 130%). Pouco tempo junto de acerto abaixo de 70% vira **Prioridade**, e uma
+    frase no topo aponta onde mais falta. Com menos de 30 min no total o painel não opina. As coleções
+    contam para a disciplina do edital a que estão ligadas (a de maior peso, se forem várias); o que não
+    está no edital aparece em "Fora do edital".
+  - **Por nome da coleção:** o mesmo tempo, agrupado pelo nome, com os assuntos de cada um.
+  - O Pomodoro entra na disciplina pelo **nome que você digitou** (sem diferenciar maiúsculas e acentos):
+    ele casa com o nome de uma disciplina do edital ou de uma coleção. Os campos Disciplina e Assunto do
+    Pomodoro agora **sugerem** esses nomes (continuam livres), para o tempo se juntar aos cartões sem
+    ninguém ter que lembrar a grafia. Um nome que não casa com nada fica numa linha própria.
 - Nomes e assuntos são agrupados como na lista de coleções (sem diferenciar maiúsculas nem
   acentos); coleções sem assunto entram em "Sem assunto". Tudo vem do histórico de revisões: nada é
   guardado à parte, e a página não altera nem apaga nada.

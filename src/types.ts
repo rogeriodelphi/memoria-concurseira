@@ -159,6 +159,56 @@ export interface PerformanceData {
   options: { names: { key: string; label: string }[]; subjects: { key: string; label: string }[] };
 }
 
+// ---------- Tempo de estudo ----------
+
+export interface StudyTimeSubject {
+  key: string;
+  label: string;
+  sec: number;
+}
+
+/** O tempo de um grupo, por fonte: o Pomodoro registrado e o tempo gasto nos cartões (sem contar em dobro). */
+export interface StudyTimeRow {
+  key: string;
+  label: string;
+  pomodoroSec: number;
+  cardSec: number;
+  totalSec: number;
+  tasks: number;
+  reviews: number;
+  accuracyPct: number | null;
+  subjects: StudyTimeSubject[];
+}
+
+export interface StudyTimeDisciplineRow extends StudyTimeRow {
+  /** `null` na linha "Fora do edital". */
+  disciplineId: string | null;
+  questions: number | null;
+  weight: number | null;
+  /** A fatia da prova (questões x peso sobre o total), em %; `null` fora do edital. */
+  weightPct: number | null;
+}
+
+export interface StudyTimeData {
+  range: { from: string; to: string };
+  scope: 'all' | 'exam';
+  exam: { id: string; name: string } | null;
+  totals: {
+    totalSec: number;
+    pomodoroSec: number;
+    cardSec: number;
+    tasks: number;
+    reviews: number;
+    /** Revisões cujo tempo não foi medido e entrou estimado. */
+    estimatedReviews: number;
+    /** Tempo de revisões feitas dentro de um Pomodoro: já está no Pomodoro e não é somado de novo. */
+    overlapSec: number;
+  };
+  byName: StudyTimeRow[];
+  /** `null` quando o usuário não tem concurso. */
+  byDiscipline: StudyTimeDisciplineRow[] | null;
+}
+
 /** O que a página pede ao servidor; ver `GET /api/stats/performance`. */
 export interface PerformanceQuery {
   days: number;

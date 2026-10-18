@@ -36,6 +36,7 @@ import type {
   PerformanceData,
   PerformanceQuery,
   StatsData,
+  StudyTimeData,
   StudyResult,
   TtsInfo,
   Summary,
@@ -287,23 +288,28 @@ export const examsApi = {
     ),
 };
 
+/** Os parâmetros do período, do escopo e dos filtros do Meu desempenho (os mesmos nas duas chamadas). */
+function performanceParams(q: PerformanceQuery): string {
+  const params = new URLSearchParams();
+  if (q.range) {
+    params.set('from', q.range.from);
+    params.set('to', q.range.to);
+  } else {
+    params.set('days', String(q.days));
+  }
+  if (q.scope === 'exam') params.set('scope', 'exam');
+  if (q.name) params.set('name', q.name);
+  if (q.subject) params.set('subject', q.subject);
+  return params.toString();
+}
+
 export const statsApi = {
   get: () => request<StatsData>('/stats'),
   dashboard: () => request<DashboardData>('/stats/dashboard'),
   // "Meu desempenho": o estudado num período por nome de coleção e por assunto, com filtros.
-  performance: (q: PerformanceQuery) => {
-    const params = new URLSearchParams();
-    if (q.range) {
-      params.set('from', q.range.from);
-      params.set('to', q.range.to);
-    } else {
-      params.set('days', String(q.days));
-    }
-    if (q.scope === 'exam') params.set('scope', 'exam');
-    if (q.name) params.set('name', q.name);
-    if (q.subject) params.set('subject', q.subject);
-    return request<PerformanceData>(`/stats/performance?${params.toString()}`);
-  },
+  performance: (q: PerformanceQuery) => request<PerformanceData>(`/stats/performance?${performanceParams(q)}`),
+  // O tempo de estudo (Pomodoro e cartões) do mesmo período e filtros, por nome e por disciplina do edital.
+  studyTime: (q: PerformanceQuery) => request<StudyTimeData>(`/stats/study-time?${performanceParams(q)}`),
 };
 
 // O plano de estudo: hoje, o limite diário de cartões novos na fila de revisão (`null` = sem limite).
@@ -359,6 +365,8 @@ export const pomodoroApi = {
   listTasks: (from: string, to: string) =>
     request<{ tasks: PomodoroTask[] }>(`/pomodoro/tasks?from=${from}&to=${to}`),
   removeTask: (id: string) => request<{ success: true }>(`/pomodoro/tasks/${id}`, { method: 'DELETE' }),
+  // O que sugerir nos campos Disciplina e Assunto (disciplinas dos concursos e nomes/assuntos das coleções).
+  suggestions: () => request<{ disciplines: string[]; subjects: string[] }>('/pomodoro/suggestions'),
   getNote: (date: string) => request<{ date: string; text: string }>(`/pomodoro/notes?date=${date}`),
   saveNote: (date: string, text: string) =>
     request<{ date: string; text: string }>('/pomodoro/notes', {
