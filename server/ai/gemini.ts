@@ -10,6 +10,7 @@ import {
   type GeneratedChoice,
 } from './choices';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
+import { parseVerifyResponse, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 
 export interface GenerationOptions {
   quantity: 'auto' | number;
@@ -745,6 +746,40 @@ export async function generateChoicesGemini(sources: ChoiceSource[]): Promise<Ge
     },
   });
   return parseChoicesResponse(response.text, sources);
+}
+
+const VERIFY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    checks: {
+      type: Type.ARRAY,
+      description: 'Uma conferência por cartão.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          n: { type: Type.INTEGER, description: 'O número do cartão, como no pedido.' },
+          verdict: { type: Type.STRING, enum: ['ok', 'duvida', 'erro'], description: 'A resposta está correta, duvidosa ou errada.' },
+          note: { type: Type.STRING, description: 'O motivo, em uma frase (vazio quando está certo).' },
+        },
+        required: ['n', 'verdict', 'note'],
+      },
+    },
+  },
+  required: ['checks'],
+};
+
+export async function verifyCardsGemini(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {
+  const client = getClient();
+  const response = await generateContentWithRetry(client, {
+    model: MODEL,
+    contents: verifyUserPrompt(sources, context),
+    config: {
+      systemInstruction: VERIFY_SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+      responseSchema: VERIFY_SCHEMA,
+    },
+  });
+  return parseVerifyResponse(response.text, sources);
 }
 
 // Modelo de voz do Gemini. Existe uma versão "lite" (gemini-3.8-flash-lite-tts), mais

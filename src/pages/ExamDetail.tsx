@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronRight, Headphone
 
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
+import { DRAFTS_CHANGED_EVENT } from '../hooks/usePendingDrafts';
 import { ApiError, examsApi } from '../services/api';
 import { daysLeftLabel, formatExamDate, plural } from '../utils/exam';
 import {
@@ -199,6 +200,12 @@ export function ExamDetail() {
 
   const generating = generatingTopicId !== null || batch !== null;
 
+  /** Tópicos com cartões da IA esperando conferência contam como "com material" para gerar de novo: já têm o que conferir. */
+  function withDrafts<T extends { id: string; hasMaterial: boolean }>(topics: T[]): T[] {
+    const drafts = data?.drafts ?? {};
+    return topics.map((t) => (t.hasMaterial || (drafts[t.id] ?? 0) > 0 ? { ...t, hasMaterial: true } : t));
+  }
+
   /** Pede à IA os cartões de um tópico sem material. Só roda depois de confirmar: gasta cota da IA. */
   async function generateForTopic(topic: ExamTopicProgress) {
     if (generating) return;
@@ -211,7 +218,8 @@ export function ExamDetail() {
     setGeneratingTopicId(topic.id);
     try {
       const { added } = await examsApi.generateTopicCards(id!, topic.id, CARDS_PER_TOPIC);
-      showToast(`${plural(added, 'cartão criado', 'cartões criados')} para o tópico.`);
+      showToast(`${plural(added, 'cartão criado', 'cartões criados')}: confira-os para entrarem na sua revisão.`);
+      window.dispatchEvent(new Event(DRAFTS_CHANGED_EVENT));
       await load();
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Não foi possível gerar os cartões.', 'error');
@@ -227,7 +235,7 @@ export function ExamDetail() {
    */
   async function generateForDiscipline(discipline: ExamDisciplineProgress) {
     if (generating) return;
-    const queue = nextBatch(discipline.topics);
+    const queue = nextBatch(withDrafts(discipline.topics));
     if (queue.length === 0) return;
     const confirmed = await confirm({
       title: 'Gerar cartões com IA',
@@ -255,9 +263,10 @@ export function ExamDetail() {
     }
     setBatch(null);
     setStopping(false);
+    window.dispatchEvent(new Event(DRAFTS_CHANGED_EVENT));
     await load().catch(() => {});
 
-    const result = `${plural(topicsDone, 'tópico', 'tópicos')} com cartões novos (${plural(cardsAdded, 'cartão', 'cartões')}).`;
+    const result = `${plural(topicsDone, 'tópico', 'tópicos')} com cartões a conferir (${plural(cardsAdded, 'cartão', 'cartões')}).`;
     if (failure) showToast(topicsDone === 0 ? failure : `Parou depois de ${result} ${failure}`, 'error');
     else if (stopRef.current && topicsDone < queue.length) showToast(`Parado: ${result}`);
     else showToast(`Pronto: ${result}`);
@@ -294,6 +303,8 @@ export function ExamDetail() {
   if (!data) return <p className="text-sm text-neutral-400 dark:text-neutral-500">Carregando...</p>;
 
   const { exam, overall, disciplines, suggestions } = data;
+  const drafts = data.drafts ?? {};
+  const totalDrafts = Object.values(drafts).reduce((n, v) => n + v, 0);
   const countdown = daysLeftLabel(exam.daysLeft);
   const subtitle = [exam.position, exam.board].filter(Boolean).join(' · ');
 
@@ -313,6 +324,8 @@ export function ExamDetail() {
       ]
         .filter(Boolean)
         .join(' · ');
+    } else if ((drafts[topic.id] ?? 0) > 0) {
+      status = `${plural(drafts[topic.id], 'cartão da IA espera', 'cartões da IA esperam')} conferência`;
     } else if (linked.length > 0) {
       status = 'As coleções vinculadas ainda não têm cartões';
     } else {
@@ -379,12 +392,22 @@ export function ExamDetail() {
             {linked.length > 0 ? 'Editar vínculos' : 'Vincular coleção'}
           </button>
 
-          {!topic.hasMaterial && (
+          {!topic.hasMaterial && (drafts[topic.id] ?? 0) > 0 && (
+            <Link
+              to="/conferir-cartoes"
+              className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70"
+            >
+              <Sparkles size={12} />
+              Conferir {plural(drafts[topic.id], 'cartão da IA', 'cartões da IA')}
+            </Link>
+          )}
+
+          {!topic.hasMaterial && (drafts[topic.id] ?? 0) === 0 && (
             <button
               type="button"
               onClick={() => void generateForTopic(topic)}
               disabled={generating || busy}
-              title="A IA cria os cartões deste tópico a partir do título (uma coleção nova, ligada a ele)."
+              title="A IA escreve os cartões deste tópico a partir do título (numa coleção nova, ligada a ele). Eles só entram na revisão depois que você os conferir."
               className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-brand-400"
             >
               {generatingTopicId === topic.id || batch?.topicId === topic.id ? (
@@ -417,7 +440,7 @@ export function ExamDetail() {
 
   function renderDiscipline(discipline: ExamDisciplineProgress) {
     const expanded = open.has(discipline.id);
-    const missing = topicsWithoutMaterial(discipline.topics).length;
+    const missing = topicsWithoutMaterial(withDrafts(discipline.topics)).length;
     const batchHere = batch !== null && batch.disciplineId === discipline.id ? batch : null;
     const studyIds = disciplineCollectionIds(discipline.topics);
     const canStudy = discipline.cards > 0 && studyIds.length > 0;
@@ -607,6 +630,20 @@ export function ExamDetail() {
         <Tile label="Aprovação (30 dias)" value={pctText(overall.approvalPct)} />
       </div>
 
+      {totalDrafts > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+          <p className="flex items-start gap-2">
+            <Sparkles size={16} className="mt-0.5 shrink-0" />
+            <span>
+              {plural(totalDrafts, 'cartão da IA espera', 'cartões da IA esperam')} a sua conferência. Eles só entram na revisão depois de aprovados.
+            </span>
+          </p>
+          <Link to="/conferir-cartoes" className="btn-secondary !py-1.5 text-xs">
+            Conferir agora
+          </Link>
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {strongLinks.length > 0 ? (
           <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-600 dark:text-neutral-300">
@@ -649,9 +686,9 @@ export function ExamDetail() {
             nada é vinculado sem a sua confirmação.
           </p>
           <p>
-            <strong>Gerar cartões com IA</strong>: num tópico sem material, a IA cria cerca de {CARDS_PER_TOPIC} cartões a partir do título
-            dele e do concurso, do cargo e da banca, numa coleção nova já vinculada. Sem texto-fonte, podem ter imprecisões: confira,
-            sobretudo leis, números e datas.
+            <strong>Gerar cartões com IA</strong>: num tópico sem material, a IA escreve cerca de {CARDS_PER_TOPIC} cartões a partir do
+            título dele e do concurso, do cargo e da banca, numa coleção nova já vinculada. Sem texto-fonte, podem ter imprecisões: por
+            isso eles ficam em “Cartões da IA a conferir” e só entram na revisão depois que você os aprova (ou corrige).
           </p>
         </div>
       )}

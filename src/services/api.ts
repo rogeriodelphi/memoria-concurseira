@@ -1,4 +1,7 @@
 import type {
+  AiDraft,
+  AiDraftGroup,
+  DraftVerdict,
   AiUsage,
   AnkiImportPreview,
   AnkiImportResult,
@@ -320,6 +323,22 @@ export const remindersApi = {
   unsubscribe: (endpoint: string) =>
     request<{ devices: number }>('/reminders/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
   test: () => request<{ delivered: number }>('/reminders/test', { method: 'POST' }),
+};
+
+// Cartões gerados por IA (sem texto-fonte) que esperam a conferência antes de entrar na revisão.
+export const aiReviewApi = {
+  list: () => request<{ groups: AiDraftGroup[]; total: number }>('/ai-review'),
+  count: () => request<{ pending: number }>('/ai-review/count'),
+  edit: (id: string, patch: { question?: string; answer?: string }) =>
+    request<{ draft: AiDraft }>(`/ai-review/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  // Aprova (vira cartão de estudo) os ids escolhidos, ou todos os de uma coleção.
+  approve: (target: { ids: string[] } | { collectionId: string }) =>
+    request<{ approved: number; duplicates: number; pending: number }>('/ai-review/approve', { method: 'POST', body: JSON.stringify(target) }),
+  discard: (target: { ids: string[] } | { collectionId: string }) =>
+    request<{ discarded: number; pending: number }>('/ai-review/discard', { method: 'POST', body: JSON.stringify(target) }),
+  // A segunda opinião de outra IA (só um alerta: não aprova nem descarta). Pode parar no meio: vem o que foi feito e o erro.
+  check: (target: { ids: string[] } | { collectionId: string }) =>
+    request<{ checked: number; unchecked: number; counts: Record<DraftVerdict, number>; error: string | null }>('/ai-review/check', { method: 'POST', body: JSON.stringify(target) }),
 };
 
 export const pomodoroApi = {

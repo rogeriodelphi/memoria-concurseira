@@ -11,16 +11,18 @@ import {
   Network,
   Search,
   Settings,
+  Sparkles,
   Target,
   Timer,
   TrendingUp,
   X,
 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { AiUsageWidget } from './AiUsageWidget';
 import { APP_NAME, BrandMark } from './BrandMark';
 import { useAuth } from '../contexts/AuthContext';
+import { usePendingDrafts } from '../hooks/usePendingDrafts';
 import { getInitials } from '../utils/initials';
 
 interface SidebarProps {
@@ -31,6 +33,9 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // O selo "Conferir cartões da IA" só aparece quando há algo esperando.
+  const pendingDrafts = usePendingDrafts(location.pathname);
   const [searchQuery, setSearchQuery] = useState('');
 
   function submitSearch(e: KeyboardEvent<HTMLInputElement>) {
@@ -191,6 +196,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <ListChecks size={18} />
               Bullet points
             </NavLink>
+            {pendingDrafts > 0 && (
+              <NavLink
+                to="/conferir-cartoes"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isActive ? 'bg-white text-brand-800' : 'text-brand-50 hover:bg-brand-700'
+                  }`
+                }
+              >
+                <Sparkles size={18} />
+                <span className="flex-1">Cartões da IA</span>
+                <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-bold text-amber-950" aria-label={`${pendingDrafts} esperando conferência`}>
+                  {pendingDrafts}
+                </span>
+              </NavLink>
+            )}
             <NavLink
               to="/desempenho"
               onClick={onClose}

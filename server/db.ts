@@ -3,6 +3,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './mockexams/schema';
+import { AI_REVIEW_SCHEMA } from './aireview/schema';
 import { REMINDER_SCHEMA } from './reminders/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
@@ -319,3 +320,7 @@ upgradeMockExamSchema(db);
 
 // Lembretes de estudo no celular (push): inscrições dos aparelhos e as chaves VAPID do servidor.
 db.exec(REMINDER_SCHEMA);
+
+// Cartões de IA esperando conferência (rascunhos, fora da tabela de cartões até o usuário aprovar).
+db.exec(AI_REVIEW_SCHEMA);
+

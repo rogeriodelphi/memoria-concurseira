@@ -254,3 +254,39 @@ test('alternativas: JSON fora do formato é erro, e cota esgotada aparece como n
   await assert.rejects(gemini.generateChoicesGemini([{ n: 1, question: 'P', answer: 'R' }]), /Limite de uso gratuito/);
   assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'quota_exhausted' }]);
 });
+
+// ---------- conferência de cartões (segunda opinião) ----------
+
+test('conferência: o pedido leva o contexto e os cartões numerados, e a resposta passa pela validação', async () => {
+  const checks = [{ n: 1, verdict: 'erro', note: 'A porta do SSH é a 22.' }, { n: 2, verdict: 'ok', note: '' }];
+  setup(() => textReply(JSON.stringify({ checks: [...checks, { n: 9, verdict: 'ok', note: 'número que não existe' }] })));
+
+  const result = await gemini.verifyCardsGemini(
+    [
+      { n: 1, question: 'Qual a porta do SSH?', answer: 'A porta TCP 23.' },
+      { n: 2, question: 'Qual protocolo resolve nomes?', answer: 'O DNS.' },
+    ],
+    'concurso TRANSPETRO 2026',
+  );
+  assert.deepEqual(result, checks, 'o número 9 não foi pedido e fica de fora');
+
+  assert.equal(requests.length, 1);
+  const sent = requests[0].body;
+  const prompt: string = sent.contents[0].parts[0].text;
+  assert.match(prompt, /Contexto: concurso TRANSPETRO 2026/);
+  assert.match(prompt, /\[n=1\]\nPergunta: Qual a porta do SSH\?\nResposta: A porta TCP 23\./);
+  assert.match(sent.systemInstruction.parts[0].text, /revisor técnico/);
+  assert.equal(sent.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(sent.generationConfig.responseSchema.properties.checks.items.required, ['n', 'verdict', 'note']);
+  assert.deepEqual(sent.generationConfig.responseSchema.properties.checks.items.properties.verdict.enum, ['ok', 'duvida', 'erro']);
+  assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'ok' }]);
+});
+
+test('conferência: JSON fora do formato é erro, e cota esgotada aparece como nas demais gerações', async () => {
+  setup(() => textReply('isto não é json'));
+  await assert.rejects(gemini.verifyCardsGemini([{ n: 1, question: 'P', answer: 'R' }], ''), /não retornou a conferência/);
+
+  setup(() => quotaError('0.05s'));
+  await assert.rejects(gemini.verifyCardsGemini([{ n: 1, question: 'P', answer: 'R' }], ''), /Limite de uso gratuito/);
+  assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'quota_exhausted' }]);
+});

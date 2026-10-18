@@ -334,6 +334,10 @@ Na página do concurso, os tópicos do edital sem cartões aparecem com o ponto 
   dela são exatamente os dele e a cobertura não conta o mesmo cartão duas vezes). Se o título é
   "Grupo: assunto", o nome da coleção é o grupo e o assunto é o que vem depois, como nas suas
   outras coleções; sem "Grupo:", o nome é o da disciplina.
+- **Os cartões não entram direto na revisão.** A IA pode errar (leis, números, datas), então eles ficam
+  como **rascunhos** em **Cartões da IA a conferir** (o item aparece no menu, com a contagem, enquanto
+  há algo esperando; a página do concurso também avisa). Enquanto são rascunhos, nenhuma tela de estudo,
+  contagem, simulado ou estatística os vê. Veja "Conferir os cartões da IA" abaixo.
 - **Uma rodada na disciplina:** "Gerar cartões dos próximos 20 tópicos sem material" faz um tópico
   por vez (cada um é uma chamada de IA), mostra o andamento e tem **Parar**. Para sozinho no primeiro
   erro (a cota do dia, por exemplo); o que já foi gerado fica, e a próxima rodada continua no
@@ -345,6 +349,28 @@ Na página do concurso, os tópicos do edital sem cartões aparecem com o ponto 
 - O uso entra no contador de IA ("Flashcards") das Configurações.
 - Um tópico que já tem material não é gerado de novo. Se o tópico está ligado só a coleções
   vazias, a coleção nova se soma aos vínculos que ele já tinha.
+
+### Conferir os cartões da IA
+
+Em **Cartões da IA a conferir** (`/conferir-cartoes`), cada coleção gerada mostra os cartões com
+**Aprovar**, **Editar** e **Descartar**, e no alto da coleção **Aprovar todos**, **Descartar todos** e
+**Conferir com outra IA**.
+
+- **Aprovar** faz do rascunho um cartão comum, na coleção do tópico: só então ele entra na fila de
+  estudo (como novo). Se a coleção já tem um cartão com a mesma pergunta, nada é duplicado. **Editar**
+  corrige a pergunta ou a resposta (ou "Salvar e aprovar"). **Descartar** apaga o rascunho; se uma coleção
+  criada pela IA ficar sem cartões e sem rascunhos, ela é apagada junto e o tópico volta a poder receber
+  cartões novos. Coleções suas nunca são apagadas por aqui. "Aprovar todos" e "Descartar todos" pedem
+  confirmação.
+- **Conferir com outra IA** pede uma **segunda opinião**: cada cartão volta com um veredito (certo, com
+  dúvida ou possível erro) e o motivo, em lotes de 12 cartões (até 60 por vez). É **só um alerta**: nada é
+  aprovado ou descartado por ele, e a IA que confere também pode errar. Editar um cartão apaga o veredito
+  dele (valia para o texto antigo). Com mais de uma chave de IA configurada, quem confere tende a ser outro
+  provedor que não o que escreveu (a ordem é a de `AI_PROVIDER_ORDER` ao contrário; ou defina
+  `AI_VERIFY_ORDER`, por exemplo `claude,openai,gemini`); com uma chave só, o mesmo provedor confere, com
+  outro pedido. O uso aparece em Configurações como "Conferência de cartões".
+- Os rascunhos entram na exportação dos seus dados. Cartões gerados antes desta conferência existir
+  continuam como estavam (já são cartões comuns).
 
 ## Limite diário de cartões novos
 

@@ -3,13 +3,16 @@
  * coleção (assim os cartões dela são exatamente os do tópico, e a cobertura do concurso não conta o mesmo
  * cartão em vários tópicos) já ligada a ele. Nada roda sozinho: é o usuário quem pede, tópico a tópico.
  *
- * A IA só recebe o título do tópico e o contexto da prova, sem texto-fonte: por isso a coleção diz na
- * descrição que foi gerada assim, e o pedido já manda não inventar números nem artigos.
+ * A IA só recebe o título do tópico e o contexto da prova, sem texto-fonte, e pode errar: por isso os cartões
+ * NÃO entram na coleção de cara. Ficam como rascunhos (server/aireview) até o usuário conferir e aprovar;
+ * só então viram cartões de estudo. A coleção diz na descrição que foi gerada assim, e o pedido já manda não
+ * inventar números nem artigos.
  */
 import crypto from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
 import type { GeneratedFlashcard, GenerationOptions } from '../ai/router';
+import { GENERATED_DESCRIPTION_PREFIX, insertDrafts } from '../aireview/store';
 import { fail, ok, type Result } from '../mockexams/store';
 
 export const DEFAULT_TOPIC_CARDS = 12;
@@ -90,15 +93,19 @@ export function usableCards(cards: GeneratedFlashcard[], max: number): Generated
 
 export interface TopicCardsResult {
   collection: { id: string; name: string; subject: string };
+  /** Quantos cartões a IA escreveu: ficam esperando a conferência do usuário. */
   added: number;
 }
 
-const hasMaterial = (db: DatabaseSync, topicId: string): boolean =>
-  !!db
-    .prepare(
-      `SELECT 1 FROM exam_topic_collections l JOIN flashcards f ON f.collection_id = l.collection_id WHERE l.topic_id = ? LIMIT 1`,
-    )
+/** Por que o tópico não pode receber cartões novos: já tem cartões, ou já tem cartões da IA esperando conferência. */
+function blocker(db: DatabaseSync, topicId: string): string | null {
+  const cards = db
+    .prepare(`SELECT 1 FROM exam_topic_collections l JOIN flashcards f ON f.collection_id = l.collection_id WHERE l.topic_id = ? LIMIT 1`)
     .get(topicId);
+  if (cards) return 'Este tópico já tem material.';
+  const drafts = db.prepare('SELECT 1 FROM ai_card_drafts WHERE topic_id = ? LIMIT 1').get(topicId);
+  return drafts ? 'Este tópico já tem cartões da IA esperando a sua conferência.' : null;
+}
 
 export async function generateTopicCards(
   db: DatabaseSync,
@@ -124,7 +131,8 @@ export async function generateTopicCards(
     )
     .get(topicId, examId) as unknown as { id: string; title: string; discipline: string } | undefined;
   if (!topic) return fail(404, 'Tópico não encontrado.');
-  if (hasMaterial(db, topic.id)) return fail(409, 'Este tópico já tem material.');
+  const blocked = blocker(db, topic.id);
+  if (blocked) return fail(409, blocked);
 
   const request = topicRequest(exam, topic.discipline, topic.title, quantity);
   const generated = await generate(request.topic, request.options);
@@ -133,7 +141,7 @@ export async function generateTopicCards(
 
   const names = collectionNames(topic.discipline, topic.title);
   const description = clip(
-    `Gerada por IA a partir do tópico "${squash(topic.title)}" do edital de ${squash(exam.name)}, sem texto-fonte: confira os cartões, sobretudo leis, números e datas.`,
+    `${GENERATED_DESCRIPTION_PREFIX} a partir do tópico "${squash(topic.title)}" do edital de ${squash(exam.name)}, sem texto-fonte. Os cartões só entram na revisão depois de conferidos e aprovados em "Cartões da IA a conferir"; mesmo assim, atenção a leis, números e datas.`,
     500,
   );
   const stamp = now.toISOString();
@@ -143,9 +151,10 @@ export async function generateTopicCards(
   db.exec('BEGIN');
   try {
     // A geração levou segundos: se outro pedido deu material ao tópico enquanto isso, não duplica.
-    if (hasMaterial(db, topic.id)) {
+    const nowBlocked = blocker(db, topic.id);
+    if (nowBlocked) {
       db.exec('ROLLBACK');
-      return fail(409, 'Este tópico já tem material.');
+      return fail(409, nowBlocked);
     }
     db.prepare(
       'INSERT INTO collections (id, user_id, name, subject, description, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -153,12 +162,13 @@ export async function generateTopicCards(
     db.prepare(
       'INSERT INTO documents (id, collection_id, filename, size, pages, status, source_type, created_at) VALUES (?, ?, ?, 0, 0, ?, ?, ?)',
     ).run(documentId, collectionId, clip(squash(topic.title), 200), 'completed', 'topic', stamp);
-    const insert = db.prepare(
-      'INSERT INTO flashcards (id, collection_id, document_id, question, answer, difficulty, source_page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    insertDrafts(
+      db,
+      userId,
+      { collectionId, documentId, topicId: topic.id },
+      cards.map((card) => ({ question: card.question, answer: card.answer, difficulty: DIFFICULTIES.includes(card.difficulty) ? card.difficulty : 'medio', sourcePage: card.sourcePage ?? null })),
+      now,
     );
-    for (const card of cards) {
-      insert.run(crypto.randomUUID(), collectionId, documentId, card.question, card.answer, DIFFICULTIES.includes(card.difficulty) ? card.difficulty : 'medio', card.sourcePage ?? null, stamp);
-    }
     db.prepare('INSERT INTO exam_topic_collections (topic_id, collection_id) VALUES (?, ?)').run(topic.id, collectionId);
     db.exec('COMMIT');
   } catch (err) {

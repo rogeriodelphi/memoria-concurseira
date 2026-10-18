@@ -22,6 +22,7 @@ export const FEATURE_LABEL: Record<AiFeature, string> = {
   exam: 'Análise de edital',
   tts: 'Leitura em voz alta',
   choices: 'Alternativas de simulado',
+  verify: 'Conferência de cartões',
 };
 
 export const STATUS_LABEL: Record<AiProviderStatus, string> = {

@@ -289,6 +289,29 @@ export interface ExamDetail {
   /** topicId -> sugestões (só para tópicos ainda sem vínculo). */
   suggestions: Record<string, ExamCollectionSuggestion[]>;
   collections: { id: string; name: string; subject: string; cards: number }[];
+  /** topicId -> quantos cartões da IA esperam conferência (só os tópicos que têm). */
+  drafts: Record<string, number>;
+}
+
+// ---------- Cartões da IA a conferir ----------
+
+/** A segunda opinião de outra IA sobre um rascunho: ok, com dúvida ou provavelmente errado. */
+export type DraftVerdict = 'ok' | 'duvida' | 'erro';
+
+export interface AiDraft {
+  id: string;
+  question: string;
+  answer: string;
+  difficulty: string;
+  verdict: DraftVerdict | null;
+  verdictNote: string | null;
+}
+
+export interface AiDraftGroup {
+  collection: { id: string; name: string; subject: string };
+  /** O tópico do edital para o qual os cartões foram gerados; `null` se ele foi apagado. */
+  topic: { id: string; title: string; discipline: string; examId: string; examName: string } | null;
+  drafts: AiDraft[];
 }
 
 export interface TtsVoiceOption {
@@ -402,7 +425,7 @@ export interface AnkiImportResult {
   collection: { id: string; name: string } | null;
 }
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify';
 export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type AiProviderStatus =
   | 'ok'

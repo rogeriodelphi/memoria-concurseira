@@ -43,10 +43,13 @@ test('confirmações: dizem quantos, de onde vêm os cartões e o que conferir',
   assert.match(batch, /cerca de 12 cartões para cada um de 20 tópicos de "Conhecimentos Específicos"/);
   assert.match(batch, /coleção nova/);
   assert.match(batch, /sem texto-fonte/);
+  assert.match(batch, /esperando a sua conferência/);
+  assert.match(batch, /só entram na revisão depois de aprovados/);
   assert.match(batch, /parar a qualquer momento/);
   assert.match(batchConfirmMessage(1, 'D'), /de 1 tópico de "D"/);
 
   const single = topicConfirmMessage('Ortografia oficial');
   assert.match(single, /"Ortografia oficial"/);
   assert.match(single, /leis, números e datas/);
+  assert.match(single, /esperando a sua conferência/);
 });

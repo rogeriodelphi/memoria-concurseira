@@ -247,3 +247,32 @@ test('edital escaneado com páginas demais não vai ao Claude', async () => {
   await assert.rejects(router.extractSyllabus(file(tooMany.buffer, 'application/pdf'), '', tooMany.deps), notConfigured);
   assert.equal(fake.requests.length, 0);
 });
+
+test('conferência de cartões: passa pela cadeia de provedores, e uma resposta inutilizável vira erro', async () => {
+  const sources = [{ n: 1, question: 'P', answer: 'R' }];
+  onlyClaude(toolUse({ checks: [{ n: 1, verdict: 'erro', note: 'Está errado.' }] }));
+  assert.deepEqual(await router.verifyCards(sources, 'concurso X'), [{ n: 1, verdict: 'erro', note: 'Está errado.' }]);
+
+  onlyClaude(toolUse({ checks: [] }));
+  await assert.rejects(router.verifyCards(sources, ''), /não retornou a conferência/);
+
+  onlyClaude();
+  const savedKey = process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    await assert.rejects(router.verifyCards(sources, ''), notConfigured);
+  } finally {
+    if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
+  }
+});
+
+test('ordem da conferência: o contrário da geração (para tender a ser outro provedor), ou a de AI_VERIFY_ORDER', () => {
+  assert.deepEqual(router.verifyProviderOrder({}), ['claude', 'gemini', 'openai']);
+  assert.deepEqual(router.verifyProviderOrder({ AI_PROVIDER_ORDER: 'claude,gemini' }), ['gemini', 'claude']);
+  assert.deepEqual(router.verifyProviderOrder({ AI_PROVIDER_ORDER: 'gemini' }), ['gemini']);
+  assert.deepEqual(router.verifyProviderOrder({ AI_VERIFY_ORDER: 'openai,claude' }), ['openai', 'claude']);
+  assert.deepEqual(router.verifyProviderOrder({ AI_PROVIDER_ORDER: 'gemini', AI_VERIFY_ORDER: 'claude' }), ['claude'], 'a variável própria vale mais');
+  assert.deepEqual(router.verifyProviderOrder({ AI_VERIFY_ORDER: '  ' }), ['claude', 'gemini', 'openai'], 'vazia = padrão');
+  assert.deepEqual(router.verifyProviderOrder({ AI_VERIFY_ORDER: 'lixo' }), ['openai', 'gemini', 'claude'], 'só lixo cai na ordem padrão de geração');
+});
+

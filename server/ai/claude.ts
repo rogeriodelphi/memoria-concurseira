@@ -8,6 +8,7 @@ import {
   type ChoiceSource,
   type GeneratedChoice,
 } from './choices';
+import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
   parseSyllabusResponse,
   SYLLABUS_SYSTEM_PROMPT,
@@ -278,6 +279,16 @@ export async function generateChoicesClaude(sources: ChoiceSource[]): Promise<Ge
     maxTokens: 6_000,
   });
   return parseChoicesResponse(JSON.stringify(result), sources);
+}
+
+export async function verifyCardsClaude(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {
+  const result = await callStructured({
+    system: VERIFY_SYSTEM_PROMPT,
+    content: verifyUserPrompt(sources, context),
+    schema: VERIFY_JSON_SCHEMA,
+    maxTokens: 4_000,
+  });
+  return parseVerifyResponse(JSON.stringify(result), sources);
 }
 
 export type ClaudeSyllabusSource = { type: 'text'; text: string } | { type: 'pdf'; base64: string };

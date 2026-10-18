@@ -259,3 +259,25 @@ test('sem chave configurada, a chamada falha antes de sair da máquina', async (
     process.env.ANTHROPIC_API_KEY = key;
   }
 });
+
+test('conferência: o pedido leva o contexto e o esquema, e a resposta passa pela validação', async () => {
+  const sources = [{ n: 1, question: 'Prazo da LGPD?', answer: '48 horas.' }, { n: 2, question: 'Porta do SSH?', answer: '22.' }];
+  setup(() => ({
+    status: 200,
+    body: toolUse({ checks: [{ n: 1, verdict: 'duvida', note: 'Confirme o prazo na norma.' }, { n: 7, verdict: 'ok', note: '' }, { n: 2, verdict: 'ok', note: '' }] }),
+  }));
+
+  const result = await claude.verifyCardsClaude(sources, 'concurso TRANSPETRO 2026');
+  assert.deepEqual(result, [{ n: 1, verdict: 'duvida', note: 'Confirme o prazo na norma.' }, { n: 2, verdict: 'ok', note: '' }]);
+
+  const body = fake.requests[0].body;
+  assert.match(body.system, /revisor técnico/);
+  assert.match(body.messages[0].content, /Contexto: concurso TRANSPETRO 2026/);
+  assert.match(body.messages[0].content, /\[n=2\]\nPergunta: Porta do SSH\?\nResposta: 22\./);
+  assert.equal(body.tools[0].input_schema.properties.checks.items.required.join(','), 'n,verdict,note');
+});
+
+test('conferência: resposta sem nenhuma conferência aproveitável é erro (a cadeia tenta o próximo provedor)', async () => {
+  setup(() => ({ status: 200, body: toolUse({ checks: [{ n: 9, verdict: 'ok', note: '' }] }) }));
+  await assert.rejects(claude.verifyCardsClaude([{ n: 1, question: 'P', answer: 'R' }], ''), /não retornou a conferência/);
+});

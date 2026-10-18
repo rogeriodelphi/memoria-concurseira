@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { AI_REVIEW_SCHEMA } from '../aireview/schema';
 import type { GeneratedFlashcard, GenerationOptions } from '../ai/router';
 import type { Result } from '../mockexams/store';
 import {
@@ -53,6 +54,7 @@ function newDb(): DatabaseSync {
       ('t2', 'd2', 'Ortografia oficial'),
       ('tx', 'dx', 'Alheio');
   `);
+  db.exec(AI_REVIEW_SCHEMA);
   return db;
 }
 
@@ -137,7 +139,7 @@ test('cartões aproveitáveis: sem pergunta ou resposta saem, pergunta repetida 
   assert.deepEqual(usableCards([], 5), []);
 });
 
-test('gera: cria a coleção do tópico, com cartões, documento de origem e vínculo', async () => {
+test('gera: cria a coleção do tópico, o documento de origem, o vínculo e os cartões como RASCUNHOS (nenhum cartão de estudo)', async () => {
   const db = newDb();
   const { generate, calls } = fakeGenerator([card('P1', 'R1', { difficulty: 'facil', sourcePage: 3 }), card('P2', 'R2', { difficulty: 'dificil' }), card('P3')]);
   const result = value(await generateTopicCards(db, 'u1', 'e1', 't1', 10, generate, new Date('2026-10-17T12:00:00Z')));
@@ -154,17 +156,20 @@ test('gera: cria a coleção do tópico, com cartões, documento de origem e ví
   const collection = db.prepare('SELECT * FROM collections WHERE id = ?').get(result.collection.id) as Record<string, string>;
   assert.equal(collection.user_id, 'u1');
   assert.equal(collection.category, 'Concursos');
-  assert.match(collection.description, /Gerada por IA/);
+  assert.match(collection.description, /^Gerada por IA/);
   assert.match(collection.description, /TRANSPETRO 2026/);
+  assert.match(collection.description, /conferidos e aprovados/);
   assert.equal(collection.created_at, '2026-10-17T12:00:00.000Z');
 
   const document = db.prepare('SELECT * FROM documents WHERE collection_id = ?').get(result.collection.id) as Record<string, string | number>;
   assert.equal(document.source_type, 'topic');
   assert.equal(document.status, 'completed');
 
-  const rows = db.prepare('SELECT question, answer, difficulty, source_page, document_id FROM flashcards WHERE collection_id = ? ORDER BY rowid').all(result.collection.id) as Record<string, unknown>[];
+  assert.equal(count(db, 'flashcards'), 0, 'a IA pode errar: nenhum cartão entra na fila antes da conferência');
+  const rows = db.prepare('SELECT user_id, collection_id, topic_id, question, answer, difficulty, source_page, document_id, verdict, created_at FROM ai_card_drafts ORDER BY rowid').all() as Record<string, unknown>[];
   assert.deepEqual(rows.map((r) => [r.question, r.answer, r.difficulty, r.source_page]), [['P1', 'R1', 'facil', 3], ['P2', 'R2', 'dificil', null], ['P3', 'Resposta', 'medio', null]]);
-  assert.ok(rows.every((r) => r.document_id === document.id));
+  assert.ok(rows.every((r) => r.document_id === document.id && r.user_id === 'u1' && r.collection_id === result.collection.id && r.topic_id === 't1' && r.verdict === null));
+  assert.ok(rows.every((r) => r.created_at === '2026-10-17T12:00:00.000Z'));
 
   const links = db.prepare('SELECT topic_id, collection_id FROM exam_topic_collections').all() as Record<string, string>[];
   assert.deepEqual(links.map((l) => [l.topic_id, l.collection_id]), [['t1', result.collection.id]]);
@@ -209,6 +214,17 @@ test('tópico que já tem material: recusa sem chamar a IA e sem criar nada', as
   assert.equal(count(db, 'collections'), 1);
 });
 
+test('tópico com cartões da IA esperando conferência: recusa sem chamar a IA e sem criar outra coleção', async () => {
+  const db = newDb();
+  const first = value(await generateTopicCards(db, 'u1', 'e1', 't1', 10, fakeGenerator().generate));
+  assert.ok(first.added > 0);
+  const { generate, calls } = fakeGenerator();
+  failure(await generateTopicCards(db, 'u1', 'e1', 't1', 10, generate), 409, /esperando a sua conferência/);
+  assert.equal(calls.length, 0);
+  assert.equal(count(db, 'collections'), 1);
+  assert.equal(count(db, 'ai_card_drafts'), 3, 'os rascunhos do pedido anterior continuam');
+});
+
 test('tópico ligado só a uma coleção vazia ainda recebe cartões, e o vínculo antigo fica', async () => {
   const db = newDb();
   db.exec(`
@@ -224,7 +240,7 @@ test('a IA devolve só lixo: falha com 422 e não cria coleção, documento nem 
   const db = newDb();
   failure(await generateTopicCards(db, 'u1', 'e1', 't1', 10, fakeGenerator([card(''), card('P', '  ')]).generate), 422, /não devolveu cartões/);
   failure(await generateTopicCards(db, 'u1', 'e1', 't1', 10, fakeGenerator([]).generate), 422);
-  for (const table of ['collections', 'documents', 'flashcards', 'exam_topic_collections']) assert.equal(count(db, table), 0, table);
+  for (const table of ['collections', 'documents', 'flashcards', 'ai_card_drafts', 'exam_topic_collections']) assert.equal(count(db, table), 0, table);
 });
 
 test('a IA falha (cota, rede): o erro sobe e nada é criado', async () => {
@@ -233,7 +249,7 @@ test('a IA falha (cota, rede): o erro sobe e nada é criado', async () => {
     throw new Error('cota diária esgotada');
   };
   await assert.rejects(generateTopicCards(db, 'u1', 'e1', 't1', 10, broken), /cota diária/);
-  for (const table of ['collections', 'documents', 'flashcards', 'exam_topic_collections']) assert.equal(count(db, table), 0, table);
+  for (const table of ['collections', 'documents', 'flashcards', 'ai_card_drafts', 'exam_topic_collections']) assert.equal(count(db, table), 0, table);
 });
 
 test('se o tópico ganha material enquanto a IA trabalha, não duplica', async () => {
@@ -250,6 +266,21 @@ test('se o tópico ganha material enquanto a IA trabalha, não duplica', async (
   assert.equal(count(db, 'collections'), 1, 'só a "outra"');
   assert.equal(count(db, 'flashcards'), 1);
   assert.equal(count(db, 'documents'), 0);
+  assert.equal(count(db, 'ai_card_drafts'), 0, 'e nenhum rascunho ficou');
+});
+
+test('se outro pedido deixa rascunhos no tópico enquanto a IA trabalha, também não duplica', async () => {
+  const db = newDb();
+  const racing: TopicCardsGenerator = async () => {
+    db.exec(`
+      INSERT INTO collections (id, user_id, name, created_at, updated_at) VALUES ('outra', 'u1', 'Outra', 'x', 'x');
+      INSERT INTO ai_card_drafts (id, user_id, collection_id, topic_id, question, answer, created_at) VALUES ('d1', 'u1', 'outra', 't1', 'P', 'R', 'x');
+    `);
+    return { flashcards: [card('P1'), card('P2')] };
+  };
+  failure(await generateTopicCards(db, 'u1', 'e1', 't1', 10, racing), 409, /esperando a sua conferência/);
+  assert.equal(count(db, 'ai_card_drafts'), 1, 'só o rascunho do outro pedido');
+  assert.equal(count(db, 'collections'), 1);
 });
 
 test('o limite de quantidade corta o que a IA mandar a mais', async () => {
@@ -257,5 +288,6 @@ test('o limite de quantidade corta o que a IA mandar a mais', async () => {
   const many = Array.from({ length: 40 }, (_, i) => card(`Pergunta ${i}`));
   const result = value(await generateTopicCards(db, 'u1', 'e1', 't1', 8, fakeGenerator(many).generate));
   assert.equal(result.added, 8);
-  assert.equal(count(db, 'flashcards'), 8);
+  assert.equal(count(db, 'ai_card_drafts'), 8);
+  assert.equal(count(db, 'flashcards'), 0);
 });

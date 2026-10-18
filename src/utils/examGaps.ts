@@ -37,7 +37,8 @@ export function batchConfirmMessage(topicCount: number, disciplineName: string, 
   return (
     `A IA vai criar cerca de ${perTopic} cartões para cada um de ${topics} de "${disciplineName}", um de cada vez ` +
     `(pode levar alguns minutos). Cada tópico ganha uma coleção nova, ligada a ele. Os cartões vêm só do título do ` +
-    `tópico, sem texto-fonte: confira-os, sobretudo leis, números e datas. Você pode parar a qualquer momento.`
+    `tópico, sem texto-fonte, e ficam esperando a sua conferência: só entram na revisão depois de aprovados. Você pode ` +
+    `parar a qualquer momento.`
   );
 }
 
@@ -45,6 +46,7 @@ export function batchConfirmMessage(topicCount: number, disciplineName: string, 
 export function topicConfirmMessage(topicTitle: string, perTopic = CARDS_PER_TOPIC): string {
   return (
     `A IA vai criar cerca de ${perTopic} cartões para "${topicTitle}", numa coleção nova ligada ao tópico. ` +
-    `Eles vêm só do título do tópico, sem texto-fonte: confira-os, sobretudo leis, números e datas.`
+    `Eles vêm só do título do tópico, sem texto-fonte, e ficam esperando a sua conferência (sobretudo leis, números e ` +
+    `datas): só entram na revisão depois de aprovados.`
   );
 }

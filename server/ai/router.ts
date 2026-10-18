@@ -2,6 +2,7 @@ import pdfParse from 'pdf-parse';
 
 import { parseProviderOrder, runChain, UNSUPPORTED, type ChainSteps, type ProviderName } from './chain';
 import type { ChoiceSource, GeneratedChoice } from './choices';
+import type { VerifiedCard, VerifySource } from './verify';
 import {
   extractSyllabusClaude,
   generateBulletPointsClaude,
@@ -11,6 +12,7 @@ import {
   generateSummaryClaude,
   hasClaude,
   isClaudeImageMime,
+  verifyCardsClaude,
   type ClaudeSource,
 } from './claude';
 import {
@@ -21,6 +23,7 @@ import {
   generateBulletPointsGemini,
   generateChoicesGemini,
   hasGemini,
+  verifyCardsGemini,
   type GenerationOptions,
   type GenerationSource,
   type GeneratedFlashcard,
@@ -39,6 +42,7 @@ import {
   generateBulletPointsOpenAI,
   generateChoicesOpenAI,
   hasOpenAI,
+  verifyCardsOpenAI,
   type OpenAISource,
 } from './openai';
 
@@ -82,14 +86,18 @@ function logFallback(task: string) {
 type Run<T> = (() => Promise<T | typeof UNSUPPORTED>) | null;
 
 /** Cada operação diz o que cada provedor consegue fazer com aquela entrada (null = nada). */
-function chainFor<T>(task: string, run: { openai: Run<T>; gemini: Run<T>; claude: Run<T> }): Promise<T> {
+function chainFor<T>(
+  task: string,
+  run: { openai: Run<T>; gemini: Run<T>; claude: Run<T> },
+  order: readonly ProviderName[] = parseProviderOrder(process.env.AI_PROVIDER_ORDER),
+): Promise<T> {
   const steps: ChainSteps<T> = {
     openai: { available: hasOpenAI(), run: run.openai },
     gemini: { available: hasGemini(), run: run.gemini },
     claude: { available: hasClaude(), run: run.claude },
   };
-  // Lida a cada chamada: é só uma variável de ambiente e assim a ordem vale sem reiniciar nada.
-  return runChain(parseProviderOrder(process.env.AI_PROVIDER_ORDER), steps, logFallback(task));
+  // A ordem é lida a cada chamada (é só uma variável de ambiente), e assim vale sem reiniciar nada.
+  return runChain(order, steps, logFallback(task));
 }
 
 export interface PdfInfo {
@@ -229,6 +237,29 @@ export function generateChoices(sources: ChoiceSource[]): Promise<GeneratedChoic
     gemini: () => generateChoicesGemini(sources),
     claude: () => generateChoicesClaude(sources),
   });
+}
+
+/**
+ * A ordem dos provedores para conferir cartões: a de `AI_VERIFY_ORDER` se existir; senão, a ordem de geração
+ * ao contrário. Assim, com mais de uma chave configurada, quem confere tende a ser outro provedor que não o que
+ * escreveu os cartões (uma segunda opinião de verdade). Com uma chave só, o mesmo provedor confere, com outro pedido.
+ */
+export function verifyProviderOrder(env: NodeJS.ProcessEnv = process.env): ProviderName[] {
+  const custom = env.AI_VERIFY_ORDER?.trim();
+  return custom ? parseProviderOrder(custom) : [...parseProviderOrder(env.AI_PROVIDER_ORDER)].reverse();
+}
+
+/** A segunda opinião sobre cartões escritos por IA (uma chamada por lote). `context` descreve a prova (concurso, cargo, banca). */
+export function verifyCards(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {
+  return chainFor(
+    'conferir cartões',
+    {
+      openai: () => verifyCardsOpenAI(sources, context),
+      gemini: () => verifyCardsGemini(sources, context),
+      claude: () => verifyCardsClaude(sources, context),
+    },
+    verifyProviderOrder(),
+  );
 }
 
 // Um edital inteiro passa fácil de 100 mil caracteres; acima disto o custo e o

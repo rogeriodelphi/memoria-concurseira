@@ -38,6 +38,7 @@ const EXPORTED: ExportedTable[] = [
           WHERE c.user_id = ? ORDER BY cc.rowid`,
   },
   { table: 'study_sessions', sql: 'SELECT * FROM study_sessions WHERE user_id = ? ORDER BY rowid' },
+  { table: 'ai_card_drafts', sql: 'SELECT * FROM ai_card_drafts WHERE user_id = ? ORDER BY rowid' },
   { table: 'summaries', sql: 'SELECT * FROM summaries WHERE user_id = ? ORDER BY rowid' },
   { table: 'bullet_points', sql: 'SELECT * FROM bullet_points WHERE user_id = ? ORDER BY rowid' },
   { table: 'mind_maps', sql: 'SELECT * FROM mind_maps WHERE user_id = ? ORDER BY rowid' },

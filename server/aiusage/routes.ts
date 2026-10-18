@@ -10,7 +10,7 @@ import type { AiFeature, AiProvider, ProviderStatus } from '../ai/usage';
 export const aiUsageRouter = express.Router();
 aiUsageRouter.use(requireAuth);
 
-const FEATURES: AiFeature[] = ['flashcards', 'summary', 'bulletpoints', 'mindmap', 'transcription', 'exam', 'tts', 'choices'];
+const FEATURES: AiFeature[] = ['flashcards', 'summary', 'bulletpoints', 'mindmap', 'transcription', 'exam', 'tts', 'choices', 'verify'];
 const PROVIDERS: AiProvider[] = ['gemini', 'openai', 'claude'];
 const MAX_BUDGET = 1_000_000_000_000;
 

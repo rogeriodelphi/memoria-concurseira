@@ -21,6 +21,7 @@ import {
   type GeneratedChoice,
 } from './choices';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
+import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 
 // gpt-4o-mini: barato e rápido, com suporte a saída estruturada (JSON
 // Schema) e visão (imagem) — suficiente pra tópico/texto/imagem. PDF e
@@ -462,6 +463,22 @@ export async function generateChoicesOpenAI(sources: ChoiceSource[]): Promise<Ge
     },
   });
   return parseChoicesResponse(response.choices[0]?.message?.content ?? undefined, sources);
+}
+
+export async function verifyCardsOpenAI(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {
+  const client = getClient();
+  const response = await chatCompletionWithRetry(client, {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: VERIFY_SYSTEM_PROMPT },
+      { role: 'user', content: verifyUserPrompt(sources, context) },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'verification', strict: true, schema: VERIFY_JSON_SCHEMA },
+    },
+  });
+  return parseVerifyResponse(response.choices[0]?.message?.content ?? undefined, sources);
 }
 
 // O modo estrito da OpenAI exige todos os campos como obrigatórios; "não

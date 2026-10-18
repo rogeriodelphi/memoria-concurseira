@@ -10,6 +10,7 @@ import { withUsageContext } from '../ai/usage';
 import { mockExamFromDiscipline } from '../mockexams/fromDiscipline';
 import { fail } from '../mockexams/store';
 import { generateTopicCards } from './topicCards';
+import { draftCountsByTopic } from '../aireview/store';
 import { LIMITS, normalizeDraft, type ExamDraft } from './draft';
 import {
   buildExamProgress,
@@ -232,7 +233,10 @@ examsRouter.get('/:id', (req: AuthedRequest, res: Response) => {
     }
   }
 
-  res.json({ success: true, exam: examHeader(row, now), ...progress, suggestions, collections });
+  // Quantos cartões da IA cada tópico tem esperando conferência (ainda não são material: não entram na cobertura).
+  const drafts = draftCountsByTopic(db, req.userId!, row.id);
+
+  res.json({ success: true, exam: examHeader(row, now), ...progress, suggestions, collections, drafts });
 });
 
 // ---------- análise do edital (IA) ----------
