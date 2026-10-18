@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Flag, Loader2, Timer, X } from 'lucide-react';
 
+import { CutoffCard } from '../components/questions/CutoffCard';
 import { Alternatives, QuestionBody, QuestionCard } from '../components/questions/QuestionCard';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
@@ -386,6 +387,8 @@ function SimuladoResult({
           </Link>
         </div>
       </div>
+
+      <CutoffCard attemptId={attempt.id} />
 
       <div className="mb-3 mt-8 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Correção</h2>

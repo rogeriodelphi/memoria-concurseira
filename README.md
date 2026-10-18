@@ -398,6 +398,20 @@ nem nas estatísticas dos cartões.
   **Criar simulado** faz o mesmo, sorteando, e já começa cronometrado, com a correção só no final e o
   histórico no caderno. **Praticar as que errei** refaz as pendentes.
 - **Provas** (aba Provas): editar os dados de uma prova ou apagá-la (leva as questões e as suas respostas).
+- **Nota de corte** (resultado do simulado e aba **Desempenho**): cada simulado guarda o placar por
+  disciplina (as questões em branco contam) e o app o compara com o **critério mínimo** que está no
+  concurso (o campo "Critério mínimo" da disciplina). Entende "mínimo de 50%", "30 pontos" (precisa do nº
+  de questões e do peso para saber o total) e "20 questões"; o que não der para ler como nota fica de fora
+  da comparação, sem chute. A disciplina das questões casa com a do concurso pelo nome, sem diferenciar
+  acento e caixa, ou quando um nome contém o outro ("Português" e "Língua Portuguesa"), se só uma servir;
+  as que não casam aparecem à parte (corrija o nome da disciplina da questão para entrarem). O resultado
+  mostra quanto falta em cada disciplina (acertos e pontos), a **nota estimada na prova** (pelo peso de
+  cada disciplina) e, nas que ficaram abaixo, o atalho **Ver as que errei**. A aba **Desempenho** acompanha
+  os últimos 10 simulados: por disciplina, a situação pelos **últimos 3** (menos sujeita a um simulado
+  ruim ou bom), a tendência (subindo, caindo ou estável) e um gráfico com a linha da nota de corte. Com
+  poucas questões por disciplina a nota balança, e o app avisa. É uma estimativa: não vê a nota de corte
+  geral nem a classificação, e só os simulados do banco entram (os de cartão são autoavaliados). Simulados
+  feitos antes desta função não têm placar por disciplina e só mostram o total.
 - Os dados entram na exportação da conta (`qb_*`). Como a leitura gasta IA, ela aparece em
   "Leitura de provas" no uso de IA.
 

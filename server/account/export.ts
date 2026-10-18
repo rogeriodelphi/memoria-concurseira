@@ -84,6 +84,11 @@ const EXPORTED: ExportedTable[] = [
           WHERE n.user_id = ? ORDER BY nq.rowid`,
   },
   { table: 'qb_attempts', sql: 'SELECT * FROM qb_attempts WHERE user_id = ? ORDER BY rowid' },
+  {
+    table: 'qb_attempt_disciplines',
+    sql: `SELECT d.* FROM qb_attempt_disciplines d JOIN qb_attempts a ON a.id = d.attempt_id
+          WHERE a.user_id = ? ORDER BY d.rowid`,
+  },
   { table: 'qb_answers', sql: 'SELECT * FROM qb_answers WHERE user_id = ? ORDER BY rowid' },
   { table: 'qb_saved_filters', sql: 'SELECT * FROM qb_saved_filters WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_tasks', sql: 'SELECT * FROM pomodoro_tasks WHERE user_id = ? ORDER BY rowid' },

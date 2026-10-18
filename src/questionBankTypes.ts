@@ -188,3 +188,93 @@ export interface QbImportJob {
   draft?: QbDraft;
   error?: string;
 }
+
+// ---------- simulados contra a nota de corte ----------
+
+export type QbCutoffStatus = 'above' | 'below' | 'unknown';
+export type QbTrend = 'up' | 'down' | 'flat';
+
+export interface QbExamChoice {
+  id: string;
+  name: string;
+  disciplines: number;
+  withCutoff: number;
+}
+
+export interface QbDisciplineResult {
+  label: string;
+  total: number;
+  correct: number;
+  pct: number;
+  examDisciplineId: string | null;
+  questionCount: number | null;
+  weight: number | null;
+  cutoffText: string;
+  cutoffPct: number | null;
+  status: QbCutoffStatus;
+  margin: number | null;
+  missing: number | null;
+  lowSample: boolean;
+  /** Os nomes de disciplina que as questões tinham (para o atalho "ver as que errei"). */
+  sourceLabels: string[];
+}
+
+export interface QbComparison {
+  disciplines: QbDisciplineResult[];
+  unmatched: QbDisciplineResult[];
+  notCovered: { id: string; name: string; cutoffText: string; cutoffPct: number | null }[];
+  estimatedPct: number | null;
+  verdict: QbCutoffStatus;
+}
+
+export interface QbAttemptCutoff {
+  attempt: { id: string; finishedAt: string; durationMs: number; total: number; correct: number; notebookName: string };
+  exam: { id: string; name: string } | null;
+  exams: QbExamChoice[];
+  hasBreakdown: boolean;
+  comparison: QbComparison | null;
+}
+
+export interface QbSeriesPoint {
+  attemptId: string;
+  finishedAt: string;
+  total: number;
+  correct: number;
+  pct: number;
+}
+
+export interface QbOverviewDiscipline {
+  id: string;
+  name: string;
+  questionCount: number | null;
+  weight: number | null;
+  cutoffText: string;
+  cutoffPct: number | null;
+  series: QbSeriesPoint[];
+  recentCorrect: number;
+  recentTotal: number;
+  recentPct: number | null;
+  trend: QbTrend | null;
+  status: QbCutoffStatus;
+  margin: number | null;
+  lowSample: boolean;
+}
+
+export interface QbAttemptLine {
+  id: string;
+  finishedAt: string;
+  notebookName: string;
+  total: number;
+  correct: number;
+  estimatedPct: number | null;
+  verdict: QbCutoffStatus;
+}
+
+export interface QbCutoffOverview {
+  exam: { id: string; name: string } | null;
+  exams: QbExamChoice[];
+  attemptCount: number;
+  disciplines: QbOverviewDiscipline[];
+  unmatched: { label: string; total: number; correct: number; pct: number }[];
+  attempts: QbAttemptLine[];
+}

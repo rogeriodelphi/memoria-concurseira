@@ -8,6 +8,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { oneLine } from '../ai/pastexam';
 import { fail, ok, type Result } from '../mockexams/store';
 import { buildWhere, parseFilter, QUESTION_FROM, orderSql, activeCount, type QuestionFilter } from './filter';
+import { disciplineKey } from './cutoff';
 import { loadQuestionViews } from './store';
 import type { Alternative, QuestionView } from './types';
 
@@ -313,10 +314,10 @@ export function recordSimulado(
 
   const rows = db
     .prepare(
-      `SELECT q.id, q.answer, q.annulled, q.alternatives_json FROM qb_notebook_questions nq
+      `SELECT q.id, q.answer, q.annulled, q.alternatives_json, q.discipline FROM qb_notebook_questions nq
        JOIN qb_questions q ON q.id = nq.question_id WHERE nq.notebook_id = ? AND q.user_id = ? ORDER BY nq.position`,
     )
-    .all(id, userId) as unknown as { id: string; answer: string; annulled: number; alternatives_json: string }[];
+    .all(id, userId) as unknown as { id: string; answer: string; annulled: number; alternatives_json: string; discipline: string }[];
   const gradable = rows.filter((r) => r.annulled === 0 && r.answer !== '');
   if (gradable.length === 0) return fail(422, 'Este caderno não tem questões com gabarito.');
 
@@ -363,6 +364,17 @@ export function recordSimulado(
       'INSERT INTO qb_answers (id, user_id, question_id, attempt_id, chosen, correct, answered_at, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)',
     );
     for (const r of results) if (r.chosen) insert.run(crypto.randomUUID(), userId, r.questionId, attempt.id, r.chosen, r.correct ? 1 : 0, attempt.finishedAt);
+    // O placar por disciplina (as em branco contam no total): é o que se compara com a nota de corte do concurso.
+    const insertDiscipline = db.prepare('INSERT INTO qb_attempt_disciplines (attempt_id, discipline, total, correct) VALUES (?, ?, ?, ?)');
+    const byDiscipline = new Map<string, { label: string; total: number; correct: number }>();
+    gradable.forEach((row, i) => {
+      const key = disciplineKey(row.discipline);
+      const entry = byDiscipline.get(key) ?? { label: row.discipline.trim(), total: 0, correct: 0 };
+      entry.total++;
+      if (results[i].correct) entry.correct++;
+      byDiscipline.set(key, entry);
+    });
+    for (const entry of byDiscipline.values()) insertDiscipline.run(attempt.id, entry.label, entry.total, entry.correct);
     db.prepare('UPDATE qb_notebooks SET updated_at = ? WHERE id = ?').run(attempt.finishedAt, id);
     db.exec('COMMIT');
   } catch (err) {

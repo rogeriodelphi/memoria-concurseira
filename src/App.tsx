@@ -51,6 +51,7 @@ import { PastExamImport } from './pages/PastExamImport';
 import { QuestionNotebooks } from './pages/QuestionNotebooks';
 import { QuestionNotebook } from './pages/QuestionNotebook';
 import { QuestionRun } from './pages/QuestionRun';
+import { QuestionPerformance } from './pages/QuestionPerformance';
 
 export default function App() {
   return (
@@ -78,6 +79,7 @@ export default function App() {
                       <Route path="/questoes/provas" element={<PastExams />} />
                       <Route path="/questoes/importar" element={<PastExamImport />} />
                       <Route path="/questoes/cadernos" element={<QuestionNotebooks />} />
+                      <Route path="/questoes/desempenho" element={<QuestionPerformance />} />
                       <Route path="/questoes/cadernos/:id" element={<QuestionNotebook />} />
                       <Route path="/questoes/cadernos/:id/resolver" element={<QuestionRun />} />
                       <Route path="/colecoes" element={<Collections />} />

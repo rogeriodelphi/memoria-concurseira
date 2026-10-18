@@ -33,6 +33,7 @@ function filterFromUrl(params: URLSearchParams): QbFilter {
   return {
     ...EMPTY_FILTER,
     exam: exam ? [exam] : [],
+    discipline: params.getAll('disciplina').filter(Boolean),
     notebook: notebook ?? '',
     status: status && ['resolvidas', 'nao_resolvidas', 'acertei', 'errei'].includes(status) ? [status as QbStatus] : [],
   };

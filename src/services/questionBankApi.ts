@@ -1,6 +1,8 @@
 import type {
   QbAttempt,
+  QbAttemptCutoff,
   QbAttemptResult,
+  QbCutoffOverview,
   QbDraftMeta,
   QbDraftQuestion,
   QbExam,
@@ -88,6 +90,12 @@ export const questionBankApi = {
       method: 'POST',
       body: JSON.stringify({ durationMs, answers }),
     }),
+
+  // Um simulado contra a nota de corte do concurso (`exam` escolhe outro que não o "meu concurso").
+  attemptCutoff: (id: string, exam?: string) =>
+    request<QbAttemptCutoff>(`/question-bank/attempts/${id}/cutoff${exam ? `?exam=${encodeURIComponent(exam)}` : ''}`),
+  // Os últimos simulados contra a nota de corte, disciplina por disciplina.
+  cutoff: (exam?: string) => request<QbCutoffOverview>(`/question-bank/cutoff${exam ? `?exam=${encodeURIComponent(exam)}` : ''}`),
 
   savedFilters: () => request<{ filters: QbSavedFilter[] }>('/question-bank/filters'),
   saveFilter: (name: string, filter: QbFilter) =>

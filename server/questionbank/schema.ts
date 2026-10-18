@@ -95,6 +95,17 @@ export const QUESTION_BANK_SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_qb_answers_question ON qb_answers(question_id, answered_at);
   CREATE INDEX IF NOT EXISTS idx_qb_answers_attempt ON qb_answers(attempt_id);
 
+  -- O placar de cada simulado por disciplina, guardado na hora (as em branco não viram resposta, e o caderno
+  -- pode mudar depois): é o que se compara com a nota de corte do concurso. Simulados feitos antes desta tabela
+  -- existir não têm linhas aqui e só mostram o total.
+  CREATE TABLE IF NOT EXISTS qb_attempt_disciplines (
+    attempt_id TEXT NOT NULL REFERENCES qb_attempts(id) ON DELETE CASCADE,
+    discipline TEXT NOT NULL,
+    total      INTEGER NOT NULL,
+    correct    INTEGER NOT NULL,
+    PRIMARY KEY (attempt_id, discipline)
+  );
+
   CREATE TABLE IF NOT EXISTS qb_saved_filters (
     id          TEXT PRIMARY KEY,
     user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

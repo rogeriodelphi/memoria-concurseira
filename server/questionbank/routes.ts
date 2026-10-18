@@ -7,6 +7,7 @@ import { extractPastExam } from '../ai/router';
 import { withUsageContext } from '../ai/usage';
 import type { PastExamHints } from '../ai/pastexam';
 import { type Failure } from '../mockexams/store';
+import { attemptCutoff, cutoffOverview } from './cutoff';
 import { buildDraft, validateDraft, type Reading } from './draft';
 import { JobStore } from './jobs';
 import {
@@ -263,6 +264,20 @@ questionBankRouter.post('/notebooks/:id/attempts', (req: AuthedRequest, res: Res
   const recorded = recordSimulado(db, req.userId!, req.params.id, req.body);
   if (!recorded.ok) return sendFailure(res, recorded);
   res.status(201).json({ success: true, ...recorded.value });
+});
+
+// ---------- nota de corte ----------
+
+// Um simulado contra a nota de corte do concurso (?exam= escolhe outro que não o "meu concurso").
+questionBankRouter.get('/attempts/:id/cutoff', (req: AuthedRequest, res: Response) => {
+  const result = attemptCutoff(db, req.userId!, req.params.id, req.query.exam);
+  if (!result.ok) return sendFailure(res, result);
+  res.json({ success: true, ...result.value });
+});
+
+// Os últimos simulados contra a nota de corte, disciplina por disciplina.
+questionBankRouter.get('/cutoff', (req: AuthedRequest, res: Response) => {
+  res.json({ success: true, ...cutoffOverview(db, req.userId!, req.query.exam) });
 });
 
 // ---------- filtros salvos ----------
