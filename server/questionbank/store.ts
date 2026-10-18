@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
-import { ANNULLED, clean, cleanAlternatives, normalizeAnswer, oneLine, LEVELS } from '../ai/pastexam';
+import { ANNULLED, clean, cleanAlternatives, MAX_COMMENT_CHARS, normalizeAnswer, oneLine, LEVELS } from '../ai/pastexam';
 import { fail, ok, type Result } from '../mockexams/store';
-import type { ValidDraft } from './draft';
+import { groupByProva, type ValidDraft } from './draft';
 import { buildWhere, orderSql, PAGE_SIZES, parseFilter, QUESTION_FROM } from './filter';
 import type { Alternative, BankTotals, Facets, FacetOption, QuestionView } from './types';
 
@@ -25,11 +25,13 @@ interface QuestionRow {
   position: string;
   level: string;
   number: number;
+  source_id: string;
   support: string;
   statement: string;
   alternatives_json: string;
   answer: string;
   annulled: number;
+  comment: string;
   discipline: string;
   subject: string;
   needs_figure: number;
@@ -44,8 +46,8 @@ interface QuestionRow {
 }
 
 const VIEW_SELECT = `
-  SELECT q.id, q.exam_id, e.name AS exam_name, e.board, e.organ, e.year, e.position, e.level, q.number, q.support,
-         q.statement, q.alternatives_json, q.answer, q.annulled, q.discipline, q.subject, q.needs_figure, q.suspect,
+  SELECT q.id, q.exam_id, e.name AS exam_name, e.board, e.organ, e.year, e.position, e.level, q.number, q.source_id, q.support,
+         q.statement, q.alternatives_json, q.answer, q.annulled, q.comment, q.discipline, q.subject, q.needs_figure, q.suspect,
          q.note, la.chosen AS last_chosen, la.correct AS last_correct, la.answered_at AS last_at,
          (SELECT COUNT(*) FROM qb_answers a WHERE a.question_id = q.id) AS times_answered,
          (SELECT COUNT(*) FROM qb_answers a WHERE a.question_id = q.id AND a.correct = 1) AS times_correct,
@@ -75,6 +77,7 @@ function toView(row: QuestionRow, revealAnswer = false): QuestionView {
     position: row.position,
     level: row.level,
     number: row.number,
+    sourceId: row.source_id,
     support: row.support,
     statement: row.statement,
     alternatives: parseAlternatives(row.alternatives_json),
@@ -87,6 +90,9 @@ function toView(row: QuestionRow, revealAnswer = false): QuestionView {
     note: row.note,
     mine,
     ...(gradable && (revealAnswer || mine) ? { answer: row.answer } : {}),
+    // O gabarito comentado entrega a resposta: sai junto com ela (e livre quando a questão não tem como ser respondida).
+    ...(row.comment && (!gradable || revealAnswer || mine) ? { comment: row.comment } : {}),
+    hasComment: row.comment !== '',
     timesAnswered: row.times_answered,
     timesCorrect: row.times_correct,
     notebookCount: row.notebook_count,
@@ -285,45 +291,98 @@ function examNameTaken(db: DatabaseSync, userId: string, name: string, exceptId 
   return db.prepare('SELECT id FROM qb_exams WHERE user_id = ? AND name = ? COLLATE NOCASE AND id != ?').get(userId, name, exceptId) !== undefined;
 }
 
-/** Grava a prova revisada (já validada por `validateDraft`) com todas as questões, de uma vez ou nada. */
-export function saveExam(db: DatabaseSync, userId: string, draft: ValidDraft, now: Date = new Date()): Result<ExamSummary> {
-  if (examNameTaken(db, userId, draft.name)) return fail(409, DUPLICATE_EXAM);
-  const examId = crypto.randomUUID();
+export interface ImportResult {
+  /** As provas que receberam questões nesta importação (novas ou já existentes). */
+  exams: ExamSummary[];
+  added: number;
+  /** Questões que já estavam no banco (mesmo código do site) e não entraram de novo. */
+  skipped: number;
+}
+
+const questionExists = (db: DatabaseSync, userId: string, sourceId: string) =>
+  db.prepare('SELECT 1 FROM qb_questions WHERE user_id = ? AND source_id = ?').get(userId, sourceId) !== undefined;
+
+/**
+ * Grava a importação revisada (já validada por `validateDraft`), de uma vez ou nada. As questões se agrupam por prova:
+ * uma prova comum é uma prova só; a captura de um site de questões vira uma prova para cada nome de prova. Se a prova
+ * já existe, as questões novas entram nela (só quando têm o código do site, que impede repetir; sem código seria
+ * duplicar a prova). Uma questão que já está no banco, pelo código, não entra de novo.
+ */
+export function saveImport(db: DatabaseSync, userId: string, draft: ValidDraft, now: Date = new Date()): Result<ImportResult> {
+  const groups = groupByProva(draft);
   const createdAt = now.toISOString();
+  const touched = new Set<string>();
+  let added = 0;
+  let skipped = 0;
+
+  // Antes de gravar qualquer coisa: o que não pode entrar (prova repetida sem código) derruba a importação toda.
+  for (const group of groups) {
+    const existing = db.prepare('SELECT id FROM qb_exams WHERE user_id = ? AND name = ? COLLATE NOCASE').get(userId, group.name);
+    if (existing && !group.questions.every((q) => q.sourceId)) return fail(409, DUPLICATE_EXAM);
+  }
 
   db.exec('BEGIN');
   try {
-    db.prepare(
-      'INSERT INTO qb_exams (id, user_id, name, board, organ, year, position, level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).run(examId, userId, draft.name, draft.board, draft.organ, draft.year, draft.position, draft.level, createdAt);
-    const insert = db.prepare(
-      `INSERT INTO qb_questions (id, user_id, exam_id, number, support, statement, alternatives_json, answer, annulled,
-         discipline, subject, needs_figure, suspect, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    for (const q of draft.questions) {
-      insert.run(
-        crypto.randomUUID(),
-        userId,
-        examId,
-        q.number,
-        q.support,
-        q.statement,
-        JSON.stringify(q.alternatives),
-        q.answer,
-        q.annulled ? 1 : 0,
-        q.discipline,
-        q.subject,
-        q.needsFigure ? 1 : 0,
-        q.suspect ? 1 : 0,
-        createdAt,
+    for (const group of groups) {
+      const fresh = group.questions.filter((q) => !q.sourceId || !questionExists(db, userId, q.sourceId));
+      skipped += group.questions.length - fresh.length;
+      if (fresh.length === 0) continue;
+
+      let examId = (
+        db.prepare('SELECT id FROM qb_exams WHERE user_id = ? AND name = ? COLLATE NOCASE').get(userId, group.name) as unknown as
+          | { id: string }
+          | undefined
+      )?.id;
+      if (!examId) {
+        examId = crypto.randomUUID();
+        db.prepare(
+          'INSERT INTO qb_exams (id, user_id, name, board, organ, year, position, level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(examId, userId, group.name, group.board, group.organ, group.year, group.position, group.level, createdAt);
+      }
+
+      // Com código do site o número é só a ordem de chegada: continua de onde a prova parou.
+      const renumber = fresh.some((q) => q.sourceId);
+      let next = (db.prepare('SELECT COALESCE(MAX(number), 0) AS n FROM qb_questions WHERE exam_id = ?').get(examId) as unknown as { n: number }).n + 1;
+      const insert = db.prepare(
+        `INSERT INTO qb_questions (id, user_id, exam_id, number, source_id, support, statement, alternatives_json, answer, annulled,
+           comment, discipline, subject, needs_figure, suspect, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
+      for (const q of fresh) {
+        insert.run(
+          crypto.randomUUID(),
+          userId,
+          examId,
+          renumber ? next++ : q.number,
+          q.sourceId,
+          q.support,
+          q.statement,
+          JSON.stringify(q.alternatives),
+          q.answer,
+          q.annulled ? 1 : 0,
+          q.comment,
+          q.discipline,
+          q.subject,
+          q.needsFigure ? 1 : 0,
+          q.suspect ? 1 : 0,
+          createdAt,
+        );
+        added++;
+      }
+      touched.add(examId);
     }
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
     throw err;
   }
-  return ok(loadExamSummary(db, userId, examId)!);
+  return ok({ exams: [...touched].map((id) => loadExamSummary(db, userId, id)!), added, skipped });
+}
+
+/** Grava uma prova revisada (a importação de uma prova comum, que é uma só). */
+export function saveExam(db: DatabaseSync, userId: string, draft: ValidDraft, now: Date = new Date()): Result<ExamSummary> {
+  const saved = saveImport(db, userId, draft, now);
+  if (!saved.ok) return saved;
+  return saved.value.exams.length === 1 ? ok(saved.value.exams[0]) : fail(409, 'Esta importação tem mais de uma prova.');
 }
 
 export function updateExam(db: DatabaseSync, userId: string, id: string, body: unknown): Result<ExamSummary> {
@@ -365,10 +424,11 @@ interface OwnedQuestion {
   answer: string;
   annulled: number;
   alternatives_json: string;
+  comment: string;
 }
 
 function ownedQuestion(db: DatabaseSync, userId: string, id: string): OwnedQuestion | null {
-  const row = db.prepare('SELECT id, answer, annulled, alternatives_json FROM qb_questions WHERE id = ? AND user_id = ?').get(id, userId);
+  const row = db.prepare('SELECT id, answer, annulled, alternatives_json, comment FROM qb_questions WHERE id = ? AND user_id = ?').get(id, userId);
   return (row as unknown as OwnedQuestion | undefined) ?? null;
 }
 
@@ -424,7 +484,7 @@ export function answerQuestion(
   id: string,
   body: unknown,
   now: Date = new Date(),
-): Result<{ correct: boolean; answer: string; chosen: string }> {
+): Result<{ correct: boolean; answer: string; chosen: string; comment: string }> {
   const question = ownedQuestion(db, userId, id);
   if (!question) return fail(404, QUESTION_NOT_FOUND);
   if (question.annulled === 1) return fail(409, 'Esta questão foi anulada: não há resposta certa.');
@@ -441,7 +501,8 @@ export function answerQuestion(
   db.prepare(
     'INSERT INTO qb_answers (id, user_id, question_id, attempt_id, chosen, correct, answered_at, duration_ms) VALUES (?, ?, ?, NULL, ?, ?, ?, ?)',
   ).run(crypto.randomUUID(), userId, id, chosen, correct ? 1 : 0, now.toISOString(), durationMs);
-  return ok({ correct, answer: question.answer, chosen });
+  // O gabarito comentado vai junto: depois de responder ele já não estraga nada.
+  return ok({ correct, answer: question.answer, chosen, comment: question.comment });
 }
 
 /**
@@ -486,6 +547,10 @@ export function updateQuestion(db: DatabaseSync, userId: string, id: string, bod
   if ('note' in input) {
     sets.push('note = ?');
     values.push(clean(input.note, MAX_NOTE_CHARS));
+  }
+  if ('comment' in input) {
+    sets.push('comment = ?');
+    values.push(clean(input.comment, MAX_COMMENT_CHARS));
   }
   // O aviso "confira o texto" só sai (quem conferiu o texto marca como conferido); ligar à mão não faz sentido.
   if (input.suspect === false) {

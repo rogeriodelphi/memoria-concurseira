@@ -2,17 +2,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ANNULLED, MAX_QUESTIONS_PER_EXAM, type Chunk, type ExtractedQuestion } from '../ai/pastexam';
-import { buildDraft, missingNumbers, validateDraft, type Reading } from './draft';
+import { buildDraft, groupByProva, missingNumbers, validateDraft, type Reading } from './draft';
 
 const alts = (n = 4) => ['A', 'B', 'C', 'D', 'E'].slice(0, n).map((letter) => ({ letter, text: `Alternativa ${letter}` }));
 
 const question = (number: number, over: Partial<ExtractedQuestion> = {}): ExtractedQuestion => ({
   number,
+  sourceId: '',
   support: '',
   statement: `Enunciado da questão ${number} sobre administração pública`,
   alternatives: alts(),
   discipline: 'Direito',
   subject: 'Atos',
+  answer: '',
+  comment: '',
+  year: null,
+  board: '',
+  organ: '',
+  prova: '',
   needsFigure: false,
   ...over,
 });
@@ -156,7 +163,7 @@ test('confirmação: recusa o que não presta, dizendo qual questão', () => {
     assert.ok(!result.ok, 'devia recusar');
     assert.match(result.error, message);
   };
-  reject(null, /nome/);
+  reject(null, /ao menos uma questão/);
   reject(valid({ name: 'x' }), /nome/);
   reject(valid({ questions: [] }), /ao menos uma questão/);
   reject(valid({ questions: 'x' }), /ao menos uma questão/);
@@ -166,4 +173,114 @@ test('confirmação: recusa o que não presta, dizendo qual questão', () => {
   reject(valid({ questions: [{ ...q, statement: 'curto' }] }), /questão 1 está sem enunciado/);
   reject(valid({ questions: [{ ...q, alternatives: alts(1) }] }), /alternativas da questão 1/);
   reject(valid({ questions: [{ ...q, alternatives: alts(3), answer: 'D' }] }), /gabarito da questão 1 \(D\)/);
+});
+
+// ---------- captura de um site de questões ----------
+
+const PROVA_A = 'IDHTEC - 2026 - Prefeitura de Santa Filomena - PE - Técnico em Informática';
+const PROVA_B = 'INSTITUTO AOCP - 2026 - UNIRIO - Técnico em Tecnologia da Informação';
+
+const site = (id: string, over: Partial<ExtractedQuestion> = {}): ExtractedQuestion =>
+  question(1, { sourceId: id, answer: 'C', comment: `Gabarito: C. Comentário de ${id}.`, prova: PROVA_A, board: 'IDHTEC', organ: 'Prefeitura de Santa Filomena - PE', year: 2026, ...over });
+
+test('site de questões: renumera pela ordem, sem avisar de "questões que faltam", e a resposta vem da própria questão', () => {
+  const draft = buildDraft([{ chunks: [chunk([site('Q10', { number: 1 }), site('Q11', { number: 2 }), site('Q99', { number: 7 })])], text: null }]);
+  assert.deepEqual(draft.questions.map((q) => [q.number, q.sourceId, q.answer]), [[1, 'Q10', 'C'], [2, 'Q11', 'C'], [3, 'Q99', 'C']]);
+  const text = draft.warnings.join('\n');
+  assert.doesNotMatch(text, /Não encontrei as questões/, 'a numeração de um site não é a de uma prova');
+  assert.doesNotMatch(text, /Não encontrei o gabarito/, 'a resposta veio escrita junto da questão');
+  assert.match(text, /escaneado ou é uma imagem/);
+  assert.equal(draft.questions[0].comment, 'Gabarito: C. Comentário de Q10.');
+  assert.equal(draft.questions[0].board, 'IDHTEC');
+});
+
+test('site de questões: questão sem resposta escrita fica sem gabarito e é nomeada pelo código', () => {
+  const draft = buildDraft([{ chunks: [chunk([site('Q1'), site('Q2', { answer: '', comment: '' })])], text: null }]);
+  assert.equal(draft.questions[1].answer, '');
+  assert.ok(draft.warnings.some((w) => /1 questão ficou sem gabarito \(Q2\)/.test(w)));
+});
+
+test('site de questões: resposta com letra que a questão não tem e questão sem o campo Prova são avisadas', () => {
+  const draft = buildDraft([{ chunks: [chunk([site('Q1', { answer: 'E', alternatives: alts(4) }), site('Q2', { prova: '' })])], text: null }]);
+  assert.equal(draft.questions[0].answer, '');
+  const text = draft.warnings.join('\n');
+  assert.match(text, /letra que a questão não tem/);
+  assert.match(text, /Não consegui ler o campo Prova da questão Q2/);
+});
+
+test('site de questões: a tabela de gabarito não vale para elas (o número é só a posição); prova comum continua valendo pela tabela', () => {
+  const withTable = buildDraft([{ chunks: [chunk([site('Q1', { number: 1, answer: 'A' })], [[1, 'D']])], text: null }]);
+  assert.equal(withTable.questions[0].answer, 'A');
+  const plain = buildDraft([reading([question(1, { answer: 'B' })], [[1, 'D']])]);
+  assert.equal(plain.questions[0].answer, 'D', 'a tabela vale; e diz que difere do escrito junto da questão');
+  assert.ok(plain.warnings.some((w) => /difere do que está escrito junto da questão 1/.test(w)));
+});
+
+// ---------- agrupar em provas ----------
+
+const base = (over: Record<string, unknown> = {}) => ({
+  name: '',
+  board: '',
+  organ: '',
+  year: null,
+  position: '',
+  level: '',
+  ...over,
+});
+
+const qd = (number: number, over: Record<string, unknown> = {}) => ({
+  number,
+  sourceId: '',
+  support: '',
+  statement: `Enunciado da questão ${number}`,
+  alternatives: alts(),
+  answer: 'A',
+  annulled: false,
+  comment: '',
+  prova: '',
+  board: '',
+  organ: '',
+  year: null,
+  discipline: 'Informática',
+  subject: '',
+  needsFigure: false,
+  suspect: false,
+  ...over,
+});
+
+test('confirmação de um site: sem nome da importação, cada questão traz a prova; agrupa por nome (sem acento nem caixa)', () => {
+  const result = validateDraft({
+    ...base(),
+    questions: [
+      qd(1, { sourceId: 'q1', prova: PROVA_A, board: 'IDHTEC', year: 2026 }),
+      qd(2, { sourceId: 'Q2', prova: PROVA_B, board: 'INSTITUTO AOCP', organ: 'UNIRIO', year: 2026 }),
+      qd(3, { sourceId: 'Q3', prova: PROVA_A.toLowerCase(), organ: 'Prefeitura de Santa Filomena - PE' }),
+    ],
+  });
+  assert.ok(result.ok, result.ok ? '' : result.error);
+  assert.equal(result.draft.questions[0].sourceId, 'Q1');
+  const groups = groupByProva(result.draft);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map((g) => [g.name === PROVA_A, g.questions.length]), [[true, 2], [false, 1]]);
+  assert.deepEqual([groups[0].board, groups[0].organ, groups[0].year], ['IDHTEC', 'Prefeitura de Santa Filomena - PE', 2026], 'o que a primeira não trazia vem da outra');
+});
+
+test('confirmação de um site: o que a questão não diz vale o da importação; sem nome nenhum é recusado', () => {
+  const ok = validateDraft({ ...base({ name: 'Minhas questões', board: 'FGV', year: 2020 }), questions: [qd(1, { sourceId: 'Q1' }), qd(2, { sourceId: 'Q2', prova: PROVA_A, board: 'IDHTEC' })] });
+  assert.ok(ok.ok);
+  const groups = groupByProva(ok.draft);
+  assert.deepEqual(groups.map((g) => [g.name === 'Minhas questões', g.board, g.year]), [[true, 'FGV', 2020], [false, 'IDHTEC', 2020]]);
+
+  const missing = validateDraft({ ...base(), questions: [qd(1, { sourceId: 'Q7' })] });
+  assert.ok(!missing.ok);
+  assert.match(missing.error, /Dê um nome à prova da questão Q7/);
+});
+
+test('confirmação: o mesmo código duas vezes é recusado, e o comentário é limpo', () => {
+  const dup = validateDraft({ ...base({ name: 'Prova P' }), questions: [qd(1, { sourceId: 'Q1' }), qd(2, { sourceId: 'q1' })] });
+  assert.ok(!dup.ok);
+  assert.match(dup.error, /A questão Q1 aparece mais de uma vez/);
+  const clean = validateDraft({ ...base({ name: 'Prova P' }), questions: [qd(1, { comment: '  Fundamento:   o X.\n\n  Dica:  Y  ' })] });
+  assert.ok(clean.ok);
+  assert.equal(clean.draft.questions[0].comment, 'Fundamento: o X.\nDica: Y');
 });

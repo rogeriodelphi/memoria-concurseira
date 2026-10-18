@@ -7,6 +7,7 @@ import { ApiError } from '../../services/api';
 import { questionBankApi } from '../../services/questionBankApi';
 import type { QbAlternative, QbQuestion } from '../../types';
 import { AlternativesEditor } from './AlternativesEditor';
+import { questionLabel } from '../../utils/questionBank';
 import { Modal } from './Modal';
 
 const ANNULLED = 'ANULADA';
@@ -32,6 +33,7 @@ export function EditQuestionModal({
   const [loadError, setLoadError] = useState(false);
   const [statement, setStatement] = useState('');
   const [support, setSupport] = useState('');
+  const [comment, setComment] = useState('');
   const [alternatives, setAlternatives] = useState<QbAlternative[]>([]);
   const [answer, setAnswer] = useState('');
   const [discipline, setDiscipline] = useState('');
@@ -48,6 +50,7 @@ export function EditQuestionModal({
         setOriginal(question);
         setStatement(question.statement);
         setSupport(question.support);
+        setComment(question.comment ?? '');
         setAlternatives(question.alternatives);
         setAnswer(question.annulled ? ANNULLED : (question.answer ?? ''));
         setDiscipline(question.discipline);
@@ -69,6 +72,7 @@ export function EditQuestionModal({
       const { question } = await questionBankApi.updateQuestion(questionId, {
         statement,
         support,
+        comment,
         alternatives,
         answer: answerStillValid ? answer : '',
         discipline,
@@ -111,7 +115,7 @@ export function EditQuestionModal({
       {original && (
         <form onSubmit={save} className="space-y-4">
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Questão {original.number} de {original.examName}. O texto foi lido do PDF por uma IA: corrija o que estiver errado.
+            {questionLabel(original)} de {original.examName}. O texto foi lido do PDF por uma IA: corrija o que estiver errado.
           </p>
 
           <div>
@@ -122,6 +126,11 @@ export function EditQuestionModal({
           <div>
             <label className="label-field" htmlFor="qb-support">Texto de apoio (opcional)</label>
             <textarea id="qb-support" className="input-field resize-y" rows={3} value={support} onChange={(e) => setSupport(e.target.value)} maxLength={12000} />
+          </div>
+
+          <div>
+            <label className="label-field" htmlFor="qb-comment">Gabarito comentado (opcional)</label>
+            <textarea id="qb-comment" className="input-field resize-y" rows={4} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={12000} />
           </div>
 
           <fieldset>

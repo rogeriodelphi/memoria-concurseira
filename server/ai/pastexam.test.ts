@@ -43,11 +43,18 @@ const response = (over: Record<string, unknown> = {}) =>
 
 const question = (number: number, over: Partial<ExtractedQuestion> = {}): ExtractedQuestion => ({
   number,
+  sourceId: '',
   support: '',
   statement: `Enunciado da questão ${number} com texto suficiente`,
   alternatives: alts(),
   discipline: 'Português',
   subject: 'Crase',
+  answer: '',
+  comment: '',
+  year: null,
+  board: '',
+  organ: '',
+  prova: '',
   needsFigure: false,
   ...over,
 });
@@ -251,4 +258,60 @@ test('conferência com o PDF: a questão fiel bate, a reescrita não', () => {
 
 test('conferência com o PDF: questão só de palavras curtas não é suspeita', () => {
   assert.equal(sourceMatch(question(1, { statement: 'A é B? 1 e 2.', alternatives: [{ letter: 'A', text: 'x' }, { letter: 'B', text: 'y' }] }), new Set()), 1);
+});
+
+// ---------- site de questões: código, resposta, comentário e dados de cada questão ----------
+
+const siteQuestion = (over: Record<string, unknown> = {}) =>
+  rawQuestion({
+    sourceId: ' q4229308 ',
+    answer: 'c',
+    comment: '  Gabarito: C\n\n  Fundamento decisivo:   o resolvedor atua como intermediário.  ',
+    year: 2026,
+    board: ' IDHTEC ',
+    organ: 'Prefeitura de Santa Filomena - PE',
+    prova: 'IDHTEC - 2026 - Prefeitura de Santa Filomena - PE - Técnico em Informática',
+    ...over,
+  });
+
+test('site de questões: lê o código, a resposta, o comentário e a prova de cada questão', () => {
+  const parsed = parsePastExamResponse(response({ questions: [siteQuestion()] }));
+  const q = parsed.questions[0];
+  assert.equal(q.sourceId, 'Q4229308', 'sem espaços e em maiúsculas');
+  assert.equal(q.answer, 'C');
+  assert.equal(q.comment, 'Gabarito: C\nFundamento decisivo: o resolvedor atua como intermediário.');
+  assert.deepEqual([q.year, q.board, q.organ], [2026, 'IDHTEC', 'Prefeitura de Santa Filomena - PE']);
+  assert.match(q.prova, /Técnico em Informática$/);
+});
+
+test('site de questões: resposta, ano e código inválidos viram vazio; prova comum não precisa de nada disso', () => {
+  const parsed = parsePastExamResponse(response({ questions: [siteQuestion({ answer: 'F', year: 0, sourceId: 5 }), rawQuestion({ number: 2 })] }));
+  assert.equal(parsed.questions[0].answer, '', 'F não é alternativa');
+  assert.equal(parsed.questions[0].year, null);
+  assert.equal(parsed.questions[0].sourceId, '');
+  const plain = parsed.questions[1];
+  assert.deepEqual([plain.sourceId, plain.answer, plain.comment, plain.prova, plain.board, plain.organ, plain.year], ['', '', '', '', '', '', null]);
+});
+
+test('site de questões: anulada escrita junto da questão', () => {
+  assert.equal(parsePastExamResponse(response({ questions: [siteQuestion({ answer: 'Anulada' })] })).questions[0].answer, ANNULLED);
+});
+
+test('o esquema inclui os campos novos como obrigatórios', () => {
+  const required = PASTEXAM_JSON_SCHEMA.properties.questions.items.required;
+  for (const field of ['sourceId', 'answer', 'comment', 'year', 'board', 'organ', 'prova']) assert.ok(required.includes(field), field);
+});
+
+test('junção: a mesma questão do site em dois trechos vale pelo código, com o comentário mais completo e a resposta que um deles leu', () => {
+  const cut = question(1, { sourceId: 'Q1', comment: 'Fundamento: começo', answer: '' });
+  const whole = question(1, { sourceId: 'Q1', comment: 'Fundamento: começo e o resto da análise das alternativas', answer: 'C' });
+  const other = question(1, { sourceId: 'Q2' }); // mesma posição, outra questão
+  const merged = mergeChunks([chunk([cut, other]), chunk([whole])]);
+  assert.equal(merged.questions.length, 2, 'não confunde duas questões que têm o mesmo número');
+  const q1 = merged.questions.find((q) => q.sourceId === 'Q1')!;
+  assert.match(q1.comment, /resto da análise/);
+  assert.equal(q1.answer, 'C');
+  const reversed = mergeChunks([chunk([whole]), chunk([cut])]).questions.find((q) => q.sourceId === 'Q1')!;
+  assert.equal(reversed.answer, 'C', 'a ordem dos trechos não muda o resultado');
+  assert.match(reversed.comment, /resto da análise/);
 });

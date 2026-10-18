@@ -2,7 +2,7 @@
  * Banco de questões do lado do navegador, sem React: o filtro vazio, os "chips" do que está aplicado, a leitura do
  * filtro guardado, a paginação e as frases curtas que o cartão da questão mostra.
  */
-import type { QbFacets, QbFilter, QbQuestion, QbStatus } from '../types';
+import type { QbDraftQuestion, QbFacets, QbFilter, QbQuestion, QbStatus } from '../types';
 
 export const EMPTY_FILTER: QbFilter = {
   status: [],
@@ -20,6 +20,7 @@ export const EMPTY_FILTER: QbFilter = {
   excludeAnnulled: false,
   excludeNoAnswer: false,
   onlyWithNote: false,
+  onlyWithComment: false,
 };
 
 export const STATUS_LABEL: Record<QbStatus, string> = {
@@ -56,6 +57,7 @@ export const FLAG_LABEL = {
   excludeAnnulled: 'Anuladas',
   excludeNoAnswer: 'Sem gabarito',
   onlyWithNote: 'Só com minhas anotações',
+  onlyWithComment: 'Com gabarito comentado',
 } as const;
 
 export type FlagKey = keyof typeof FLAG_LABEL;
@@ -110,7 +112,7 @@ export function chipsFor(filter: QbFilter, facets: QbFacets | null): Chip[] {
   if (filter.notebook) chips.push({ id: 'notebook', label: 'Só um caderno', without: (f) => ({ ...f, notebook: '' }) });
   for (const flag of Object.keys(FLAG_LABEL) as FlagKey[]) {
     if (!filter[flag]) continue;
-    const prefix = flag === 'onlyWithNote' ? '' : 'Excluir: ';
+    const prefix = flag === 'onlyWithNote' || flag === 'onlyWithComment' ? '' : 'Excluir: ';
     chips.push({ id: flag, label: `${prefix}${FLAG_LABEL[flag]}`, without: (f) => ({ ...f, [flag]: false }) });
   }
   return chips;
@@ -141,6 +143,7 @@ export function readFilter(raw: unknown): QbFilter {
     excludeAnnulled: input.excludeAnnulled === true,
     excludeNoAnswer: input.excludeNoAnswer === true,
     onlyWithNote: input.onlyWithNote === true,
+    onlyWithComment: input.onlyWithComment === true,
   };
 }
 
@@ -206,6 +209,9 @@ export function metaParts(q: Pick<QbQuestion, 'year' | 'board' | 'organ' | 'posi
   ].filter((p) => p.value);
 }
 
+/** Como a questão é chamada: pelo código do site ("Q4229308"), se tiver, senão pelo número na prova. */
+export const questionLabel = (q: Pick<QbQuestion, 'number' | 'sourceId'>): string => (q.sourceId ? q.sourceId : `Questão ${q.number}`);
+
 /** "Disciplina › Assunto"; só a disciplina se não houver assunto; vazio se não houver nenhum. */
 export function breadcrumb(q: Pick<QbQuestion, 'discipline' | 'subject'>): string {
   return [q.discipline, q.subject].filter(Boolean).join(' › ');
@@ -266,4 +272,72 @@ export function clock(ms: number): string {
   const mm = String(minutes).padStart(2, '0');
   const ss = String(seconds).padStart(2, '0');
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+// ---------- as provas de uma importação ----------
+
+/** O nome de uma prova sem acento, caixa e espaços repetidos: é por ele que as questões se agrupam. */
+export function provaKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export interface ProvaGroup {
+  key: string;
+  name: string;
+  board: string;
+  organ: string;
+  year: number | null;
+  count: number;
+}
+
+type ProvaFields = Pick<QbDraftQuestion, 'prova' | 'board' | 'organ' | 'year'>;
+
+/**
+ * As provas que as questões de uma importação formam: cada questão vale pela sua prova ou, se não tiver, pelo nome da
+ * importação. Banca, órgão e ano de um grupo são os da primeira questão que os traz. Uma importação de prova comum é
+ * um grupo só.
+ */
+export function groupProvas(questions: ProvaFields[], fallbackName: string): ProvaGroup[] {
+  const groups = new Map<string, ProvaGroup>();
+  for (const q of questions) {
+    const name = q.prova || fallbackName;
+    const key = provaKey(name);
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, { key, name, board: q.board, organ: q.organ, year: q.year, count: 1 });
+    } else {
+      group.count++;
+      group.board ||= q.board;
+      group.organ ||= q.organ;
+      group.year ??= q.year;
+    }
+  }
+  return [...groups.values()];
+}
+
+/** Uma importação veio de um site de questões (cada questão com a sua prova ou o seu código)? */
+export const isFromSite = (questions: Pick<QbDraftQuestion, 'prova' | 'sourceId'>[]): boolean => questions.some((q) => q.prova !== '' || q.sourceId !== '');
+
+/** Muda o nome, a banca, o órgão ou o ano de uma prova em todas as questões dela. */
+export function updateProva<T extends ProvaFields>(
+  questions: T[],
+  key: string,
+  fallbackName: string,
+  patch: Partial<Pick<ProvaGroup, 'name' | 'board' | 'organ' | 'year'>>,
+): T[] {
+  return questions.map((q) => {
+    if (provaKey(q.prova || fallbackName) !== key) return q;
+    return {
+      ...q,
+      prova: patch.name !== undefined ? patch.name : q.prova,
+      board: patch.board !== undefined ? patch.board : q.board,
+      organ: patch.organ !== undefined ? patch.organ : q.organ,
+      year: patch.year !== undefined ? patch.year : q.year,
+    };
+  });
 }

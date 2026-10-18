@@ -56,6 +56,7 @@ const alts = (n = 4) => ['A', 'B', 'C', 'D', 'E'].slice(0, n).map((letter) => ({
 
 const q = (number: number, over: Partial<DraftQuestion> = {}): DraftQuestion => ({
   number,
+  sourceId: '',
   support: '',
   statement: `Enunciado da questão ${number} sobre licitações`,
   alternatives: alts(),
@@ -63,6 +64,11 @@ const q = (number: number, over: Partial<DraftQuestion> = {}): DraftQuestion => 
   annulled: false,
   discipline: 'Direito Administrativo',
   subject: 'Licitações',
+  comment: '',
+  prova: '',
+  board: '',
+  organ: '',
+  year: null,
   needsFigure: false,
   suspect: false,
   ...over,
@@ -149,7 +155,7 @@ test('responder: o servidor corrige, e o gabarito só aparece depois de responde
   assert.equal(before.gradable, true);
 
   const wrong = value(answerQuestion(db, 'u1', ids[0], { chosen: 'a', durationMs: 4_000 }));
-  assert.deepEqual(wrong, { correct: false, answer: 'B', chosen: 'A' });
+  assert.deepEqual(wrong, { correct: false, answer: 'B', chosen: 'A', comment: '' });
   const after = loadQuestionViews(db, 'u1', [ids[0]])[0];
   assert.equal(after.answer, 'B');
   assert.equal(after.mine?.chosen, 'A');

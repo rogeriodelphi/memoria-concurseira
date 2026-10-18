@@ -5,7 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { ApiError } from '../../services/api';
 import { questionBankApi } from '../../services/questionBankApi';
 import type { QbHistoryEntry, QbNotebook, QbQuestion } from '../../types';
-import { blockedReason, breadcrumb, metaParts, statsLine } from '../../utils/questionBank';
+import { blockedReason, breadcrumb, metaParts, questionLabel, statsLine } from '../../utils/questionBank';
 import { EditQuestionModal } from './EditQuestionModal';
 
 type Tab = 'gabarito' | 'estatisticas' | 'cadernos' | 'anotacoes';
@@ -45,8 +45,9 @@ export function QuestionBody({ question }: { question: QbQuestion }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-bold text-brand-700 dark:text-brand-300">
-            Questão {question.number}
-            <span className="ml-2 font-normal text-neutral-400 dark:text-neutral-500">{question.examName}</span>
+            {questionLabel(question)}
+            {/* Num site de questões a prova já está na linha de baixo, por extenso. */}
+            {!question.sourceId && <span className="ml-2 font-normal text-neutral-400 dark:text-neutral-500">{question.examName}</span>}
           </p>
           {crumb && <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{crumb}</p>}
         </div>
@@ -212,6 +213,7 @@ export function QuestionCard({
       onChange({
         ...question,
         answer: result.answer,
+        ...(result.comment ? { comment: result.comment } : {}),
         mine: { chosen: result.chosen, correct: result.correct, answeredAt: new Date().toISOString() },
         timesAnswered: question.timesAnswered + 1,
         timesCorrect: question.timesCorrect + (result.correct ? 1 : 0),
@@ -295,7 +297,7 @@ export function QuestionCard({
                 }`}
               >
                 {t.icon}
-                {t.label}
+                {t.id === 'gabarito' && question.hasComment ? 'Gabarito comentado' : t.label}
                 {t.id === 'cadernos' && question.notebookCount > 0 && <span className="text-neutral-400">({question.notebookCount})</span>}
                 {t.id === 'anotacoes' && question.note && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-label="Tem anotação" />}
               </button>
@@ -369,7 +371,14 @@ function AnswerTab({ question, shown, onChange }: { question: QbQuestion; shown:
     }
   }
 
-  if (question.annulled) return <p className="text-neutral-600 dark:text-neutral-400">Esta questão foi anulada: não há alternativa certa.</p>;
+  if (question.annulled) {
+    return (
+      <div>
+        <p className="text-neutral-600 dark:text-neutral-400">Esta questão foi anulada: não há alternativa certa.</p>
+        {question.comment && <CommentBlock text={question.comment} />}
+      </div>
+    );
+  }
 
   if (!question.gradable) {
     return (
@@ -382,6 +391,7 @@ function AnswerTab({ question, shown, onChange }: { question: QbQuestion; shown:
             </button>
           ))}
         </div>
+        {question.comment && <CommentBlock text={question.comment} />}
       </div>
     );
   }
@@ -389,7 +399,9 @@ function AnswerTab({ question, shown, onChange }: { question: QbQuestion; shown:
   if (question.answer === undefined || !(shown || peeked)) {
     return (
       <div>
-        <p className="text-neutral-600 dark:text-neutral-400">Responda a questão para ver o gabarito.</p>
+        <p className="text-neutral-600 dark:text-neutral-400">
+          Responda a questão para ver o gabarito{question.hasComment ? ' e o gabarito comentado' : ''}.
+        </p>
         <button type="button" disabled={busy} onClick={() => void peek()} className="mt-2 text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300">
           Ver o gabarito sem responder
         </button>
@@ -399,10 +411,23 @@ function AnswerTab({ question, shown, onChange }: { question: QbQuestion; shown:
 
   const right = question.alternatives.find((a) => a.letter === question.answer);
   return (
-    <p className="text-neutral-700 dark:text-neutral-300">
-      <span className="font-semibold text-brand-700 dark:text-brand-300">Gabarito: {question.answer}</span>
-      {right && <span> — {right.text}</span>}
-    </p>
+    <div>
+      <p className="text-neutral-700 dark:text-neutral-300">
+        <span className="font-semibold text-brand-700 dark:text-brand-300">Gabarito: {question.answer}</span>
+        {right && <span> — {right.text}</span>}
+      </p>
+      {question.comment && <CommentBlock text={question.comment} />}
+    </div>
+  );
+}
+
+/** O gabarito comentado (texto da explicação), com as quebras de linha como vieram. */
+function CommentBlock({ text }: { text: string }) {
+  return (
+    <div className="mt-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800/50">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Gabarito comentado</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">{text}</p>
+    </div>
   );
 }
 

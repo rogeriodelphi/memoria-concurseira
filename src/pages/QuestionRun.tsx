@@ -9,7 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 import { ApiError } from '../services/api';
 import { questionBankApi } from '../services/questionBankApi';
 import type { QbAttempt, QbAttemptResult, QbNotebook, QbQuestion } from '../types';
-import { clock, percent } from '../utils/questionBank';
+import { clock, percent, questionLabel } from '../utils/questionBank';
 import { formatDuration } from '../utils/studyTime';
 import { isPending } from './QuestionNotebook';
 
@@ -411,7 +411,7 @@ function SimuladoResult({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs text-neutral-400 dark:text-neutral-500">
-                    {q.examName} · Questão {q.number}
+                    {q.sourceId ? questionLabel(q) : `${q.examName} · ${questionLabel(q)}`}
                   </span>
                   <span className="line-clamp-2 block text-sm text-neutral-800 dark:text-neutral-200">{q.statement}</span>
                 </span>

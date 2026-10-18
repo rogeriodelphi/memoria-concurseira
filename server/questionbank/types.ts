@@ -19,6 +19,8 @@ export interface QuestionView {
   position: string;
   level: string;
   number: number;
+  /** O código da questão no site de onde veio (ex.: "Q4229308"); vazio numa prova comum. */
+  sourceId: string;
   support: string;
   statement: string;
   alternatives: Alternative[];
@@ -37,6 +39,13 @@ export interface QuestionView {
    * (ou quando ele pede a questão para editar): a correção é feita no servidor, que guarda o gabarito.
    */
   answer?: string;
+  /**
+   * O gabarito comentado. Entrega a resposta, então segue a mesma regra do `answer`: só depois de responder (ou se a
+   * questão não pode ser respondida).
+   */
+  comment?: string;
+  /** Tem gabarito comentado (mesmo sem mostrá-lo ainda). */
+  hasComment: boolean;
   timesAnswered: number;
   timesCorrect: number;
   notebookCount: number;

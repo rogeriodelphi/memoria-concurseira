@@ -161,6 +161,7 @@ const alts = () => ['A', 'B', 'C', 'D'].map((letter) => ({ letter, text: `Altern
 
 const question = (number: number, discipline: string, answer = 'A'): DraftQuestion => ({
   number,
+  sourceId: '',
   support: '',
   statement: `Enunciado da questão ${number} sobre ${discipline}`,
   alternatives: alts(),
@@ -168,6 +169,11 @@ const question = (number: number, discipline: string, answer = 'A'): DraftQuesti
   annulled: false,
   discipline,
   subject: '',
+  comment: '',
+  prova: '',
+  board: '',
+  organ: '',
+  year: null,
   needsFigure: false,
   suspect: false,
 });

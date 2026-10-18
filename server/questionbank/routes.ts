@@ -31,7 +31,7 @@ import {
   getQuestionDetail,
   getTotals,
   listExams,
-  saveExam,
+  saveImport,
   searchQuestions,
   updateExam,
   updateQuestion,
@@ -151,17 +151,18 @@ questionBankRouter.get('/import/:jobId', (req: AuthedRequest, res: Response) => 
   res.json({ success: true, job: job.value });
 });
 
-// Confirma a prova revisada: o servidor valida tudo de novo e só então grava.
+// Confirma a importação revisada: o servidor valida tudo de novo e só então grava. Uma prova comum vira uma prova; a
+// captura de um site de questões vira uma prova para cada nome de prova (as que já existem recebem as questões novas).
 questionBankRouter.post('/exams', (req: AuthedRequest, res: Response) => {
   const validated = validateDraft(req.body);
   if (!validated.ok) {
     res.status(400).json({ success: false, error: validated.error });
     return;
   }
-  const saved = saveExam(db, req.userId!, validated.draft);
+  const saved = saveImport(db, req.userId!, validated.draft);
   if (!saved.ok) return sendFailure(res, saved);
   if (typeof req.body?.jobId === 'string') jobs.discard(req.userId!, req.body.jobId);
-  res.status(201).json({ success: true, exam: saved.value });
+  res.status(201).json({ success: true, exams: saved.value.exams, added: saved.value.added, skipped: saved.value.skipped });
 });
 
 // ---------- provas ----------

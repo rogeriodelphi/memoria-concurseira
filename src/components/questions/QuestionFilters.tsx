@@ -157,9 +157,14 @@ export function QuestionFilters({
           </fieldset>
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-100">Incluir somente</legend>
-            <Check checked={draft.onlyWithNote} onChange={(checked) => onDraft({ ...draft, onlyWithNote: checked })}>
-              Questões com minhas anotações
-            </Check>
+            <div className="flex flex-col gap-2">
+              <Check checked={draft.onlyWithComment} onChange={(checked) => onDraft({ ...draft, onlyWithComment: checked })}>
+                Questões com gabarito comentado
+              </Check>
+              <Check checked={draft.onlyWithNote} onChange={(checked) => onDraft({ ...draft, onlyWithNote: checked })}>
+                Questões com minhas anotações
+              </Check>
+            </div>
           </fieldset>
         </div>
 

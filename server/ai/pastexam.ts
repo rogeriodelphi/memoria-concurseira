@@ -24,6 +24,10 @@ const MAX_STATEMENT_CHARS = 6_000;
 const MAX_SUPPORT_CHARS = 12_000;
 const MAX_ALTERNATIVE_CHARS = 2_000;
 const MAX_LABEL_CHARS = 160;
+const MAX_PROVA_CHARS = 300;
+/** O gabarito comentado de um site de questões traz o fundamento, a análise de cada alternativa e dicas: é longo. */
+export const MAX_COMMENT_CHARS = 12_000;
+const MAX_SOURCE_ID_CHARS = 40;
 
 /** Como a IA devolve um trecho. Os números das questões são os do PDF. */
 export interface RawChunk {
@@ -31,9 +35,20 @@ export interface RawChunk {
   supports: { id: number; text: string }[];
   questions: {
     number: number;
+    /** O código da questão no site de onde o PDF veio (ex.: "Q4229308"); vazio numa prova comum. */
+    sourceId: string;
     supportId: number;
     statement: string;
     alternatives: { letter: string; text: string }[];
+    /** A alternativa certa, só quando está escrita junto da questão ("Gabarito: C"); vazio senão. */
+    answer: string;
+    /** O gabarito comentado transcrito; vazio se não houver. */
+    comment: string;
+    /** Ano, banca, órgão e prova desta questão (um site de questões mistura provas); vazio numa prova comum. */
+    year: number;
+    board: string;
+    organ: string;
+    prova: string;
     discipline: string;
     subject: string;
     needsFigure: boolean;
@@ -49,9 +64,20 @@ export interface Alternative {
 
 export interface ExtractedQuestion {
   number: number;
+  /** O código da questão no site de origem; vazio numa prova comum. */
+  sourceId: string;
   support: string;
   statement: string;
   alternatives: Alternative[];
+  /** A alternativa certa quando está escrita junto da questão; senão vazio (o gabarito pode vir de outro lugar). */
+  answer: string;
+  /** O gabarito comentado. */
+  comment: string;
+  /** Os dados próprios da questão; vazios quando valem os da prova inteira. */
+  year: number | null;
+  board: string;
+  organ: string;
+  prova: string;
   discipline: string;
   subject: string;
   needsFigure: boolean;
@@ -94,6 +120,19 @@ Regras:
 - "number" é o número da questão no PDF. "discipline" e "subject" (assunto) vêm do cabeçalho do PDF; se o trecho não
   disser, deduza pelo conteúdo, usando nomes curtos e padronizados (ex.: "Língua Portuguesa", "Direito Administrativo").
   Quando houver uma lista de disciplinas sugeridas, use exatamente esses nomes sempre que servirem.
+- PÁGINAS DE SITE DE QUESTÕES (a captura ou impressão de uma busca, com várias questões de provas diferentes, cada uma com
+  um código como "Q4229308", um caminho "Disciplina › Assunto" e uma linha "Ano / Banca / Órgão / Prova"): para CADA
+  questão preencha "sourceId" (o código), "year", "board" (Banca), "organ" (Órgão) e "prova" (o texto do campo Prova, por
+  inteiro), copiados da linha da própria questão. Em "discipline" e "subject" use o caminho "Disciplina › Assunto" (se houver
+  mais de um assunto, o primeiro). "number" é a posição da questão na lista (1, 2, 3...). Ignore tudo que não é questão:
+  menus, filtros, botões, contagem de resultados, curtidas, comentários de alunos.
+- "answer": a alternativa certa da questão, SOMENTE quando está escrita junto dela ("Gabarito: C" ou a alternativa marcada
+  como CERTA no gabarito comentado). Sem isso, deixe vazio. Nunca resolva a questão para preencher.
+- "comment": o "Gabarito Comentado" daquela questão, transcrito por inteiro e na ordem (fundamento, tema, análise de cada
+  alternativa com o veredito CERTA ou ERRADA, pegadinha, dicas). Não inclua o nome do autor nem os botões de curtir. Vazio
+  quando a questão não tem gabarito comentado visível. O texto continua de uma página para a outra: junte tudo.
+- Em prova comum (sem o código nem a linha Ano/Banca/Órgão/Prova), deixe "sourceId", "board", "organ" e "prova" vazios e
+  "year" 0 nas questões: os dados da prova vão só em "exam".
 - Ignore a questão cujo começo (o número e o enunciado) NÃO está neste trecho, pois o trecho começou no meio dela, e
   marque "complete": false se a última questão do trecho terminar cortada (faltam alternativas ou texto).
 - "needsFigure": true se a questão depende de figura, gráfico, tabela ou imagem que não aparece no texto.
@@ -134,6 +173,7 @@ export const PASTEXAM_JSON_SCHEMA = {
         type: 'object',
         properties: {
           number: { type: 'integer' },
+          sourceId: { type: 'string' },
           supportId: { type: 'integer' },
           statement: { type: 'string' },
           alternatives: {
@@ -145,12 +185,34 @@ export const PASTEXAM_JSON_SCHEMA = {
               additionalProperties: false,
             },
           },
+          answer: { type: 'string' },
+          comment: { type: 'string' },
+          year: { type: 'integer' },
+          board: { type: 'string' },
+          organ: { type: 'string' },
+          prova: { type: 'string' },
           discipline: { type: 'string' },
           subject: { type: 'string' },
           needsFigure: { type: 'boolean' },
           complete: { type: 'boolean' },
         },
-        required: ['number', 'supportId', 'statement', 'alternatives', 'discipline', 'subject', 'needsFigure', 'complete'],
+        required: [
+          'number',
+          'sourceId',
+          'supportId',
+          'statement',
+          'alternatives',
+          'answer',
+          'comment',
+          'year',
+          'board',
+          'organ',
+          'prova',
+          'discipline',
+          'subject',
+          'needsFigure',
+          'complete',
+        ],
         additionalProperties: false,
       },
     },
@@ -211,6 +273,11 @@ export const clean = (value: unknown, max: number): string =>
 export const oneLine = (value: unknown, max: number): string =>
   typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 
+/** O ano, se for um ano plausível; senão `null` (0 e vazio também significam "não informado"). */
+export function validYear(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 1950 && raw <= 2100 ? raw : null;
+}
+
 export function levelOf(raw: unknown): Level | '' {
   const text = oneLine(raw, 40).toLowerCase();
   const found = LEVELS.find((l) => l.toLowerCase() === text);
@@ -258,12 +325,11 @@ export function parsePastExamResponse(rawText: string | undefined): Chunk {
   }
 
   const exam = (parsed.exam ?? {}) as Record<string, unknown>;
-  const year = typeof exam.year === 'number' && Number.isInteger(exam.year) && exam.year >= 1950 && exam.year <= 2100 ? exam.year : null;
   const meta: ExamMeta = {
     name: oneLine(exam.name, MAX_LABEL_CHARS),
     board: oneLine(exam.board, MAX_LABEL_CHARS),
     organ: oneLine(exam.organ, MAX_LABEL_CHARS),
-    year,
+    year: validYear(exam.year),
     position: oneLine(exam.position, MAX_LABEL_CHARS),
     level: levelOf(exam.level),
   };
@@ -285,9 +351,17 @@ export function parsePastExamResponse(rawText: string | undefined): Chunk {
     const supportId = typeof item.supportId === 'number' ? item.supportId : 0;
     questions.push({
       number,
+      sourceId: oneLine(item.sourceId, MAX_SOURCE_ID_CHARS).replace(/\s+/g, '').toUpperCase(),
       support: supports.get(supportId) ?? '',
       statement,
       alternatives,
+      // Uma letra que a questão não tem vira vazio mais adiante, junto com os demais avisos do gabarito.
+      answer: normalizeAnswer(item.answer),
+      comment: clean(item.comment, MAX_COMMENT_CHARS),
+      year: validYear(item.year),
+      board: oneLine(item.board, MAX_LABEL_CHARS),
+      organ: oneLine(item.organ, MAX_LABEL_CHARS),
+      prova: oneLine(item.prova, MAX_PROVA_CHARS),
       discipline: oneLine(item.discipline, MAX_LABEL_CHARS),
       subject: oneLine(item.subject, MAX_LABEL_CHARS),
       needsFigure: item.needsFigure === true,
@@ -356,7 +430,10 @@ export function mostCommon(values: string[]): string {
   return best?.value ?? '';
 }
 
-const completeness = (q: ExtractedQuestion) => q.alternatives.length * 100_000 + q.statement.length + q.support.length;
+const completeness = (q: ExtractedQuestion) => q.alternatives.length * 100_000 + q.statement.length + q.support.length + q.comment.length;
+
+/** Como se reconhece a mesma questão em trechos que se sobrepõem: pelo código do site, ou pelo número na prova. */
+const identityOf = (q: ExtractedQuestion) => (q.sourceId ? `id:${q.sourceId}` : `n:${q.number}`);
 
 export interface Merged {
   meta: ExamMeta;
@@ -367,13 +444,21 @@ export interface Merged {
   conflictingKeys: number[];
 }
 
-/** Junta a leitura dos trechos: metadados mais comuns, questões sem repetir número (vale a mais completa) e o gabarito. */
+/** Junta a leitura dos trechos: metadados mais comuns, questões sem repetir (vale a mais completa) e o gabarito. */
 export function mergeChunks(chunks: Chunk[]): Merged {
-  const byNumber = new Map<number, ExtractedQuestion>();
+  const byIdentity = new Map<string, ExtractedQuestion>();
   for (const chunk of chunks) {
     for (const question of chunk.questions) {
-      const previous = byNumber.get(question.number);
-      if (!previous || completeness(question) > completeness(previous)) byNumber.set(question.number, question);
+      const key = identityOf(question);
+      const previous = byIdentity.get(key);
+      if (!previous) {
+        byIdentity.set(key, question);
+      } else {
+        const best = completeness(question) > completeness(previous) ? question : previous;
+        const other = best === question ? previous : question;
+        // O que um trecho leu e o outro não (a resposta, por exemplo) não se perde.
+        byIdentity.set(key, { ...best, answer: best.answer || other.answer });
+      }
     }
   }
 
@@ -399,7 +484,8 @@ export function mergeChunks(chunks: Chunk[]): Merged {
     level,
   };
 
-  const questions = [...byNumber.values()].sort((a, b) => a.number - b.number);
+  // Sort estável: na mesma posição fica a ordem em que as questões apareceram no PDF.
+  const questions = [...byIdentity.values()].sort((a, b) => a.number - b.number);
   return { meta, questions, answerKey, conflictingKeys: [...conflicting].sort((a, b) => a - b) };
 }
 

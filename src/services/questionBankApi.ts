@@ -29,7 +29,7 @@ export const questionBankApi = {
     request<{ question: QbQuestion }>(`/question-bank/questions/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   removeQuestion: (id: string) => request<{ success: true }>(`/question-bank/questions/${id}`, { method: 'DELETE' }),
   answer: (id: string, chosen: string, durationMs?: number) =>
-    request<{ correct: boolean; answer: string; chosen: string }>(`/question-bank/questions/${id}/answer`, {
+    request<{ correct: boolean; answer: string; chosen: string; comment: string }>(`/question-bank/questions/${id}/answer`, {
       method: 'POST',
       body: JSON.stringify({ chosen, durationMs }),
     }),
@@ -51,7 +51,7 @@ export const questionBankApi = {
   },
   importStatus: (jobId: string) => request<{ job: QbImportJob }>(`/question-bank/import/${jobId}`),
   saveExam: (body: QbDraftMeta & { questions: QbDraftQuestion[]; jobId?: string }) =>
-    request<{ exam: QbExam }>('/question-bank/exams', { method: 'POST', body: JSON.stringify(body) }),
+    request<{ exams: QbExam[]; added: number; skipped: number }>('/question-bank/exams', { method: 'POST', body: JSON.stringify(body) }),
 
   exams: () => request<{ exams: QbExam[] }>('/question-bank/exams'),
   updateExam: (id: string, patch: Partial<QbDraftMeta>) =>

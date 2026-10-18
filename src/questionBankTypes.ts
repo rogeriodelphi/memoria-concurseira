@@ -21,6 +21,8 @@ export interface QbQuestion {
   position: string;
   level: string;
   number: number;
+  /** O código da questão no site de onde veio (ex.: "Q4229308"); vazio numa prova comum. */
+  sourceId: string;
   support: string;
   statement: string;
   alternatives: QbAlternative[];
@@ -36,6 +38,10 @@ export interface QbQuestion {
   mine: QbLastAnswer | null;
   /** A alternativa certa: o servidor só a manda depois que a questão foi respondida (ou ao editá-la). */
   answer?: string;
+  /** O gabarito comentado: o servidor só o manda junto com o gabarito (depois de responder). */
+  comment?: string;
+  /** Tem gabarito comentado (mesmo sem ele ter vindo ainda). */
+  hasComment: boolean;
   timesAnswered: number;
   timesCorrect: number;
   notebookCount: number;
@@ -60,6 +66,7 @@ export interface QbFilter {
   excludeAnnulled: boolean;
   excludeNoAnswer: boolean;
   onlyWithNote: boolean;
+  onlyWithComment: boolean;
 }
 
 export interface QbFacetOption {
@@ -154,12 +161,21 @@ export interface QbSavedFilter {
 
 export interface QbDraftQuestion {
   number: number;
+  /** O código da questão no site de origem; vazio numa prova comum. */
+  sourceId: string;
   support: string;
   statement: string;
   alternatives: QbAlternative[];
   /** A letra do gabarito; vazio = sem gabarito. */
   answer: string;
   annulled: boolean;
+  /** O gabarito comentado. */
+  comment: string;
+  /** Os dados desta questão, quando diferem dos da prova inteira (site de questões); vazios senão. */
+  prova: string;
+  board: string;
+  organ: string;
+  year: number | null;
   discipline: string;
   subject: string;
   needsFigure: boolean;

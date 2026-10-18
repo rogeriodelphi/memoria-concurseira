@@ -7,6 +7,8 @@
  * - Apagar uma prova leva junto as questões dela, as respostas a essas questões e o lugar delas nos cadernos.
  * - Apagar um caderno leva junto as tentativas de simulado; as respostas ficam (a questão continua "resolvida"),
  *   só deixam de apontar para a tentativa.
+ * - `source_id` é o código da questão no site de origem (ex.: "Q4229308"): uma questão com o mesmo código não entra duas
+ *   vezes. `comment` é o gabarito comentado, que só aparece depois de a questão ser respondida.
  * - O gabarito (`answer`) fica vazio quando o PDF não trazia: a questão existe, mas não dá para corrigi-la até o
  *   usuário informar a alternativa certa. `annulled` marca a questão anulada pela banca (não vale resposta).
  * - `suspect` avisa que o texto lido pela IA não bate com o do PDF (possível erro de leitura): é só um aviso.
@@ -14,6 +16,8 @@
  *
  * Fica num módulo à parte para o banco do app e os testes usarem exatamente o mesmo esquema.
  */
+import type { DatabaseSync } from 'node:sqlite';
+
 export const QUESTION_BANK_SCHEMA = `
   CREATE TABLE IF NOT EXISTS qb_exams (
     id         TEXT PRIMARY KEY,
@@ -34,11 +38,13 @@ export const QUESTION_BANK_SCHEMA = `
     user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     exam_id           TEXT NOT NULL REFERENCES qb_exams(id) ON DELETE CASCADE,
     number            INTEGER NOT NULL,
+    source_id         TEXT NOT NULL DEFAULT '',
     support           TEXT NOT NULL DEFAULT '',
     statement         TEXT NOT NULL,
     alternatives_json TEXT NOT NULL,
     answer            TEXT NOT NULL DEFAULT '',
     annulled          INTEGER NOT NULL DEFAULT 0,
+    comment           TEXT NOT NULL DEFAULT '',
     discipline        TEXT NOT NULL DEFAULT '',
     subject           TEXT NOT NULL DEFAULT '',
     needs_figure      INTEGER NOT NULL DEFAULT 0,
@@ -116,3 +122,16 @@ export const QUESTION_BANK_SCHEMA = `
 
   CREATE UNIQUE INDEX IF NOT EXISTS idx_qb_saved_filters_user_name ON qb_saved_filters(user_id, name COLLATE NOCASE);
 `;
+
+/**
+ * Bancos criados antes do código da questão e do gabarito comentado têm qb_questions sem essas colunas (o
+ * CREATE TABLE IF NOT EXISTS acima não mexe numa tabela que já existe). Acrescenta-as, vazias, e cria o índice que
+ * impede a mesma questão do site de entrar duas vezes. Só acrescenta: nenhuma linha existente muda.
+ */
+export function upgradeQuestionBankSchema(db: DatabaseSync): void {
+  const columns = db.prepare('PRAGMA table_info(qb_questions)').all() as unknown as { name: string }[];
+  const has = (name: string) => columns.some((c) => c.name === name);
+  if (!has('source_id')) db.exec("ALTER TABLE qb_questions ADD COLUMN source_id TEXT NOT NULL DEFAULT ''");
+  if (!has('comment')) db.exec("ALTER TABLE qb_questions ADD COLUMN comment TEXT NOT NULL DEFAULT ''");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_qb_questions_source ON qb_questions(user_id, source_id) WHERE source_id != ''");
+}

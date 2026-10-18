@@ -34,6 +34,8 @@ export interface QuestionFilter {
   /** Sem gabarito não dá para responder: o filtro pode deixá-las de fora. */
   excludeNoAnswer: boolean;
   onlyWithNote: boolean;
+  /** Só as que têm gabarito comentado. */
+  onlyWithComment: boolean;
 }
 
 export const EMPTY_FILTER: QuestionFilter = {
@@ -52,6 +54,7 @@ export const EMPTY_FILTER: QuestionFilter = {
   excludeAnnulled: false,
   excludeNoAnswer: false,
   onlyWithNote: false,
+  onlyWithComment: false,
 };
 
 const strings = (raw: unknown): string[] => {
@@ -88,6 +91,7 @@ export function parseFilter(raw: unknown): QuestionFilter {
     excludeAnnulled: input.excludeAnnulled === true,
     excludeNoAnswer: input.excludeNoAnswer === true,
     onlyWithNote: input.onlyWithNote === true,
+    onlyWithComment: input.onlyWithComment === true,
   };
 }
 
@@ -100,7 +104,7 @@ export function activeCount(filter: QuestionFilter): number {
       (list) => list.length > 0,
     ).length +
     (filter.notebook ? 1 : 0) +
-    [filter.excludeInNotebooks, filter.excludeAnnulled, filter.excludeNoAnswer, filter.onlyWithNote].filter(Boolean).length
+    [filter.excludeInNotebooks, filter.excludeAnnulled, filter.excludeNoAnswer, filter.onlyWithNote, filter.onlyWithComment].filter(Boolean).length
   );
 }
 
@@ -154,10 +158,10 @@ export function buildWhere(userId: string, filter: QuestionFilter): { where: str
   for (const word of filter.q.split(' ').filter(Boolean).slice(0, MAX_KEYWORDS)) {
     clauses.push(
       `(q.statement LIKE ? ESCAPE '\\' OR q.support LIKE ? ESCAPE '\\' OR q.alternatives_json LIKE ? ESCAPE '\\'` +
-        ` OR q.discipline LIKE ? ESCAPE '\\' OR q.subject LIKE ? ESCAPE '\\')`,
+        ` OR q.discipline LIKE ? ESCAPE '\\' OR q.subject LIKE ? ESCAPE '\\' OR q.comment LIKE ? ESCAPE '\\')`,
     );
     const like = `%${escapeLike(word)}%`;
-    params.push(like, like, like, like, like);
+    params.push(like, like, like, like, like, like);
   }
 
   if (filter.notebook) {
@@ -170,6 +174,7 @@ export function buildWhere(userId: string, filter: QuestionFilter): { where: str
   if (filter.excludeAnnulled) clauses.push('q.annulled = 0');
   if (filter.excludeNoAnswer) clauses.push("(q.answer != '' OR q.annulled = 1)");
   if (filter.onlyWithNote) clauses.push("q.note != ''");
+  if (filter.onlyWithComment) clauses.push("q.comment != ''");
 
   return { where: `WHERE ${clauses.join(' AND ')}`, params };
 }

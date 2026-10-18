@@ -7,7 +7,7 @@ import { ApiError } from '../services/api';
 import { questionBankApi } from '../services/questionBankApi';
 import type { QbAttempt, QbNotebook, QbQuestion } from '../types';
 import { formatDuration } from '../utils/studyTime';
-import { breadcrumb, percent } from '../utils/questionBank';
+import { breadcrumb, percent, questionLabel } from '../utils/questionBank';
 
 /** Pendente = ainda não resolvida, ou a última resposta foi errada. */
 export const isPending = (q: QbQuestion) => q.gradable && (q.mine === null || !q.mine.correct);
@@ -143,7 +143,7 @@ export function QuestionNotebook() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                    {q.examName} · Questão {q.number}
+                    {q.sourceId ? questionLabel(q) : `${q.examName} · ${questionLabel(q)}`}
                     {breadcrumb(q) ? ` · ${breadcrumb(q)}` : ''}
                   </p>
                   <p className="line-clamp-2 text-sm text-neutral-800 dark:text-neutral-200">{q.statement}</p>

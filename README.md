@@ -383,17 +383,28 @@ nem nas estatísticas dos cartões.
   alternativa certa**: o gabarito vem só do que está escrito. A leitura roda em segundo plano (pode levar
   alguns minutos) e a página mostra o andamento. Sem gabarito a prova entra do mesmo jeito, e você informa a
   letra depois, questão por questão.
+- **Captura de um site de questões** (por exemplo, a impressão ou a captura de tela de uma busca do
+  QConcursos, mesmo só de imagens): cada questão vem com o **código** do site (`Q4229308`), a disciplina e o
+  assunto, e o **ano, a banca, o órgão e a prova dela**, que a IA copia da linha da própria questão. As
+  questões se juntam em **uma prova por nome de prova** (a captura pode misturar várias). A **resposta** vem do
+  "Gabarito: C" escrito junto da questão, e o **gabarito comentado** (fundamento, análise das alternativas,
+  dicas) é transcrito por inteiro. Importar de novo a mesma captura não duplica: a questão que já está no banco,
+  pelo código, é pulada, e as novas entram na prova que já existe. Sem o gabarito comentado aberto na página, a
+  questão entra sem gabarito.
 - **Conferir antes de salvar:** nada é gravado até você confirmar. A tela lista os avisos: questões que
   faltam na numeração, gabarito conflitante ou com letra que a questão não tem, texto que não bate com o do
-  PDF (a IA pode ter reescrito), questões que dependem de figura e PDF escaneado. Tudo se edita ali.
+  PDF (a IA pode ter reescrito), questões que dependem de figura e PDF escaneado. Numa captura de site, mostra
+  as provas encontradas, com nome, banca, órgão e ano para corrigir. Tudo se edita ali.
 - **Questões de múltipla escolha** (2 a 5 alternativas) e **Certo/Errado**. Questão sem alternativas
   (discursiva) é descartada.
 - **Resolver** (aba Questões): filtros por Minhas questões (resolvidas, não resolvidas, acertei, errei,
   pela última resposta), palavra, disciplina, assunto, banca, nível, cargo, ano, órgão e prova, o que
-  excluir (já em caderno, anuladas, sem gabarito) e "só com minhas anotações". Há **Salvar filtro**,
-  **Meus filtros** e **Aplicar último filtro**. A correção é feita no servidor, que só manda o gabarito
-  depois que você responde. O botão **Corrigir** edita texto, gabarito, disciplina ou anula a questão
-  (mudar o gabarito refaz o acerto e o erro das respostas e dos simulados já feitos).
+  excluir (já em caderno, anuladas, sem gabarito), "com gabarito comentado" e "só com minhas anotações" (a
+  busca por palavra olha também o gabarito comentado). Há **Salvar filtro**, **Meus filtros** e **Aplicar
+  último filtro**. A correção é feita no servidor, que só manda o gabarito e o **gabarito comentado**
+  depois que você responde (o comentário entrega a resposta). O botão **Corrigir** edita texto, gabarito,
+  gabarito comentado, disciplina ou anula a questão (mudar o gabarito refaz o acerto e o erro das respostas e
+  dos simulados já feitos).
 - **Cadernos e simulados:** **Gerar caderno** guarda as questões do filtro que têm gabarito (até 300);
   **Criar simulado** faz o mesmo, sorteando, e já começa cronometrado, com a correção só no final e o
   histórico no caderno. **Praticar as que errei** refaz as pendentes.
