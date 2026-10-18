@@ -59,13 +59,19 @@ interface Counts {
   good: number;
   bad: number;
   accuracyPct: number;
+  /** Cartões diferentes com ao menos uma revisão "Errei" ou "Difícil" no período: os que valem uma segunda olhada. */
+  missedCards: number;
   /** O acerto do período anterior, de mesma duração; `null` sem período anterior ou sem revisões nele. */
   previousAccuracyPct: number | null;
+  /** Quantas revisões o período anterior teve (0 sem período anterior): diz se a comparação tem base. */
+  previousReviews: number;
 }
 
 export interface SubjectRow extends Counts {
   key: string;
   label: string;
+  /** As coleções deste nome com este assunto e cartões estudados no período. */
+  collectionIds: string[];
 }
 
 export interface NameRow extends Counts {
@@ -82,6 +88,8 @@ export interface SubjectGroup extends Counts {
   label: string;
   /** Os nomes (grafia da tela) que trazem este assunto, do que teve mais cartões estudados ao que teve menos. */
   names: string[];
+  /** As coleções com este assunto e cartões estudados no período. */
+  collectionIds: string[];
 }
 
 export interface DailyPoint {
@@ -131,7 +139,7 @@ const localDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 
 /** AAAA-MM-DD → meia-noite local desse dia; `null` se não é uma data que existe. */
-function parseDay(text: unknown): Date | null {
+export function parseDay(text: unknown): Date | null {
   if (typeof text !== 'string') return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
   if (!m) return null;
@@ -178,7 +186,7 @@ export function parsePerformanceQuery(raw: Record<string, unknown>): QueryResult
   return { ok: true, value: { days, range, scope: scopeRaw === 'exam' ? 'exam' : 'all', name: text(raw.name), subject: text(raw.subject) } };
 }
 
-interface Window {
+export interface Window {
   start: Date | null;
   /** Exclusivo: a meia-noite do dia seguinte ao último dia do período. */
   end: Date;
@@ -208,7 +216,7 @@ export function resolveWindow(query: PerformanceQuery, now: Date): { current: Wi
   return { current, previous: { start: new Date(s.getFullYear(), s.getMonth(), s.getDate() - length), end: s } };
 }
 
-interface CollectionInfo {
+export interface CollectionInfo {
   id: string;
   name: string;
   nameKey: string;
@@ -224,7 +232,7 @@ interface SessionRow {
 }
 
 /** O concurso do "Meu concurso": o de data mais próxima que ainda não passou; sem data, o criado por último. */
-function mainExam(db: DatabaseSync, userId: string, now: Date): { id: string; name: string } | null {
+export function mainExam(db: DatabaseSync, userId: string, now: Date): { id: string; name: string } | null {
   const upcoming = nextExam(db, userId, now);
   if (upcoming) return { id: upcoming.id, name: upcoming.name };
   const latest = db
@@ -233,7 +241,7 @@ function mainExam(db: DatabaseSync, userId: string, now: Date): { id: string; na
   return latest ?? null;
 }
 
-function loadCollections(db: DatabaseSync, userId: string, examId: string | null): Map<string, CollectionInfo> {
+export function loadCollections(db: DatabaseSync, userId: string, examId: string | null): Map<string, CollectionInfo> {
   const rows = (
     examId
       ? db
@@ -271,16 +279,21 @@ const BAD = new Set(['errei', 'dificil']);
 
 interface Acc {
   cards: Set<string>;
+  /** Os cartões com alguma revisão "Errei" ou "Difícil". */
+  missed: Set<string>;
   reviews: number;
   good: number;
   bad: number;
 }
-const newAcc = (): Acc => ({ cards: new Set(), reviews: 0, good: 0, bad: 0 });
+const newAcc = (): Acc => ({ cards: new Set(), missed: new Set(), reviews: 0, good: 0, bad: 0 });
 function add(acc: Acc, row: SessionRow): void {
   acc.cards.add(row.card);
   acc.reviews += 1;
   if (GOOD.has(row.result)) acc.good += 1;
-  else acc.bad += 1;
+  else {
+    acc.bad += 1;
+    acc.missed.add(row.card);
+  }
 }
 const bucket = <K>(map: Map<K, Acc>, key: K): Acc => {
   let acc = map.get(key);
@@ -317,8 +330,8 @@ export function loadPerformance(db: DatabaseSync, userId: string, now: Date, que
   const total = newAcc();
   const byResult: ResultCounts = { errei: 0, dificil: 0, bom: 0, facil: 0 };
   const daily = new Map<string, { good: number; bad: number }>();
-  const names = new Map<string, { acc: Acc; spellings: Map<string, number>; collections: Set<string>; subjects: Map<string, { acc: Acc; spellings: Map<string, number> }> }>();
-  const subjects = new Map<string, { acc: Acc; spellings: Map<string, number>; names: Map<string, { spellings: Map<string, number>; cards: Set<string> }> }>();
+  const names = new Map<string, { acc: Acc; spellings: Map<string, number>; collections: Set<string>; subjects: Map<string, { acc: Acc; spellings: Map<string, number>; collections: Set<string> }> }>();
+  const subjects = new Map<string, { acc: Acc; spellings: Map<string, number>; collections: Set<string>; names: Map<string, { spellings: Map<string, number>; cards: Set<string> }> }>();
 
   for (const row of sessions) {
     const c = keep(row);
@@ -338,14 +351,16 @@ export function loadPerformance(db: DatabaseSync, userId: string, now: Date, que
     name.spellings.set(c.name, (name.spellings.get(c.name) ?? 0) + 1);
     name.collections.add(c.id);
     let inName = name.subjects.get(c.subjectKey);
-    if (!inName) name.subjects.set(c.subjectKey, (inName = { acc: newAcc(), spellings: new Map() }));
+    if (!inName) name.subjects.set(c.subjectKey, (inName = { acc: newAcc(), spellings: new Map(), collections: new Set() }));
     add(inName.acc, row);
+    inName.collections.add(c.id);
     const subjectLabel = c.subject || NO_SUBJECT_LABEL;
     inName.spellings.set(subjectLabel, (inName.spellings.get(subjectLabel) ?? 0) + 1);
 
     let subject = subjects.get(c.subjectKey);
-    if (!subject) subjects.set(c.subjectKey, (subject = { acc: newAcc(), spellings: new Map(), names: new Map() }));
+    if (!subject) subjects.set(c.subjectKey, (subject = { acc: newAcc(), spellings: new Map(), collections: new Set(), names: new Map() }));
     add(subject.acc, row);
+    subject.collections.add(c.id);
     subject.spellings.set(subjectLabel, (subject.spellings.get(subjectLabel) ?? 0) + 1);
     const nameInSubject = subject.names.get(c.nameKey) ?? { spellings: new Map(), cards: new Set<string>() };
     nameInSubject.spellings.set(c.name, (nameInSubject.spellings.get(c.name) ?? 0) + 1);
@@ -373,7 +388,9 @@ export function loadPerformance(db: DatabaseSync, userId: string, now: Date, que
     good: acc.good,
     bad: acc.bad,
     accuracyPct: pct(acc.good, acc.reviews),
+    missedCards: acc.missed.size,
     previousAccuracyPct: previousAccuracy(prev),
+    previousReviews: previous && prev ? prev.reviews : 0,
   });
 
   const byName: NameRow[] = [...names].map(([key, n]) => ({
@@ -382,7 +399,14 @@ export function loadPerformance(db: DatabaseSync, userId: string, now: Date, que
     ...counts(n.acc, prevByName.get(key)),
     collectionIds: [...n.collections],
     subjects: [...n.subjects]
-      .map(([subjectKey, s]): SubjectRow => ({ key: subjectKey, label: commonSpelling(s.spellings), ...counts(s.acc, prevByPair.get(`${key}\u0000${subjectKey}`)) }))
+      .map(
+        ([subjectKey, s]): SubjectRow => ({
+          key: subjectKey,
+          label: commonSpelling(s.spellings),
+          ...counts(s.acc, prevByPair.get(`${key}\u0000${subjectKey}`)),
+          collectionIds: [...s.collections],
+        }),
+      )
       .sort(byCardsThenReviews),
   }));
   byName.sort(byCardsThenReviews);
@@ -392,6 +416,7 @@ export function loadPerformance(db: DatabaseSync, userId: string, now: Date, que
       key,
       label: commonSpelling(s.spellings),
       ...counts(s.acc, prevBySubject.get(key)),
+      collectionIds: [...s.collections],
       names: [...s.names.values()]
         .map((n) => ({ label: commonSpelling(n.spellings), cards: n.cards.size }))
         .sort((a, b) => b.cards - a.cards || a.label.localeCompare(b.label, 'pt-BR'))

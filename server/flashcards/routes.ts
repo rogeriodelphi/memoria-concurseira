@@ -9,6 +9,7 @@ import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 import type { StudyResult } from '../srs';
 import { MAX_REVIEW_MS } from '../stats/dashboard';
+import { loadMissedCards, parseMissedQuery } from '../stats/missed';
 import { selectDueCards } from '../studyplan/store';
 import { recordStudy, undoStudy } from './study';
 
@@ -291,6 +292,22 @@ flashcardsRouter.get('/due', (req: AuthedRequest, res: Response) => {
       collectionSubject: row.collection_subject,
     })),
     waitingNew,
+  });
+});
+
+// Os cartões que o usuário errou (Errei ou Difícil) num período, nas coleções escolhidas, vencidos ou não: a lista de
+// "Revisar só isso" dos pontos de atenção. `?collectionIds=a,b&from=AAAA-MM-DD&to=AAAA-MM-DD`; ids que não são do usuário
+// não trazem cartão nenhum.
+flashcardsRouter.get('/missed', (req: AuthedRequest, res: Response) => {
+  const query = parseMissedQuery(req.query as Record<string, unknown>);
+  if (!query.ok) {
+    res.status(400).json({ success: false, error: query.error });
+    return;
+  }
+  const cards = loadMissedCards(db, req.userId!, query.collectionIds, { from: query.from, to: query.to });
+  res.json({
+    success: true,
+    flashcards: cards.map((row) => ({ ...mapFlashcard(row), collectionName: row.collection_name, collectionSubject: row.collection_subject })),
   });
 });
 

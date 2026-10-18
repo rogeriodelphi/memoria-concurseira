@@ -453,6 +453,15 @@ No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou n
   tabela: a página inteira passa a valer só para aquele nome ou assunto. "Meu concurso" (se você tem
   concurso) limita aos cartões das coleções ligadas ao edital do concurso de data mais próxima (sem
   data futura, o criado por último). O período e os filtros ficam no endereço da página.
+- **Pontos de atenção:** logo abaixo dos números, a página aponta até 5 grupos (um assunto dentro de um
+  nome, ou o nome todo quando nenhum assunto sozinho tem revisões o bastante) onde o acerto está **abaixo
+  de 60%** ou **caiu 10 pontos ou mais** em relação ao período anterior. Só entra grupo com **6 revisões ou
+  mais** no período (e, para a queda, 6 ou mais no período anterior): com menos que isso o acerto balança
+  demais para dizer algo. Cada ponto traz os motivos e dois botões: **Revisar os N errados** e **Filtrar**.
+- **Revisar os errados** (`/revisar-erros`) abre só os cartões daquele grupo que você errou (**Errei** ou
+  **Difícil**) no período da página, **vencidos ou não**, os que mais errou primeiro (até 200). É uma
+  revisão extra: o que você avaliar entra no agendamento como qualquer revisão. O "voltar" leva à página
+  com o mesmo período e filtros.
 - Nomes e assuntos são agrupados como na lista de coleções (sem diferenciar maiúsculas nem
   acentos); coleções sem assunto entram em "Sem assunto". Tudo vem do histórico de revisões: nada é
   guardado à parte, e a página não altera nem apaga nada.

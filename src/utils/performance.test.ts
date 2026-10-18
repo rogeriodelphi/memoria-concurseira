@@ -86,7 +86,7 @@ test('período por extenso', () => {
 });
 
 test('detalhe e nomes', () => {
-  const c = { cards: 12, reviews: 30, good: 23, bad: 7, accuracyPct: 77, previousAccuracyPct: null };
+  const c = { cards: 12, reviews: 30, good: 23, bad: 7, accuracyPct: 77, missedCards: 5, previousAccuracyPct: null, previousReviews: 0 };
   assert.equal(countsDetail(c), '12 cartões · 30 revisões · 77% de acerto');
   assert.equal(countsDetail({ ...c, cards: 1, reviews: 1 }), '1 cartão · 1 revisão · 77% de acerto');
   assert.equal(namesLabel(['Redes']), 'Redes');

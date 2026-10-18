@@ -24,6 +24,7 @@ import { HandsFree } from './pages/HandsFree';
 import { FavoritesReview } from './pages/FavoritesReview';
 import { Settings } from './pages/Settings';
 import { AiReview } from './pages/AiReview';
+import { MissedStudy } from './pages/MissedStudy';
 import { Performance } from './pages/Performance';
 import { Stats } from './pages/Stats';
 import { Profile } from './pages/Profile';
@@ -79,6 +80,7 @@ export default function App() {
                       <Route path="/importar-anki" element={<AnkiImport />} />
                       <Route path="/configuracoes" element={<Settings />} />
                       <Route path="/conferir-cartoes" element={<AiReview />} />
+                      <Route path="/revisar-erros" element={<MissedStudy />} />
                       <Route path="/desempenho" element={<Performance />} />
                       <Route path="/estatisticas" element={<Stats />} />
                       <Route path="/perfil" element={<Profile />} />

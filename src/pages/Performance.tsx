@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, ListChecks, Loader2, Target, XCircle } from 'lucide-react';
 
+import { AttentionPoints } from '../components/performance/AttentionPoints';
 import { ActiveFilters, FilterBar } from '../components/performance/Filters';
 import { BarList, DailyChart, DistributionDonut } from '../components/performance/Charts';
 import { NameTable } from '../components/performance/NameTable';
@@ -185,6 +186,12 @@ export function Performance() {
             </div>
           ) : (
             <>
+              <AttentionPoints
+                data={data}
+                returnTo={`/desempenho${paramsText ? `?${paramsText}` : ''}`}
+                onFilter={(nameKey, subjectKey) => change({ ...query, name: nameKey, subject: subjectKey })}
+              />
+
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <section className="card p-6 lg:col-span-2" aria-label="Revisões por dia">
                   <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Revisões por dia</h2>

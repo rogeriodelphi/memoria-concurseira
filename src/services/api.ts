@@ -200,6 +200,11 @@ export const flashcardsApi = {
     request<{ flashcards: DueFlashcard[]; waitingNew: number }>(
       `/flashcards/due?collectionIds=${encodeURIComponent(collectionIds.join(','))}`,
     ),
+  // Os cartões que o usuário errou (Errei ou Difícil) nas coleções, num período (AAAA-MM-DD, os dois inclusive), vencidos ou não.
+  missed: (collectionIds: string[], from: string, to: string) =>
+    request<{ flashcards: DueFlashcard[] }>(
+      `/flashcards/missed?collectionIds=${encodeURIComponent(collectionIds.join(','))}&from=${from}&to=${to}`,
+    ),
   copyToCollection: (flashcardIds: string[], targetCollectionId: string, mode: 'copy' | 'move' = 'copy') =>
     request<{ flashcards: Flashcard[]; count: number; skippedDuplicates: number }>('/flashcards/copy', {
       method: 'POST',

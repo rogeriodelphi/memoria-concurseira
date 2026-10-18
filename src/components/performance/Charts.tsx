@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { PerformanceData, StudyResult } from '../../types';
+import type { PerformanceCounts, PerformanceData, StudyResult } from '../../types';
 import {
   areaPath,
   barPercent,
@@ -225,15 +225,9 @@ export function DistributionDonut({ byResult, reviews }: { byResult: Record<Stud
 
 // ---------- barras ----------
 
-interface BarRow {
+interface BarRow extends PerformanceCounts {
   key: string;
   label: string;
-  cards: number;
-  reviews: number;
-  good: number;
-  bad: number;
-  accuracyPct: number;
-  previousAccuracyPct: number | null;
   names?: string[];
 }
 

@@ -32,3 +32,12 @@ export function safeReturnPath(raw: string | null): string | null {
   if (!raw || raw.length > 200) return null;
   return /^\/(?!\/)[A-Za-z0-9\-_/]*$/.test(raw) ? raw : null;
 }
+
+/**
+ * Como `safeReturnPath`, mas aceita também um `?parâmetros` simples depois do caminho (o "voltar" do Meu desempenho
+ * precisa guardar o período e os filtros). Só letras, números e `-_=&%+.,~`: nada que vire outro site ou um script.
+ */
+export function safeReturnUrl(raw: string | null): string | null {
+  if (!raw || raw.length > 400) return null;
+  return /^\/(?!\/)[A-Za-z0-9\-_/]*(\?[A-Za-z0-9\-_=&%+.,~]*)?$/.test(raw) ? raw : null;
+}

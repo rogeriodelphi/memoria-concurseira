@@ -103,13 +103,19 @@ export interface PerformanceCounts {
   /** Revisões "Errei" ou "Difícil". */
   bad: number;
   accuracyPct: number;
+  /** Cartões diferentes com ao menos uma revisão "Errei" ou "Difícil" no período. */
+  missedCards: number;
   /** O acerto do período anterior, de mesma duração; `null` se não há (ou sem revisões nele). */
   previousAccuracyPct: number | null;
+  /** Quantas revisões o período anterior teve (0 sem período anterior). */
+  previousReviews: number;
 }
 
 export interface PerformanceSubject extends PerformanceCounts {
   key: string;
   label: string;
+  /** As coleções deste nome com este assunto e cartões estudados. */
+  collectionIds: string[];
 }
 
 export interface PerformanceName extends PerformanceCounts {
@@ -126,6 +132,7 @@ export interface PerformanceSubjectGroup extends PerformanceCounts {
   label: string;
   /** Os nomes de coleção que trazem este assunto. */
   names: string[];
+  collectionIds: string[];
 }
 
 export interface PerformanceData {

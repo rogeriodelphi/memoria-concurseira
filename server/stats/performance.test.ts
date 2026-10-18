@@ -393,3 +393,61 @@ test('concurso de outro usuário não vira o "meu concurso"', () => {
   const db = build({ ...BASE, sessions: [{ card: 'f1', when: at(0) }], exams: [{ id: 'ex', user: 'u2', name: 'Do outro', date: '2026-12-06', collections: ['c1'] }] });
   assert.equal(loadPerformance(db, 'u1', NOW, query({ scope: 'exam' })).exam, null);
 });
+
+// ---------- pontos de atenção: cartões errados, base da comparação e coleções ----------
+
+test('cartões errados: os que têm ao menos um Errei ou Difícil no período, contados uma vez; Bom e Fácil não entram', () => {
+  const db = build({
+    collections: [{ id: 'c1', name: 'Redes', subject: 'DNS' }],
+    cards: [{ id: 'f1', collection: 'c1' }, { id: 'f2', collection: 'c1' }, { id: 'f3', collection: 'c1' }],
+    sessions: [
+      { card: 'f1', result: 'errei', when: at(1) }, { card: 'f1', result: 'dificil', when: at(2) }, { card: 'f1', result: 'bom', when: at(3) },
+      { card: 'f2', result: 'bom', when: at(1) }, { card: 'f2', result: 'facil', when: at(2) },
+      { card: 'f3', result: 'dificil', when: at(40) }, // fora do período
+    ],
+  });
+  const result = loadPerformance(db, 'u1', NOW, query({ days: 7 }));
+  assert.equal(result.byName[0].missedCards, 1, 'só o f1, mesmo com dois erros');
+  assert.equal(result.byName[0].subjects[0].missedCards, 1);
+  assert.equal(result.bySubject[0].missedCards, 1);
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ days: 0 })).byName[0].missedCards, 2, 'desde o início, o f3 também');
+});
+
+test('base da comparação: quantas revisões o período anterior teve (zero sem período anterior)', () => {
+  const db = build({
+    collections: [{ id: 'c1', name: 'Redes', subject: 'DNS' }],
+    cards: [{ id: 'f1', collection: 'c1' }],
+    sessions: [
+      { card: 'f1', when: at(0) }, { card: 'f1', when: at(1) },
+      { card: 'f1', when: at(8) }, { card: 'f1', when: at(9) }, { card: 'f1', when: at(10) },
+    ],
+  });
+  const week = loadPerformance(db, 'u1', NOW, query({ days: 7 }));
+  assert.equal(week.byName[0].previousReviews, 3);
+  assert.equal(week.byName[0].subjects[0].previousReviews, 3);
+  assert.equal(week.bySubject[0].previousReviews, 3);
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ days: 0 })).byName[0].previousReviews, 0);
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ days: 1 })).byName[0].previousReviews, 1, 'o anterior de hoje é ontem');
+});
+
+test('coleções do grupo: as que tiveram estudo, por nome, por assunto dentro do nome e por assunto', () => {
+  const db = build({
+    collections: [
+      { id: 'c1', name: 'Redes', subject: 'DNS' },
+      { id: 'c2', name: 'Redes', subject: 'dns' },
+      { id: 'c3', name: 'Redes', subject: 'Wi-Fi' },
+      { id: 'c4', name: 'Linux', subject: 'DNS' },
+      { id: 'c5', name: 'Linux', subject: 'Usuários' }, // sem estudo no período
+    ],
+    cards: [['f1', 'c1'], ['f2', 'c2'], ['f3', 'c3'], ['f4', 'c4'], ['f5', 'c5']].map(([id, collection]) => ({ id, collection })),
+    sessions: ['f1', 'f2', 'f3', 'f4'].map((card) => ({ card, when: at(0) })),
+  });
+  const result = loadPerformance(db, 'u1', NOW, query({ days: 7 }));
+  const redes = result.byName.find((n) => n.label === 'Redes')!;
+  assert.deepEqual([...redes.collectionIds].sort(), ['c1', 'c2', 'c3']);
+  assert.deepEqual([...redes.subjects.find((s) => s.key === 'dns')!.collectionIds].sort(), ['c1', 'c2'], 'DNS e dns são um assunto só dentro do nome');
+  assert.deepEqual(redes.subjects.find((s) => s.key === 'wi-fi')!.collectionIds, ['c3']);
+  const dns = result.bySubject.find((s) => s.key === 'dns')!;
+  assert.deepEqual([...dns.collectionIds].sort(), ['c1', 'c2', 'c4'], 'o assunto DNS vem de dois nomes');
+  assert.ok(!result.bySubject.some((s) => s.key === 'usuarios'), 'assunto sem estudo não aparece');
+});
