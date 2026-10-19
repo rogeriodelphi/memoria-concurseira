@@ -265,6 +265,13 @@ novo), sem perder nada.
    dificuldade, tipo de flashcard, profundidade, foco).
 4. A IA processa o PDF e gera os flashcards.
 5. Revisar, editar ou excluir flashcards; editar nome/descrição/categoria da coleção.
+   Ao **colar** no editor de um cartão (ou de um resumo) um texto copiado de um site, do Word ou de um
+   chat de IA, o app mantém negrito, itálico, sublinhado, sobrescrito/subscrito, a **cor do texto e o
+   realce quando são cores vivas** (laranja, azul, vermelho...; o preto, o cinza e o branco do tema do
+   site ficam de fora), listas, títulos (em negrito), parágrafos e quebras de linha. Fonte, tamanho, links
+   (fica o texto) e imagens de fora não vêm, e uma tabela vira uma linha por linha, com as células
+   separadas por " | ". O botão de borracha do editor tira a formatação que não interessar.
+   **Ctrl+Shift+V** cola só o texto, sem formatação. Uma imagem copiada continua entrando como imagem.
 6. Estudar direto no app: pergunta → mostrar resposta → marcar Errei/Difícil/Bom/Fácil.
    Cartões marcados como "Errei" voltam para o fim da fila na mesma sessão.
 7. Exportar para Anki (`.apkg`: pergunta → Frente, resposta → Verso, dificuldade

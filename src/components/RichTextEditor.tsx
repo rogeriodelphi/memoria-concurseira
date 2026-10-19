@@ -26,6 +26,7 @@ import {
 
 import { CARD_TEXT_STYLE, type CardTextRole } from '../utils/cardTextStyle';
 import { alignImage, getSelectedImage, imageAlignForCommand, selectImage } from '../utils/editorImage';
+import { cleanPastedHtml } from '../utils/pasteHtml';
 
 interface RichTextEditorProps {
   value: string;
@@ -262,6 +263,13 @@ export function RichTextEditor({ value, onChange, placeholder, role }: RichTextE
     e.preventDefault();
     if (imageFile) {
       insertImageFile(imageFile);
+      return;
+    }
+    // Texto copiado de um site, do Word ou de um chat de IA vem também como HTML: aproveita negrito, itálico,
+    // listas e parágrafos (cor, link e imagem de fora ficam de fora). Ctrl+Shift+V cola só o texto, como sempre.
+    const html = cleanPastedHtml(e.clipboardData.getData('text/html'));
+    if (html) {
+      document.execCommand('insertHTML', false, html);
       return;
     }
     const text = e.clipboardData.getData('text/plain');
