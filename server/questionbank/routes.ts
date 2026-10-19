@@ -10,6 +10,7 @@ import { type Failure } from '../mockexams/store';
 import { attemptCutoff, cutoffOverview } from './cutoff';
 import { buildDraft, validateDraft, type Reading } from './draft';
 import { JobStore } from './jobs';
+import { createCardsFromQuestions } from './toCards';
 import {
   addQuestions,
   createNotebook,
@@ -265,6 +266,15 @@ questionBankRouter.post('/notebooks/:id/attempts', (req: AuthedRequest, res: Res
   const recorded = recordSimulado(db, req.userId!, req.params.id, req.body);
   if (!recorded.ok) return sendFailure(res, recorded);
   res.status(201).json({ success: true, ...recorded.value });
+});
+
+// ---------- cartões de revisão a partir das questões erradas ----------
+
+// Cria os cartões das questões escolhidas (ids) ou das que o usuário errou num filtro, numa coleção dele.
+questionBankRouter.post('/cards', (req: AuthedRequest, res: Response) => {
+  const created = createCardsFromQuestions(db, req.userId!, req.body);
+  if (!created.ok) return sendFailure(res, created);
+  res.status(201).json({ success: true, ...created.value });
 });
 
 // ---------- nota de corte ----------

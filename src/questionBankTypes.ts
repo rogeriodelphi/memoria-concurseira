@@ -45,6 +45,8 @@ export interface QbQuestion {
   timesAnswered: number;
   timesCorrect: number;
   notebookCount: number;
+  /** Já virou um cartão de revisão. */
+  hasCard: boolean;
 }
 
 export type QbStatus = 'resolvidas' | 'nao_resolvidas' | 'acertei' | 'errei';
@@ -203,6 +205,15 @@ export interface QbImportJob {
   progress: { stage: string; done: number; total: number };
   draft?: QbDraft;
   error?: string;
+}
+
+// ---------- cartões de revisão a partir das questões ----------
+
+export interface QbCardsResult {
+  collection: { id: string; name: string; created: boolean };
+  created: number;
+  alreadyHad: number;
+  skipped: number;
 }
 
 // ---------- simulados contra a nota de corte ----------

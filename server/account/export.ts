@@ -90,6 +90,11 @@ const EXPORTED: ExportedTable[] = [
           WHERE a.user_id = ? ORDER BY d.rowid`,
   },
   { table: 'qb_answers', sql: 'SELECT * FROM qb_answers WHERE user_id = ? ORDER BY rowid' },
+  {
+    table: 'qb_question_cards',
+    sql: `SELECT l.* FROM qb_question_cards l JOIN qb_questions q ON q.id = l.question_id
+          WHERE q.user_id = ? ORDER BY l.rowid`,
+  },
   { table: 'qb_saved_filters', sql: 'SELECT * FROM qb_saved_filters WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_tasks', sql: 'SELECT * FROM pomodoro_tasks WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_notes', sql: 'SELECT * FROM pomodoro_notes WHERE user_id = ? ORDER BY rowid' },

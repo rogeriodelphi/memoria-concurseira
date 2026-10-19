@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { AlertTriangle, BarChart3, BookCheck, Check, CircleSlash, FolderPlus, Image as ImageIcon, Loader2, Pencil, Plus, RotateCcw, StickyNote, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, BookCheck, Check, Layers, CircleSlash, FolderPlus, Image as ImageIcon, Loader2, Pencil, Plus, RotateCcw, StickyNote, X } from 'lucide-react';
 
 import { useToast } from '../../contexts/ToastContext';
 import { ApiError } from '../../services/api';
 import { questionBankApi } from '../../services/questionBankApi';
 import type { QbHistoryEntry, QbNotebook, QbQuestion } from '../../types';
 import { blockedReason, breadcrumb, metaParts, questionLabel, statsLine } from '../../utils/questionBank';
+import { CardsFromQuestionsModal } from './CardsFromQuestionsModal';
 import { EditQuestionModal } from './EditQuestionModal';
 
 type Tab = 'gabarito' | 'estatisticas' | 'cadernos' | 'anotacoes';
@@ -198,6 +199,7 @@ export function QuestionCard({
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
   const [editing, setEditing] = useState(false);
+  const [makingCard, setMakingCard] = useState(false);
   const startedAt = useRef(Date.now());
 
   const blocked = blockedReason(question);
@@ -275,6 +277,22 @@ export function QuestionCard({
               <RotateCcw size={13} />
               Responder de novo
             </button>
+            {question.hasCard ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                <Check size={13} />
+                Já tem cartão de revisão
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMakingCard(true)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950/40"
+                title="Cria um cartão de revisão espaçada com esta questão"
+              >
+                <Layers size={13} />
+                Criar cartão
+              </button>
+            )}
           </p>
           {footer && <div className="mt-4">{footer}</div>}
         </div>
@@ -312,6 +330,14 @@ export function QuestionCard({
             </div>
           )}
         </div>
+      )}
+
+      {makingCard && (
+        <CardsFromQuestionsModal
+          target={{ questionIds: [question.id] }}
+          onClose={() => setMakingCard(false)}
+          onDone={(r) => r.created + r.alreadyHad > 0 && onChange({ ...question, hasCard: true })}
+        />
       )}
 
       {editing && (

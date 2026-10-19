@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Flag, Loader2, Timer, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Flag, Layers, Loader2, Timer, X } from 'lucide-react';
 
+import { CardsFromQuestionsModal } from '../components/questions/CardsFromQuestionsModal';
 import { CutoffCard } from '../components/questions/CutoffCard';
 import { Alternatives, QuestionBody, QuestionCard } from '../components/questions/QuestionCard';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -9,7 +10,7 @@ import { useToast } from '../contexts/ToastContext';
 import { ApiError } from '../services/api';
 import { questionBankApi } from '../services/questionBankApi';
 import type { QbAttempt, QbAttemptResult, QbNotebook, QbQuestion } from '../types';
-import { clock, percent, questionLabel } from '../utils/questionBank';
+import { clock, filterForNotebook, percent, questionLabel } from '../utils/questionBank';
 import { formatDuration } from '../utils/studyTime';
 import { isPending } from './QuestionNotebook';
 
@@ -362,6 +363,7 @@ function SimuladoResult({
 }) {
   const [onlyWrong, setOnlyWrong] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [makingCards, setMakingCards] = useState(false);
   const byId = useMemo(() => new Map(outcome.results.map((r) => [r.questionId, r])), [outcome]);
   const graded = questions.filter((q) => byId.has(q.id));
   const shown = onlyWrong ? graded.filter((q) => !byId.get(q.id)!.correct) : graded;
@@ -382,11 +384,19 @@ function SimuladoResult({
               Praticar as que errei ({wrongCount})
             </Link>
           )}
+          {wrongCount > 0 && (
+            <button type="button" className="btn-secondary" onClick={() => setMakingCards(true)}>
+              <Layers size={16} />
+              Criar cartões das que errei
+            </button>
+          )}
           <Link to={`/questoes/cadernos/${notebook.id}`} className="btn-secondary">
             Voltar ao caderno
           </Link>
         </div>
       </div>
+
+      {makingCards && <CardsFromQuestionsModal target={{ filter: filterForNotebook(notebook.id) }} onClose={() => setMakingCards(false)} />}
 
       <CutoffCard attemptId={attempt.id} />
 

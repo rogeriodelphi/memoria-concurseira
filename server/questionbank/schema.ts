@@ -112,6 +112,16 @@ export const QUESTION_BANK_SCHEMA = `
     PRIMARY KEY (attempt_id, discipline)
   );
 
+  -- O cartão de revisão feito a partir de uma questão: uma questão tem no máximo um, e apagar o cartão apaga o
+  -- vínculo (a questão pode virar cartão de novo). É o que impede o mesmo erro de virar dois cartões.
+  CREATE TABLE IF NOT EXISTS qb_question_cards (
+    question_id  TEXT PRIMARY KEY REFERENCES qb_questions(id) ON DELETE CASCADE,
+    flashcard_id TEXT NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
+    created_at   TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_qb_question_cards_flashcard ON qb_question_cards(flashcard_id);
+
   CREATE TABLE IF NOT EXISTS qb_saved_filters (
     id          TEXT PRIMARY KEY,
     user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

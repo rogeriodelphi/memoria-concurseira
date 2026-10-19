@@ -43,6 +43,7 @@ interface QuestionRow {
   times_answered: number;
   times_correct: number;
   notebook_count: number;
+  has_card: number;
 }
 
 const VIEW_SELECT = `
@@ -51,7 +52,8 @@ const VIEW_SELECT = `
          q.note, la.chosen AS last_chosen, la.correct AS last_correct, la.answered_at AS last_at,
          (SELECT COUNT(*) FROM qb_answers a WHERE a.question_id = q.id) AS times_answered,
          (SELECT COUNT(*) FROM qb_answers a WHERE a.question_id = q.id AND a.correct = 1) AS times_correct,
-         (SELECT COUNT(*) FROM qb_notebook_questions nq WHERE nq.question_id = q.id) AS notebook_count
+         (SELECT COUNT(*) FROM qb_notebook_questions nq WHERE nq.question_id = q.id) AS notebook_count,
+         EXISTS(SELECT 1 FROM qb_question_cards c WHERE c.question_id = q.id) AS has_card
   ${QUESTION_FROM}`;
 
 function parseAlternatives(json: string): Alternative[] {
@@ -96,6 +98,7 @@ function toView(row: QuestionRow, revealAnswer = false): QuestionView {
     timesAnswered: row.times_answered,
     timesCorrect: row.times_correct,
     notebookCount: row.notebook_count,
+    hasCard: row.has_card === 1,
   };
 }
 

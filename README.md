@@ -409,6 +409,14 @@ nem nas estatísticas dos cartões.
   **Criar simulado** faz o mesmo, sorteando, e já começa cronometrado, com a correção só no final e o
   histórico no caderno. **Praticar as que errei** refaz as pendentes.
 - **Provas** (aba Provas): editar os dados de uma prova ou apagá-la (leva as questões e as suas respostas).
+- **Cartões das questões que você errou** (sem IA): **Criar cartão** (na questão, depois de responder),
+  **Cartões das que errei** (na lista, usando o filtro aplicado) e **Criar cartões das que errei** (no
+  resultado de um simulado) viram cartões de revisão espaçada: o enunciado e as alternativas na frente; o
+  gabarito, o gabarito comentado (se houver) e a fonte (banca, ano, código) no verso. Vão para uma coleção
+  sua: por padrão "Erros do banco de questões", que é criada na primeira vez e reaproveitada depois (ou
+  escolha outra coleção). Nada é criado sozinho. A questão que já tem cartão é pulada (não duplica); só entram
+  as que você respondeu, com gabarito e não anuladas; são até 100 por pedido (o resto vem no pedido
+  seguinte). Apagar o cartão libera a questão para ter outro; apagar a questão mantém o cartão.
 - **Nota de corte** (resultado do simulado e aba **Desempenho**): cada simulado guarda o placar por
   disciplina (as questões em branco contam) e o app o compara com o **critério mínimo** que está no
   concurso (o campo "Critério mínimo" da disciplina). Entende "mínimo de 50%", "30 pontos" (precisa do nº

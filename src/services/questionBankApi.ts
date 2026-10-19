@@ -2,6 +2,7 @@ import type {
   QbAttempt,
   QbAttemptCutoff,
   QbAttemptResult,
+  QbCardsResult,
   QbCutoffOverview,
   QbDraftMeta,
   QbDraftQuestion,
@@ -90,6 +91,10 @@ export const questionBankApi = {
       method: 'POST',
       body: JSON.stringify({ durationMs, answers }),
     }),
+
+  // Cria cartões de revisão das questões escolhidas (ids) ou das que o usuário errou num filtro.
+  createCards: (body: { questionIds?: string[]; filter?: QbFilter; collectionId?: string; collectionName?: string }) =>
+    request<QbCardsResult>('/question-bank/cards', { method: 'POST', body: JSON.stringify(body) }),
 
   // Um simulado contra a nota de corte do concurso (`exam` escolhe outro que não o "meu concurso").
   attemptCutoff: (id: string, exam?: string) =>

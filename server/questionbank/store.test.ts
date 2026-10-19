@@ -38,6 +38,7 @@ import {
 function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
   db.exec("CREATE TABLE users (id TEXT PRIMARY KEY); INSERT INTO users VALUES ('u1'), ('u2');");
+  db.exec('CREATE TABLE flashcards (id TEXT PRIMARY KEY)'); // qb_question_cards aponta para ela
   db.exec(QUESTION_BANK_SCHEMA);
   return db;
 }

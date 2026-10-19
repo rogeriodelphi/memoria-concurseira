@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookMarked, ChevronLeft, ChevronRight, FileSearch, FolderOpen, Library, Loader2, Play, Save, SlidersHorizontal } from 'lucide-react';
+import { BookMarked, ChevronLeft, Layers, ChevronRight, FileSearch, FolderOpen, Library, Loader2, Play, Save, SlidersHorizontal } from 'lucide-react';
 
 import { BankTabs } from '../components/questions/BankTabs';
+import { CardsFromQuestionsModal } from '../components/questions/CardsFromQuestionsModal';
 import { NotebookModal } from '../components/questions/NotebookModal';
 import { QuestionCard } from '../components/questions/QuestionCard';
 import { QuestionFilters } from '../components/questions/QuestionFilters';
@@ -23,7 +24,7 @@ import {
   type Chip,
 } from '../utils/questionBank';
 
-type Modal = null | 'caderno' | 'simulado' | 'salvar' | 'filtros';
+type Modal = null | 'caderno' | 'simulado' | 'salvar' | 'filtros' | 'cartoes';
 
 /** O filtro com que a tela abre: vazio, ou o que veio no endereço (o atalho "ver as questões desta prova" etc.). */
 function filterFromUrl(params: URLSearchParams): QbFilter {
@@ -222,6 +223,10 @@ export function QuestionBank() {
               <FolderOpen size={16} />
               Meus cadernos
             </Link>
+            <button type="button" className="btn-secondary py-2" disabled={!totals || totals.answered === 0} onClick={() => setModal('cartoes')} title="Cria cartões de revisão com as questões que você errou neste filtro">
+              <Layers size={16} />
+              Cartões das que errei
+            </button>
             <button type="button" className="btn-secondary py-2" onClick={() => setModal('filtros')}>
               <SlidersHorizontal size={16} />
               Meus filtros
@@ -299,6 +304,7 @@ export function QuestionBank() {
           onCreated={(notebook, mode) => navigate(mode === 'simulado' ? `/questoes/cadernos/${notebook.id}/resolver?modo=simulado` : `/questoes/cadernos/${notebook.id}`)}
         />
       )}
+      {modal === 'cartoes' && <CardsFromQuestionsModal target={{ filter: applied }} onClose={() => setModal(null)} onDone={() => setReload((n) => n + 1)} />}
       {modal === 'salvar' && <SaveFilterModal filter={applied} onClose={() => setModal(null)} onSaved={() => setModal(null)} />}
       {modal === 'filtros' && (
         <SavedFiltersModal

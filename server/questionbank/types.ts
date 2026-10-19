@@ -49,6 +49,8 @@ export interface QuestionView {
   timesAnswered: number;
   timesCorrect: number;
   notebookCount: number;
+  /** Já virou um cartão de revisão. */
+  hasCard: boolean;
 }
 
 export interface FacetOption {
