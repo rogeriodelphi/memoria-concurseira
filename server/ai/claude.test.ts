@@ -185,6 +185,31 @@ test('alternativas: resposta sem nenhuma questão aproveitável é erro (a cadei
   );
 });
 
+test('sugestão para cartão sanguessuga: o pedido leva o cartão e o esquema; a resposta passa pela validação', async () => {
+  setup(() => ({
+    status: 200,
+    body: toolUse({ diagnosis: 'Traz duas ideias.', macete: 'Macete: SOS = Salvar', split: [{ question: 'P1?', answer: 'R1' }, { question: 'P2?', answer: 'R2' }] }),
+  }));
+  const fix = await claude.suggestLeechFixClaude({ question: 'Qual o quórum?', answer: 'O mínimo de nós.', context: 'Redes · Cluster', errors: 4, reviews: 6 });
+  assert.deepEqual(fix, {
+    diagnosis: 'Traz duas ideias.',
+    macete: 'SOS = Salvar',
+    split: [{ question: 'P1?', answer: 'R1' }, { question: 'P2?', answer: 'R2' }],
+  });
+
+  const body = fake.requests[0].body;
+  assert.match(body.system, /tutor de estudos/);
+  assert.match(body.messages[0].content, /Coleção: Redes · Cluster/);
+  assert.match(body.messages[0].content, /errou este cartão 4 das últimas 6 revisões/);
+  assert.match(body.messages[0].content, /Pergunta: Qual o quórum\?\nResposta: O mínimo de nós\./);
+  assert.equal(body.tools[0].input_schema.required.join(','), 'diagnosis,macete,split');
+});
+
+test('sugestão para cartão sanguessuga: resposta sem macete nem divisão é erro (a cadeia tenta o próximo provedor)', async () => {
+  setup(() => ({ status: 200, body: toolUse({ diagnosis: 'Só o diagnóstico.', macete: '', split: [] }) }));
+  await assert.rejects(claude.suggestLeechFixClaude({ question: 'Qual o quórum?', answer: 'O mínimo de nós.', context: 'Redes · Cluster', errors: 4, reviews: 6 }), /nenhuma sugestão utilizável/);
+});
+
 test('edital: texto e PDF escaneado, com o cargo pedido na instrução', async () => {
   setup(() => ({
     status: 200,

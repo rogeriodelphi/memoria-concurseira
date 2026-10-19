@@ -3,7 +3,7 @@
  * (server/leeches/leeches.ts); aqui ficam os textos e as contas da tela.
  */
 import type { Leech, StudyResult } from '../types';
-import { editorHasContent } from './flashcardEditor';
+import { editorHasContent, plainTextToEditorHtml } from './flashcardEditor';
 import { plural } from './performance';
 
 /** Os prazos do "Adiar", em dias (os mesmos que o servidor aceita). */
@@ -68,6 +68,16 @@ export interface SplitDraft {
 }
 
 export const emptySplitDraft = (): SplitDraft => ({ question: '', answer: '' });
+
+/** Os cartões que a IA propôs, prontos para o editor (a IA devolve texto puro). */
+export function suggestionToDrafts(split: { question: string; answer: string }[]): SplitDraft[] {
+  return split.slice(0, MAX_SPLIT_CARDS).map((part) => ({ question: plainTextToEditorHtml(part.question), answer: plainTextToEditorHtml(part.answer) }));
+}
+
+/** O usuário já escreveu alguma coisa nos cartões novos? (Usar a sugestão da IA trocaria o que ele escreveu.) */
+export function hasTypedDrafts(drafts: SplitDraft[]): boolean {
+  return drafts.some((d) => editorHasContent(d.question) || editorHasContent(d.answer));
+}
 
 /** O primeiro problema dos cartões novos de uma quebra (para a tela avisar), ou `null` se está tudo certo. */
 export function splitProblem(drafts: SplitDraft[]): string | null {

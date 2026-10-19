@@ -88,6 +88,16 @@ export interface Leech {
   snoozedUntil: string | null;
 }
 
+/** O que a IA propõe para um cartão sanguessuga (só uma proposta: o usuário decide o que aplicar). */
+export interface LeechSuggestion {
+  /** Uma frase sobre por que o cartão provavelmente é difícil. */
+  diagnosis: string;
+  /** Um jeito curto de lembrar a resposta; vazio quando a IA não achou um honesto. */
+  macete: string;
+  /** Os cartões menores propostos (2 ou mais), ou nenhum quando o cartão já é uma ideia só. */
+  split: { question: string; answer: string }[];
+}
+
 export interface LeechList {
   minErrors: number;
   /** Quantas das últimas revisões de cada cartão entram na conta. */
@@ -513,7 +523,7 @@ export interface AnkiImportResult {
   collection: { id: string; name: string } | null;
 }
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify' | 'questions';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify' | 'questions' | 'leech';
 export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type AiProviderStatus =
   | 'ok'

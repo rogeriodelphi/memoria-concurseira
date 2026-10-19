@@ -129,7 +129,7 @@ export function loadLeeches(db: DatabaseSync, userId: string, minErrors: number 
 }
 
 /** As últimas revisões (as da conta) de cada cartão, da mais antiga para a mais nova. */
-function loadResults(db: DatabaseSync, userId: string, cardIds: string[]): Map<string, StudyOutcome[]> {
+export function loadResults(db: DatabaseSync, userId: string, cardIds: string[]): Map<string, StudyOutcome[]> {
   const byCard = new Map<string, StudyOutcome[]>();
   if (cardIds.length === 0) return byCard;
   const rows = db

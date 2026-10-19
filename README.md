@@ -544,6 +544,16 @@ No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou n
   - **Adiar** (7, 14 ou 30 dias): só empurra a data de vencimento, sem mexer no agendamento. Adiar nunca
     antecipa um cartão que já vence mais tarde. Os adiados ficam de fora de "Revisar".
   - **Recomeçar a contagem:** os erros de antes deixam de valer, e o cartão só volta se errar de novo.
+  - **Sugestão da IA** (opcional, nos modais **Reescrever** e **Quebrar**): **Sugerir macete com IA** e
+    **Sugerir divisão com IA** pedem uma vez, por cartão, uma proposta com um diagnóstico de uma frase (por
+    que o cartão é difícil), um macete e, se o cartão trouxer mais de uma ideia, a divisão em 2 a 4 cartões
+    menores. A mesma resposta serve aos dois modais. **A IA só propõe**: o macete só vai para o campo e a
+    divisão só preenche os cartões novos quando você clica em "Usar", e ainda dá para editar antes de salvar;
+    nada é gravado pela sugestão. O prompt manda usar só o que o cartão já diz (sem inventar nem corrigir
+    fatos), e a resposta passa por uma conferência (texto puro, tamanhos, divisão só com 2 ou mais cartões
+    completos); sem nada aproveitável é erro, e a cadeia de provedores tenta o próximo (OpenAI, Gemini,
+    Claude, na ordem configurada). Gasta tokens (aparece em "Sugestões para cartões difíceis" no uso de
+    IA). Cartão só com figura não tem texto para a IA.
   **Revisar N cartões agora** faz uma sessão só com os sanguessugas não adiados. Os dados novos
   (`leech_state`) entram na exportação da conta.
 - **Tempo de estudo:** um painel mostra onde o seu tempo vai, com o mesmo período, escopo e filtros da

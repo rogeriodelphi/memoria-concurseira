@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   appendMacete,
   emptySplitDraft,
+  hasTypedDrafts,
   leechHeadline,
   MAX_MACETE_CHARS,
   MAX_SPLIT_CARDS,
@@ -11,6 +12,7 @@ import {
   shortDate,
   snoozedLabel,
   splitProblem,
+  suggestionToDrafts,
 } from './leeches';
 
 test('appendMacete põe o macete numa linha própria em itálico, depois da resposta', () => {
@@ -63,4 +65,24 @@ test('splitProblem pede ao menos 2 cartões, no máximo 6, e os dois campos de c
   assert.match(splitProblem([{ question: '', answer: 'x' }, ok])!, /cartão 1/);
   assert.match(splitProblem([ok, { question: 'x', answer: '<div><br></div>' }])!, /cartão 2/);
   assert.equal(splitProblem([ok, { question: '<img src="x">', answer: 'y' }]), null, 'uma figura conta como conteúdo');
+});
+
+test('suggestionToDrafts põe o texto puro da IA no formato do editor (escapa e quebra linha)', () => {
+  assert.deepEqual(suggestionToDrafts([{ question: 'Quando usar a < ou a >?', answer: 'Linha 1\nLinha 2 & fim' }, { question: 'P2?', answer: 'R2' }]), [
+    { question: 'Quando usar a &lt; ou a &gt;?', answer: 'Linha 1<br>Linha 2 &amp; fim' },
+    { question: 'P2?', answer: 'R2' },
+  ]);
+  assert.deepEqual(suggestionToDrafts([]), []);
+});
+
+test('suggestionToDrafts respeita o máximo de cartões da quebra', () => {
+  const many = Array.from({ length: MAX_SPLIT_CARDS + 3 }, (_, i) => ({ question: `P${i}?`, answer: `R${i}` }));
+  assert.equal(suggestionToDrafts(many).length, MAX_SPLIT_CARDS);
+});
+
+test('hasTypedDrafts: o editor vazio (<br>, <div></div>) não conta como escrito', () => {
+  assert.equal(hasTypedDrafts([emptySplitDraft(), emptySplitDraft()]), false);
+  assert.equal(hasTypedDrafts([{ question: '<div><br></div>', answer: '' }, emptySplitDraft()]), false);
+  assert.equal(hasTypedDrafts([emptySplitDraft(), { question: '', answer: '<div>algo</div>' }]), true);
+  assert.equal(hasTypedDrafts([{ question: '<img src="x">', answer: '' }]), true);
 });

@@ -246,6 +246,33 @@ test('alternativas: o pedido leva os cartões numerados e o esquema; a resposta 
   assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'ok' }]);
 });
 
+test('sugestão para cartão sanguessuga: o pedido leva o cartão e o esquema; a resposta passa pela validação', async () => {
+  const reply = { diagnosis: 'Lista longa.', macete: 'Macete: sigla QUÓRUM', split: [{ question: 'P1?', answer: 'R1' }, { question: 'P2?', answer: 'R2' }] };
+  setup(() => textReply(JSON.stringify(reply)));
+
+  const fix = await gemini.suggestLeechFixGemini({ question: 'Qual o quórum?', answer: 'O mínimo de nós.', context: 'Redes · Cluster', errors: 4, reviews: 6 });
+  assert.deepEqual(fix, { ...reply, macete: 'sigla QUÓRUM' });
+
+  assert.equal(requests.length, 1);
+  const sent = requests[0].body;
+  const prompt: string = sent.contents[0].parts[0].text;
+  assert.match(prompt, /Coleção: Redes · Cluster/);
+  assert.match(prompt, /errou este cartão 4 das últimas 6 revisões/);
+  assert.match(sent.systemInstruction.parts[0].text, /tutor de estudos/);
+  assert.equal(sent.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(sent.generationConfig.responseSchema.required, ['diagnosis', 'macete', 'split']);
+  assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'ok' }]);
+});
+
+test('sugestão para cartão sanguessuga: JSON fora do formato é erro, e cota esgotada aparece como nas demais gerações', async () => {
+  setup(() => textReply('isto não é json'));
+  await assert.rejects(gemini.suggestLeechFixGemini({ question: 'Qual o quórum?', answer: 'O mínimo de nós.', context: 'Redes · Cluster', errors: 4, reviews: 6 }), /nenhuma sugestão utilizável/);
+
+  setup(() => quotaError('0.05s'));
+  await assert.rejects(gemini.suggestLeechFixGemini({ question: 'Qual o quórum?', answer: 'O mínimo de nós.', context: 'Redes · Cluster', errors: 4, reviews: 6 }), /Limite de uso gratuito/);
+  assert.deepEqual(providerStatuses(), [{ provider: 'gemini', status: 'quota_exhausted' }]);
+});
+
 test('alternativas: JSON fora do formato é erro, e cota esgotada aparece como nas demais gerações', async () => {
   setup(() => textReply('isto não é json'));
   await assert.rejects(gemini.generateChoicesGemini([{ n: 1, question: 'P', answer: 'R' }]), /formato esperado/);

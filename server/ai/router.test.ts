@@ -83,6 +83,26 @@ test('só o Claude configurado: tópico, resumo, bullet points e mapa mental pas
   });
 });
 
+test('sugestão para cartão sanguessuga: passa pela cadeia de provedores como as demais gerações', async () => {
+  const source = { question: 'Qual o quórum?', answer: 'O mínimo de nós.', context: 'Redes · Cluster', errors: 4, reviews: 6 };
+  onlyClaude(toolUse({ diagnosis: 'Traz duas ideias.', macete: 'SOS', split: [] }));
+  assert.deepEqual(await router.suggestLeechFix(source), { diagnosis: 'Traz duas ideias.', macete: 'SOS', split: [] });
+
+  // Resposta inutilizável do único provedor: o erro chega a quem chamou, sem inventar sugestão.
+  onlyClaude(toolUse({ diagnosis: 'x', macete: '', split: [] }));
+  await assert.rejects(router.suggestLeechFix(source), /nenhuma sugestão utilizável/);
+
+  // Sem nenhum provedor configurado.
+  onlyClaude();
+  const savedKey = process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    await assert.rejects(router.suggestLeechFix(source), notConfigured);
+  } finally {
+    if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
+  }
+});
+
 test('alternativas: passam pela cadeia de provedores como as demais gerações', async () => {
   const sources = [{ n: 1, question: 'P', answer: 'R' }];
   onlyClaude(toolUse({ questions: [{ n: 1, correct: 'Certa', wrong: ['E1', 'E2', 'E3', 'E4'] }] }));

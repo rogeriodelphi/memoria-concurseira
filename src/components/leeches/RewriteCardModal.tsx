@@ -3,11 +3,12 @@ import { Loader2 } from 'lucide-react';
 
 import { useToast } from '../../contexts/ToastContext';
 import { ApiError, flashcardsApi, leechesApi } from '../../services/api';
-import type { DueFlashcard, Flashcard } from '../../types';
+import type { DueFlashcard, Flashcard, LeechSuggestion } from '../../types';
 import { editorHasContent, toEditorHtml } from '../../utils/flashcardEditor';
 import { appendMacete, MAX_MACETE_CHARS } from '../../utils/leeches';
 import { Modal } from '../questions/Modal';
 import { RichTextEditor } from '../RichTextEditor';
+import { SuggestButton, SuggestionFrame, useLeechSuggestion } from './useLeechSuggestion';
 
 /**
  * Reescrever um cartão sanguessuga: pergunta e resposta no editor de sempre e, se quiser, um macete (um jeito de
@@ -18,10 +19,15 @@ export function RewriteCardModal({
   card,
   onClose,
   onSaved,
+  suggestion: cachedSuggestion,
+  onSuggestion,
 }: {
   card: DueFlashcard;
   onClose: () => void;
   onSaved: (flashcard: Flashcard) => void;
+  /** A sugestão da IA já pedida para este cartão (a página a guarda, e o "Quebrar" usa a mesma). */
+  suggestion?: LeechSuggestion;
+  onSuggestion: (suggestion: LeechSuggestion) => void;
 }) {
   const { showToast } = useToast();
   const [question, setQuestion] = useState(() => toEditorHtml(card.question, card.format));
@@ -29,6 +35,7 @@ export function RewriteCardModal({
   const [macete, setMacete] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ai = useLeechSuggestion(card.id, cachedSuggestion, onSuggestion);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -82,6 +89,34 @@ export function RewriteCardModal({
             placeholder="Um jeito de lembrar: uma sigla, uma imagem, uma comparação..."
           />
           <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">Entra no fim da resposta, numa linha em itálico.</p>
+          <div className="mt-2">
+            <SuggestButton label="Sugerir macete com IA" loading={ai.loading} disabled={busy} onClick={ai.ask} />
+            {ai.error && <p className="mt-1 text-xs text-red-600">{ai.error}</p>}
+            {ai.suggestion && (
+              <SuggestionFrame diagnosis={ai.suggestion.diagnosis} onDismiss={ai.dismiss}>
+                {ai.suggestion.macete ? (
+                  <>
+                    <p className="italic text-neutral-800 dark:text-neutral-100">“{ai.suggestion.macete}”</p>
+                    <button
+                      type="button"
+                      className="btn-primary !py-1 text-xs"
+                      onClick={() => {
+                        setMacete(ai.suggestion!.macete);
+                        ai.dismiss();
+                      }}
+                    >
+                      Usar este macete
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-neutral-700 dark:text-neutral-300">
+                    A IA não encontrou um macete honesto para este cartão
+                    {ai.suggestion.split.length > 0 ? ': experimente quebrá-lo em cartões menores.' : '. Tente deixar a pergunta e a resposta mais curtas.'}
+                  </p>
+                )}
+              </SuggestionFrame>
+            )}
+          </div>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">

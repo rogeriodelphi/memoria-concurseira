@@ -9,6 +9,7 @@ import {
   type ChoiceSource,
   type GeneratedChoice,
 } from './choices';
+import { LEECH_FIX_SYSTEM_PROMPT, leechFixUserPrompt, parseLeechFixResponse, type LeechFix, type LeechFixSource } from './leechfix';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 import { parseVerifyResponse, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
@@ -754,6 +755,41 @@ export async function generateChoicesGemini(sources: ChoiceSource[]): Promise<Ge
     },
   });
   return parseChoicesResponse(response.text, sources);
+}
+
+const LEECH_FIX_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    diagnosis: { type: Type.STRING, description: 'Uma frase sobre por que o cartão é difícil.' },
+    macete: { type: Type.STRING, description: 'Um jeito curto de lembrar a resposta; vazio se não houver um honesto.' },
+    split: {
+      type: Type.ARRAY,
+      description: 'Cartões menores de uma ideia só; vazio se o cartão já é uma ideia só.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING, description: 'A pergunta, que faz sentido sozinha.' },
+          answer: { type: Type.STRING, description: 'A resposta, só com o que o cartão original diz.' },
+        },
+        required: ['question', 'answer'],
+      },
+    },
+  },
+  required: ['diagnosis', 'macete', 'split'],
+};
+
+export async function suggestLeechFixGemini(source: LeechFixSource): Promise<LeechFix> {
+  const client = getClient();
+  const response = await generateContentWithRetry(client, {
+    model: MODEL,
+    contents: leechFixUserPrompt(source),
+    config: {
+      systemInstruction: LEECH_FIX_SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+      responseSchema: LEECH_FIX_SCHEMA,
+    },
+  });
+  return parseLeechFixResponse(response.text);
 }
 
 const VERIFY_SCHEMA = {

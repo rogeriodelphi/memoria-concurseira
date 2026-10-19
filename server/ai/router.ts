@@ -2,6 +2,7 @@ import pdfParse from 'pdf-parse';
 
 import { parseProviderOrder, runChain, UNSUPPORTED, type ChainSteps, type ProviderName } from './chain';
 import type { ChoiceSource, GeneratedChoice } from './choices';
+import type { LeechFix, LeechFixSource } from './leechfix';
 import type { VerifiedCard, VerifySource } from './verify';
 import { MAX_EXAM_CHARS, splitIntoChunks, type Chunk, type PastExamHints } from './pastexam';
 import {
@@ -9,6 +10,7 @@ import {
   extractSyllabusClaude,
   generateBulletPointsClaude,
   generateChoicesClaude,
+  suggestLeechFixClaude,
   generateFlashcardsClaude,
   generateMindMapClaude,
   generateSummaryClaude,
@@ -25,6 +27,7 @@ import {
   generateSummaryGemini,
   generateBulletPointsGemini,
   generateChoicesGemini,
+  suggestLeechFixGemini,
   hasGemini,
   verifyCardsGemini,
   type GenerationOptions,
@@ -45,6 +48,7 @@ import {
   generateSummaryOpenAI,
   generateBulletPointsOpenAI,
   generateChoicesOpenAI,
+  suggestLeechFixOpenAI,
   hasOpenAI,
   verifyCardsOpenAI,
   type OpenAISource,
@@ -240,6 +244,15 @@ export function generateChoices(sources: ChoiceSource[]): Promise<GeneratedChoic
     openai: () => generateChoicesOpenAI(sources),
     gemini: () => generateChoicesGemini(sources),
     claude: () => generateChoicesClaude(sources),
+  });
+}
+
+/** A sugestão (diagnóstico, macete, divisão) para um cartão que o usuário erra sempre: uma chamada por cartão. */
+export function suggestLeechFix(source: LeechFixSource): Promise<LeechFix> {
+  return chainFor('sugerir como fixar o cartão', {
+    openai: () => suggestLeechFixOpenAI(source),
+    gemini: () => suggestLeechFixGemini(source),
+    claude: () => suggestLeechFixClaude(source),
   });
 }
 

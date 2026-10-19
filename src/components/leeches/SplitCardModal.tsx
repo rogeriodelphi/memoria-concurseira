@@ -3,11 +3,12 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { useToast } from '../../contexts/ToastContext';
 import { ApiError, leechesApi } from '../../services/api';
-import type { DueFlashcard, Flashcard } from '../../types';
-import { emptySplitDraft, MAX_SPLIT_CARDS, MIN_SPLIT_CARDS, splitProblem, type SplitDraft } from '../../utils/leeches';
+import type { DueFlashcard, Flashcard, LeechSuggestion } from '../../types';
+import { emptySplitDraft, hasTypedDrafts, MAX_SPLIT_CARDS, MIN_SPLIT_CARDS, splitProblem, suggestionToDrafts, type SplitDraft } from '../../utils/leeches';
 import { FormattedText } from '../FormattedText';
 import { Modal } from '../questions/Modal';
 import { RichTextEditor } from '../RichTextEditor';
+import { SuggestButton, SuggestionFrame, useLeechSuggestion } from './useLeechSuggestion';
 
 /**
  * Quebrar um cartão em vários menores: o motivo mais comum de um cartão não fixar é trazer mais de uma ideia. O
@@ -18,10 +19,15 @@ export function SplitCardModal({
   card,
   onClose,
   onDone,
+  suggestion: cachedSuggestion,
+  onSuggestion,
 }: {
   card: DueFlashcard;
   onClose: () => void;
   onDone: (result: { created: Flashcard[]; originalDeleted: boolean }) => void;
+  /** A sugestão da IA já pedida para este cartão (a página a guarda, e o "Reescrever" usa a mesma). */
+  suggestion?: LeechSuggestion;
+  onSuggestion: (suggestion: LeechSuggestion) => void;
 }) {
   const { showToast } = useToast();
   const [drafts, setDrafts] = useState<SplitDraft[]>(() => [emptySplitDraft(), emptySplitDraft()]);
@@ -29,6 +35,7 @@ export function SplitCardModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const problem = splitProblem(drafts);
+  const ai = useLeechSuggestion(card.id, cachedSuggestion, onSuggestion);
 
   const change = (index: number, patch: Partial<SplitDraft>) => setDrafts((all) => all.map((d, i) => (i === index ? { ...d, ...patch } : d)));
 
@@ -62,6 +69,45 @@ export function SplitCardModal({
           <FormattedText value={card.question} format={card.format} role="question" className="text-sm text-neutral-900 dark:text-neutral-100" />
           <div className="my-2 border-t border-neutral-200 dark:border-neutral-700" />
           <FormattedText value={card.answer} format={card.format} role="answer" className="text-sm text-neutral-700 dark:text-neutral-300" />
+        </div>
+
+        <div>
+          <SuggestButton label="Sugerir divisão com IA" loading={ai.loading} disabled={busy} onClick={ai.ask} />
+          {ai.error && <p className="mt-1 text-xs text-red-600">{ai.error}</p>}
+          {ai.suggestion && (
+            <SuggestionFrame diagnosis={ai.suggestion.diagnosis} onDismiss={ai.dismiss}>
+              {ai.suggestion.split.length > 0 ? (
+                <>
+                  <ol className="space-y-2">
+                    {ai.suggestion.split.map((part, i) => (
+                      <li key={i} className="rounded-lg bg-white/70 p-2 dark:bg-neutral-900/40">
+                        <p className="font-semibold text-neutral-900 dark:text-neutral-100">
+                          {i + 1}. {part.question}
+                        </p>
+                        <p className="text-neutral-700 dark:text-neutral-300">{part.answer}</p>
+                      </li>
+                    ))}
+                  </ol>
+                  <button
+                    type="button"
+                    className="btn-primary !py-1 text-xs"
+                    onClick={() => {
+                      setDrafts(suggestionToDrafts(ai.suggestion!.split));
+                      ai.dismiss();
+                    }}
+                  >
+                    {hasTypedDrafts(drafts) ? 'Usar esta divisão (troca o que você escreveu)' : 'Usar esta divisão'}
+                  </button>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Depois de usar, você ainda pode editar cada cartão antes de criar.</p>
+                </>
+              ) : (
+                <p className="text-neutral-700 dark:text-neutral-300">
+                  Para a IA, este cartão já tem uma ideia só.
+                  {ai.suggestion.macete ? ' Um macete pode ajudar mais do que dividir: use "Reescrever".' : ' Tente deixar a pergunta e a resposta mais curtas.'}
+                </p>
+              )}
+            </SuggestionFrame>
+          )}
         </div>
 
         {drafts.map((draft, index) => (

@@ -20,6 +20,14 @@ import {
   type ChoiceSource,
   type GeneratedChoice,
 } from './choices';
+import {
+  LEECH_FIX_JSON_SCHEMA,
+  LEECH_FIX_SYSTEM_PROMPT,
+  leechFixUserPrompt,
+  parseLeechFixResponse,
+  type LeechFix,
+  type LeechFixSource,
+} from './leechfix';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
@@ -472,6 +480,22 @@ export async function generateChoicesOpenAI(sources: ChoiceSource[]): Promise<Ge
     },
   });
   return parseChoicesResponse(response.choices[0]?.message?.content ?? undefined, sources);
+}
+
+export async function suggestLeechFixOpenAI(source: LeechFixSource): Promise<LeechFix> {
+  const client = getClient();
+  const response = await chatCompletionWithRetry(client, {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: LEECH_FIX_SYSTEM_PROMPT },
+      { role: 'user', content: leechFixUserPrompt(source) },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'leech_fix', strict: true, schema: LEECH_FIX_JSON_SCHEMA },
+    },
+  });
+  return parseLeechFixResponse(response.choices[0]?.message?.content ?? undefined);
 }
 
 export async function verifyCardsOpenAI(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {

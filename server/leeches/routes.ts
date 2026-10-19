@@ -1,8 +1,11 @@
 import express, { type Response } from 'express';
 
 import { db } from '../db';
+import { suggestLeechFix } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { loadLeeches, parseMinErrors, resetLeech, snoozeLeech, splitLeech, type Result } from './leeches';
+import { suggestFix } from './suggest';
 
 export const leechesRouter = express.Router();
 leechesRouter.use(requireAuth);
@@ -35,4 +38,16 @@ leechesRouter.post('/:id/snooze', (req: AuthedRequest, res: Response) => {
 // Quebra o cartão em vários menores: `{ cards: [{ question, answer }, ...], keepOriginal?: boolean }`.
 leechesRouter.post('/:id/split', (req: AuthedRequest, res: Response) => {
   send(res, splitLeech(db, req.userId!, req.params.id, req.body), 201);
+});
+
+// A sugestão da IA (diagnóstico, macete, divisão em cartões menores). Só propõe: nada é gravado. Falha da IA (cota, rede,
+// resposta inútil) é 422 com o motivo, como nas demais gerações.
+leechesRouter.post('/:id/suggest', async (req: AuthedRequest, res: Response) => {
+  try {
+    const result = await withUsageContext({ userId: req.userId!, feature: 'leech' }, () => suggestFix(db, req.userId!, req.params.id, suggestLeechFix));
+    send(res, result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Não foi possível gerar a sugestão.';
+    res.status(422).json({ success: false, error: message });
+  }
 });

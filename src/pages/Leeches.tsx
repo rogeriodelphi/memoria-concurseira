@@ -8,7 +8,7 @@ import { RewriteCardModal } from '../components/leeches/RewriteCardModal';
 import { SplitCardModal } from '../components/leeches/SplitCardModal';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, leechesApi } from '../services/api';
-import type { LeechList } from '../types';
+import type { LeechList, LeechSuggestion } from '../types';
 import { DEFAULT_MIN_ERRORS, MIN_ERRORS_CHOICES, type SnoozeDays } from '../utils/leeches';
 import { plural } from '../utils/performance';
 
@@ -32,6 +32,8 @@ export function Leeches() {
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // A sugestão da IA de cada cartão: o "Reescrever" e o "Quebrar" usam a mesma, e a IA só é chamada uma vez por cartão.
+  const [suggestions, setSuggestions] = useState<Record<string, LeechSuggestion>>({});
 
   const load = useCallback(() => {
     setError(null);
@@ -170,6 +172,8 @@ export function Leeches() {
         <RewriteCardModal
           card={selected}
           onClose={() => setDialog(null)}
+          suggestion={suggestions[selected.id]}
+          onSuggestion={(s) => setSuggestions((all) => ({ ...all, [selected.id]: s }))}
           onSaved={() => {
             removeLocally(selected.id);
             setDialog(null);
@@ -180,6 +184,8 @@ export function Leeches() {
         <SplitCardModal
           card={selected}
           onClose={() => setDialog(null)}
+          suggestion={suggestions[selected.id]}
+          onSuggestion={(s) => setSuggestions((all) => ({ ...all, [selected.id]: s }))}
           onDone={() => {
             // Com o original apagado ele some da lista; mantido, a contagem recomeçou e ele também sai.
             removeLocally(selected.id);

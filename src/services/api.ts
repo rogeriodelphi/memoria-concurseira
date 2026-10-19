@@ -25,6 +25,7 @@ import type {
   Flashcard,
   GenerationOptions,
   LeechList,
+  LeechSuggestion,
   MindMapDetail,
   MindMapSummary,
   MockExamAnswer,
@@ -57,7 +58,7 @@ export const AI_USAGE_EVENT = 'ai-usage-changed';
 // bullet points, transcrever) — depois dela o contador de tokens mudou, então
 // quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
 // erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
-const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices|\/question-bank\/import/;
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices|\/question-bank\/import|\/leeches\/[^/]+\/suggest/;
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
@@ -223,6 +224,8 @@ export const leechesApi = {
   // Adia a revisão por 7, 14 ou 30 dias.
   snooze: (id: string, days: 7 | 14 | 30) =>
     request<{ dueAt: string }>(`/leeches/${id}/snooze`, { method: 'POST', body: JSON.stringify({ days }) }),
+  // A IA propõe um diagnóstico, um macete e uma divisão em cartões menores. Só propõe: nada é gravado.
+  suggest: (id: string) => request<{ suggestion: LeechSuggestion }>(`/leeches/${id}/suggest`, { method: 'POST' }),
   // Quebra o cartão em vários menores; apaga o original, ou o mantém (recomeçando a contagem) com `keepOriginal`.
   split: (id: string, input: { cards: { question: string; answer: string }[]; keepOriginal: boolean }) =>
     request<{ created: Flashcard[]; originalDeleted: boolean }>(`/leeches/${id}/split`, {

@@ -8,6 +8,14 @@ import {
   type ChoiceSource,
   type GeneratedChoice,
 } from './choices';
+import {
+  LEECH_FIX_JSON_SCHEMA,
+  LEECH_FIX_SYSTEM_PROMPT,
+  leechFixUserPrompt,
+  parseLeechFixResponse,
+  type LeechFix,
+  type LeechFixSource,
+} from './leechfix';
 import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
   parsePastExamResponse,
@@ -288,6 +296,16 @@ export async function generateChoicesClaude(sources: ChoiceSource[]): Promise<Ge
     maxTokens: 6_000,
   });
   return parseChoicesResponse(JSON.stringify(result), sources);
+}
+
+export async function suggestLeechFixClaude(source: LeechFixSource): Promise<LeechFix> {
+  const result = await callStructured({
+    system: LEECH_FIX_SYSTEM_PROMPT,
+    content: leechFixUserPrompt(source),
+    schema: LEECH_FIX_JSON_SCHEMA,
+    maxTokens: 2_000,
+  });
+  return parseLeechFixResponse(JSON.stringify(result));
 }
 
 export async function verifyCardsClaude(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {
