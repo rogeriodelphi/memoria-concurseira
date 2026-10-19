@@ -24,6 +24,7 @@ import type {
   ExamSummary,
   Flashcard,
   GenerationOptions,
+  LeechList,
   MindMapDetail,
   MindMapSummary,
   MockExamAnswer,
@@ -212,6 +213,22 @@ export const flashcardsApi = {
       body: JSON.stringify({ flashcardIds, targetCollectionId, mode }),
     }),
   findDuplicates: () => request<{ groups: DuplicateGroup[]; totalDuplicates: number }>('/flashcards/duplicates'),
+};
+
+// Cartões sanguessuga: os que o usuário erra sempre, e o que dá para fazer com eles.
+export const leechesApi = {
+  list: (minErrors?: number) => request<LeechList>(`/leeches${minErrors ? `?minErrors=${minErrors}` : ''}`),
+  // Recomeça a contagem de erros do cartão (só os erros de depois valem).
+  reset: (id: string) => request<{ resetAt: string }>(`/leeches/${id}/reset`, { method: 'POST' }),
+  // Adia a revisão por 7, 14 ou 30 dias.
+  snooze: (id: string, days: 7 | 14 | 30) =>
+    request<{ dueAt: string }>(`/leeches/${id}/snooze`, { method: 'POST', body: JSON.stringify({ days }) }),
+  // Quebra o cartão em vários menores; apaga o original, ou o mantém (recomeçando a contagem) com `keepOriginal`.
+  split: (id: string, input: { cards: { question: string; answer: string }[]; keepOriginal: boolean }) =>
+    request<{ created: Flashcard[]; originalDeleted: boolean }>(`/leeches/${id}/split`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 };
 
 export const ttsApi = {

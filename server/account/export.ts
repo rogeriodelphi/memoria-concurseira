@@ -96,6 +96,12 @@ const EXPORTED: ExportedTable[] = [
           WHERE q.user_id = ? ORDER BY l.rowid`,
   },
   { table: 'qb_saved_filters', sql: 'SELECT * FROM qb_saved_filters WHERE user_id = ? ORDER BY rowid' },
+  {
+    table: 'leech_state',
+    sql: `SELECT l.* FROM leech_state l JOIN flashcards f ON f.id = l.flashcard_id
+          JOIN collections c ON c.id = f.collection_id
+          WHERE c.user_id = ? ORDER BY l.rowid`,
+  },
   { table: 'pomodoro_tasks', sql: 'SELECT * FROM pomodoro_tasks WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_notes', sql: 'SELECT * FROM pomodoro_notes WHERE user_id = ? ORDER BY rowid' },
   { table: 'ai_usage', sql: 'SELECT * FROM ai_usage WHERE user_id = ? ORDER BY rowid' },

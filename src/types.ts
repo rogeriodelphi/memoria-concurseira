@@ -70,6 +70,35 @@ export interface DueFlashcard extends Flashcard {
   collectionSubject?: string;
 }
 
+/** Um cartão que o usuário erra sempre (o servidor decide quais: veja server/leeches/leeches.ts). */
+export interface Leech {
+  flashcard: DueFlashcard;
+  /** Quantas das últimas revisões foram "Errei". */
+  errors: number;
+  /** Quantas revisões entraram na conta. */
+  reviews: number;
+  /** As últimas revisões, da mais antiga para a mais nova. */
+  results: StudyResult[];
+  lastReviewedAt: string;
+  /** Acertos seguidos desde o último erro. */
+  streak: number;
+  /** O usuário adiou a revisão deste cartão e o prazo ainda não passou. */
+  snoozed: boolean;
+  /** Até quando, quando está adiado. */
+  snoozedUntil: string | null;
+}
+
+export interface LeechList {
+  minErrors: number;
+  /** Quantas das últimas revisões de cada cartão entram na conta. */
+  window: number;
+  /** Quantos acertos seguidos tiram o cartão da lista. */
+  streakToLeave: number;
+  /** Quantos cartões atendem a regra (a lista traz os primeiros 100). */
+  total: number;
+  leeches: Leech[];
+}
+
 export interface DuplicateFlashcard extends Flashcard {
   collectionName: string;
   collectionSubject: string;

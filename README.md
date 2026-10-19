@@ -531,6 +531,21 @@ No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou n
   **Difícil**) no período da página, **vencidos ou não**, os que mais errou primeiro (até 200). É uma
   revisão extra: o que você avaliar entra no agendamento como qualquer revisão. O "voltar" leva à página
   com o mesmo período e filtros.
+- **Cartões sanguessuga** (`/sanguessugas`, com um aviso na página): são os cartões que você erra sempre e
+  que gastam revisão sem fixar. Um cartão entra quando marcou **Errei** (não "Difícil") **4 vezes ou mais
+  nas últimas 10 revisões** (dá para escolher de 2 a 8) e ainda **não acertou 3 seguidas** desde o último
+  erro; quando acerta 3 seguidas ele sai sozinho. Vem do histórico de revisões que já existe, sem IA e sem
+  mudar nada sozinho. Para cada cartão há quatro ações, todas pedidas por você:
+  - **Reescrever:** o editor de sempre, mais um campo de **macete** (um jeito de lembrar) que entra no fim
+    da resposta, em itálico. A contagem de erros recomeça.
+  - **Quebrar:** separa o cartão em 2 a 6 cartões menores, na mesma coleção, como cartões novos. O original
+    é apagado (com o histórico) ou, se preferir, fica e recomeça a contagem. Tudo ou nada: se um cartão novo
+    estiver incompleto, nenhum é criado.
+  - **Adiar** (7, 14 ou 30 dias): só empurra a data de vencimento, sem mexer no agendamento. Adiar nunca
+    antecipa um cartão que já vence mais tarde. Os adiados ficam de fora de "Revisar".
+  - **Recomeçar a contagem:** os erros de antes deixam de valer, e o cartão só volta se errar de novo.
+  **Revisar N cartões agora** faz uma sessão só com os sanguessugas não adiados. Os dados novos
+  (`leech_state`) entram na exportação da conta.
 - **Tempo de estudo:** um painel mostra onde o seu tempo vai, com o mesmo período, escopo e filtros da
   página. Há duas fontes, mostradas lado a lado e **nunca somadas em dobro**:
   - **Pomodoro:** o tempo de foco que você registrou, com a disciplina e o assunto que digitou.

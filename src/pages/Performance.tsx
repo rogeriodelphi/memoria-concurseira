@@ -5,6 +5,7 @@ import { CheckCircle2, ListChecks, Loader2, Target, XCircle } from 'lucide-react
 import { AttentionPoints } from '../components/performance/AttentionPoints';
 import { ActiveFilters, FilterBar } from '../components/performance/Filters';
 import { BarList, DailyChart, DistributionDonut } from '../components/performance/Charts';
+import { LeechesSummary } from '../components/performance/LeechesSummary';
 import { NameTable } from '../components/performance/NameTable';
 import { StudyTimePanel } from '../components/performance/StudyTimePanel';
 import { statsApi } from '../services/api';
@@ -202,6 +203,8 @@ export function Performance() {
                 returnTo={`/desempenho${paramsText ? `?${paramsText}` : ''}`}
                 onFilter={(nameKey, subjectKey) => change({ ...query, name: nameKey, subject: subjectKey })}
               />
+
+              <LeechesSummary />
 
               {time && <StudyTimePanel key={time.byDiscipline ? 'edital' : 'nome'} data={time} />}
 

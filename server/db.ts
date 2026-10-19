@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './mockexams/schema';
 import { AI_REVIEW_SCHEMA } from './aireview/schema';
 import { QUESTION_BANK_SCHEMA, upgradeQuestionBankSchema } from './questionbank/schema';
+import { LEECH_SCHEMA } from './leeches/schema';
 import { REMINDER_SCHEMA } from './reminders/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
@@ -328,3 +329,6 @@ db.exec(AI_REVIEW_SCHEMA);
 // Banco de questões: provas anteriores importadas (múltipla escolha com gabarito), cadernos e simulados.
 db.exec(QUESTION_BANK_SCHEMA);
 upgradeQuestionBankSchema(db);
+
+// Cartões sanguessuga: quando o usuário recomeça a contagem de erros de um cartão.
+db.exec(LEECH_SCHEMA);
