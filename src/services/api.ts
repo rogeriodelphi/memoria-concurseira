@@ -16,6 +16,7 @@ import type {
   DocumentItem,
   DueFlashcard,
   ExamPlan,
+  FinalStretch,
   NewCardOrder,
   NewOrderOverview,
   DuplicateGroup,
@@ -339,6 +340,10 @@ export const studyPlanApi = {
   exam: () => request<{ plan: ExamPlan | null }>('/study-plan/exam'),
   setDailyNewLimit: (dailyNewLimit: number | null) =>
     request<{ dailyNewLimit: number | null }>('/study-plan', { method: 'PUT', body: JSON.stringify({ dailyNewLimit }) }),
+  // A reta final: a prioridade de cada disciplina do edital e o resumo da sessão do foco. Só leitura.
+  finalStretch: () => request<FinalStretch>('/study-plan/final-stretch'),
+  // Os cartões da sessão do foco (só de coleções ligadas ao edital, repartidos pela prioridade).
+  finalStretchQueue: () => request<{ flashcards: DueFlashcard[] }>('/study-plan/final-stretch/queue'),
   // A ordem dos cartões novos (criação ou pelo peso das disciplinas do edital) e como ela reparte os cartões.
   newOrder: () => request<NewOrderOverview>('/study-plan/new-order'),
   setNewOrder: (order: NewCardOrder) =>

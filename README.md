@@ -498,6 +498,32 @@ você estuda por dia e o que cada tempo diário cobre até a prova.
 - O cartão some se nenhum concurso tem data. Um concurso sem data pode ganhar uma em
   **Concursos → Editar**.
 
+## Reta final
+
+A tela **Reta final** (`/reta-final`, com o atalho "Reta final →" no cartão "Meta para a prova" do
+Painel) mostra, do concurso de data mais próxima, **onde ainda há mais prova em aberto** e abre uma
+sessão de revisão só com os cartões do edital, repartidos por essa prioridade. É só leitura: nada muda
+até você avaliar os cartões, e a revisão global, o limite diário e a ordem dos novos continuam como são.
+
+- **Prioridade de cada disciplina:** a parte da prova ainda em aberto = o **peso** dela (questões ×
+  peso no edital, o mesmo da ordem pelo edital) × o que **falta dominar**. O domínio é o quanto dos
+  cartões você já **viu** × o seu **acerto** (Bom ou Fácil) nos últimos 30 dias; com poucas revisões o
+  acerto é puxado para 60% (como se houvesse mais 5 revisões), para pouca amostra não decidir sozinha.
+  A disciplina sem nenhum cartão fica no fim, sem posição (não há o que revisar), e a tela avisa quanto
+  da prova ela vale. As 3 primeiras são o **foco**.
+- **A fase vem dos dias que faltam:** mais de 7 dias, ainda dá para ver conteúdo novo; de 7 a 4, só
+  revisão; 3 ou menos, só revisão e descanso. A mesma divisão da "Meta para a prova".
+- **A sessão do foco** (`/reta-final/estudar`) traz só cartões de coleções **ligadas ao edital**, até
+  **100 cartões**. Os vencidos e os novos se repartem entre as disciplinas **na proporção da
+  prioridade** (a mais fraca e pesada recebe mais vagas), pela mesma escolha por cota da ordem pelo
+  edital. Enquanto falta mais de uma semana, **até um terço da sessão é reservado a cartões novos**
+  (respeitando o seu limite diário, e até 15 se você não tem limite): sem isso quem tem muitos
+  vencidos passaria dias só revisando, e perto da prova a cobertura costuma pesar mais que o acerto.
+  Nos últimos 7 dias, nenhum cartão novo. A sessão é embaralhada, e o que sobrar (vencidos além do
+  teto, vencidos fora do edital) a tela diz quanto é.
+- **É uma estimativa** para escolher onde gastar o tempo, não uma previsão de nota. Sem concurso com
+  data (ou sem disciplinas no edital) a tela explica o que falta.
+
 ## Meu desempenho
 
 No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou num período, por

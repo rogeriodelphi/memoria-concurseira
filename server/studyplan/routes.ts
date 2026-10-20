@@ -3,6 +3,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { loadExamPlan } from './examPlan';
+import { loadFinalStretch, loadFocusCards } from './finalStretch';
 import { loadNewOrderOverview, setNewCardOrder } from './newOrder';
 import { getDailyNewLimit, setDailyNewLimit } from './store';
 
@@ -40,4 +41,16 @@ studyPlanRouter.put('/new-order', (req: AuthedRequest, res: Response) => {
 // A meta para a prova do concurso com data mais próxima (`plan: null` se não há nenhum com data).
 studyPlanRouter.get('/exam', (req: AuthedRequest, res: Response) => {
   res.json({ success: true, plan: loadExamPlan(db, req.userId!) });
+});
+
+// A reta final do concurso de data mais próxima: a prioridade de cada disciplina e o resumo da sessão do foco
+// (`exam: null` se não há concurso com data). Só leitura.
+studyPlanRouter.get('/final-stretch', (req: AuthedRequest, res: Response) => {
+  res.json({ success: true, ...loadFinalStretch(db, req.userId!) });
+});
+
+// Os cartões da sessão do foco: vencidos e (enquanto falta mais de uma semana) alguns novos, só de coleções ligadas
+// ao edital e repartidos pela prioridade das disciplinas. Só leitura: nada muda até o usuário avaliar os cartões.
+studyPlanRouter.get('/final-stretch/queue', (req: AuthedRequest, res: Response) => {
+  res.json({ success: true, flashcards: loadFocusCards(db, req.userId!) });
 });

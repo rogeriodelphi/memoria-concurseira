@@ -677,6 +677,59 @@ export interface ExamPlan {
   newOrder: NewCardOrder;
 }
 
+/** Em que fase está a preparação, pelos dias que faltam: mais de 7 (conteúdo), de 7 a 4 (só revisão) e 3 ou menos. */
+export type FinalStretchPhase = 'content' | 'review' | 'last';
+
+export interface FinalStretchDiscipline {
+  id: string;
+  name: string;
+  /** A fatia da prova, em %. */
+  sharePct: number;
+  cards: number;
+  newCards: number;
+  dueCards: number;
+  /** Cartões que o usuário já viu ao menos uma vez, em % dos da disciplina. `null` sem cartões. */
+  seenPct: number | null;
+  /** O acerto (Bom ou Fácil) dos últimos 30 dias, em %. `null` sem revisões no período. */
+  accuracyPct: number | null;
+  reviews30: number;
+  /** Quanto já está dominado: o visto vezes o acerto (suavizado), em %. `null` sem cartões. */
+  masteryPct: number | null;
+  /** Quanto da prova ainda está em aberto nesta disciplina (peso × o que falta dominar), em % da prova. */
+  gainPct: number;
+  /** A posição entre as que têm cartões (1 = a mais urgente); `null` se não tem cartões. */
+  rank: number | null;
+  hasCards: boolean;
+}
+
+/** A reta final do concurso de data mais próxima (veja server/studyplan/finalStretch.ts). */
+export interface FinalStretch {
+  exam: { id: string; name: string; examDate: string; daysLeft: number } | null;
+  phase: FinalStretchPhase | null;
+  /** As disciplinas do edital, da mais urgente à menos (as sem cartões por último). */
+  disciplines: FinalStretchDiscipline[];
+  /** Os ids das mais urgentes com cartões. */
+  focus: string[];
+  /** A fatia da prova (em %) das disciplinas sem nenhum cartão. */
+  uncoveredSharePct: number;
+  queue: {
+    total: number;
+    due: number;
+    new: number;
+    /** O limite diário de novos do usuário; `null` = sem limite. */
+    limit: number | null;
+    /** O teto de cartões de uma sessão, e quantos novos entram por sessão quando não há limite diário. */
+    maxCards: number;
+    defaultNew: number;
+    /** Vencidos e novos do edital que ficaram para outra sessão. */
+    waitingDue: number;
+    waitingNew: number;
+    /** Vencidos e novos que não estão em coleção ligada ao edital (não entram na sessão). */
+    outsideDue: number;
+    outsideNew: number;
+  };
+}
+
 /** 'created': do mais antigo ao mais novo. 'exam': repartidos pelo peso das disciplinas do edital. */
 export type NewCardOrder = 'created' | 'exam';
 
