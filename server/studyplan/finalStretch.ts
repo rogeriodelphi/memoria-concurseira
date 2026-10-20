@@ -16,7 +16,7 @@ import { mapFlashcard } from '../mappers';
 import { FINAL_REVIEW_DAYS, LAST_DAYS } from './examPlan';
 import { newCardsForToday } from './limit';
 import { loadExamOrderContext, pickByExamWeight, type NewCardRef } from './newOrder';
-import type { NextExam } from './nextExam';
+import { chooseExam, type NextExam } from './nextExam';
 import { countNewLearnedToday, getDailyNewLimit, type DueRow } from './store';
 
 /** A janela, em dias, do acerto de cada disciplina. */
@@ -226,9 +226,17 @@ interface CardIdRow {
   collection_id: string;
 }
 
-/** A reta final do usuário, e os ids dos cartões da sessão (vencidos e novos). Só leitura. */
-export function computeFinalStretch(db: DatabaseSync, userId: string, now: Date = new Date()): { overview: FinalStretch; dueIds: string[]; newIds: string[] } {
-  const context = loadExamOrderContext(db, userId, now);
+/**
+ * A reta final do usuário, e os ids dos cartões da sessão (vencidos e novos). Só leitura. `examId` é o concurso que o usuário
+ * escolheu (se não vale, o de data mais próxima).
+ */
+export function computeFinalStretch(
+  db: DatabaseSync,
+  userId: string,
+  now: Date = new Date(),
+  examId?: unknown,
+): { overview: FinalStretch; dueIds: string[]; newIds: string[] } {
+  const context = loadExamOrderContext(db, userId, now, chooseExam(db, userId, examId, now));
   if (!context) {
     return { overview: { exam: null, phase: null, disciplines: [], focus: [], uncoveredSharePct: 0, queue: EMPTY_QUEUE }, dueIds: [], newIds: [] };
   }
@@ -347,15 +355,15 @@ export function computeFinalStretch(db: DatabaseSync, userId: string, now: Date 
 }
 
 /** O resumo para a tela. */
-export function loadFinalStretch(db: DatabaseSync, userId: string, now: Date = new Date()): FinalStretch {
-  return computeFinalStretch(db, userId, now).overview;
+export function loadFinalStretch(db: DatabaseSync, userId: string, now: Date = new Date(), examId?: unknown): FinalStretch {
+  return computeFinalStretch(db, userId, now, examId).overview;
 }
 
 export type FocusCard = ReturnType<typeof mapFlashcard> & { collectionName: string; collectionSubject: string };
 
 /** Os cartões da sessão do foco, prontos para a tela de revisão (a tela os embaralha). */
-export function loadFocusCards(db: DatabaseSync, userId: string, now: Date = new Date()): FocusCard[] {
-  const { dueIds, newIds } = computeFinalStretch(db, userId, now);
+export function loadFocusCards(db: DatabaseSync, userId: string, now: Date = new Date(), examId?: unknown): FocusCard[] {
+  const { dueIds, newIds } = computeFinalStretch(db, userId, now, examId);
   const ids = [...dueIds, ...newIds];
   if (ids.length === 0) return [];
   const rows = db

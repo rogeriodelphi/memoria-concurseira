@@ -148,9 +148,12 @@ export function disciplinePoints(
   });
 }
 
-/** O edital do concurso mais próximo com data, ou `null` se o usuário não tem nenhum. */
-export function loadExamOrderContext(db: DatabaseSync, userId: string, now: Date): ExamOrderContext | null {
-  const exam = nextExam(db, userId, now);
+/**
+ * O edital do concurso mais próximo com data, ou `null` se o usuário não tem nenhum. Com `chosen` (o concurso que uma tela
+ * escolheu) vale esse; `null` explícito é "nenhum". Sem o argumento, o mais próximo, como sempre foi.
+ */
+export function loadExamOrderContext(db: DatabaseSync, userId: string, now: Date, chosen?: NextExam | null): ExamOrderContext | null {
+  const exam = chosen === undefined ? nextExam(db, userId, now) : chosen;
   if (!exam) return null;
 
   const disciplines = disciplinePoints(

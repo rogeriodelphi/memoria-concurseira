@@ -3,6 +3,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { getDailyNewLimit } from '../studyplan/store';
+import { listExamOptions } from '../studyplan/nextExam';
 import { loadPerformance, parsePerformanceQuery } from './performance';
 import { loadStudyTime } from './studyTime';
 import { buildDashboard, type DashboardCard, type DashboardSession } from './dashboard';
@@ -140,7 +141,8 @@ statsRouter.get('/performance', (req: AuthedRequest, res: Response) => {
     res.status(400).json({ success: false, error: parsed.error });
     return;
   }
-  res.json({ success: true, ...loadPerformance(db, req.userId!, new Date(), parsed.value) });
+  const now = new Date();
+  res.json({ success: true, ...loadPerformance(db, req.userId!, now, parsed.value), exams: listExamOptions(db, req.userId!, now, { includeUndated: true }) });
 });
 
 // "Tempo de estudo" do Meu desempenho: onde o tempo vai (Pomodoro e cartões, sem contar em dobro), por nome de coleção e

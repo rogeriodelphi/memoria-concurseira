@@ -524,6 +524,32 @@ até você avaliar os cartões, e a revisão global, o limite diário e a ordem 
 - **É uma estimativa** para escolher onde gastar o tempo, não uma previsão de nota. Sem concurso com
   data (ou sem disciplinas no edital) a tela explica o que falta.
 
+### Vários concursos (seletor de concurso)
+
+Cada edital/cargo é um concurso próprio (nome, cargo, banca, data, disciplinas, tópicos e coleções ligadas;
+por exemplo, "UFBA – Analista de TI" ao lado de "TRANSPETRO – Análise de Sistemas"). A tela do concurso
+(**Concursos → abrir**) já mostra a cobertura, os vencidos e o acerto de cada edital separadamente, e uma
+coleção pode ser ligada a tópicos de mais de um: **os mesmos cartões servem aos dois**, e estudar uma vez conta
+para os dois editais.
+
+Quem tem **dois ou mais concursos** ganha um seletor **Concurso** em três telas, e a escolha vale para as três:
+
+- **Meta para a prova** (Painel): a meta, os cenários e o gráfico passam a ser os do concurso escolhido, com a
+  data dele. A conta de cartões novos e vencidos continua sendo a de todos os seus cartões.
+- **Reta final:** as disciplinas, os pesos, a fase, a prioridade e a sessão do foco são os do edital escolhido
+  (só as coleções ligadas a ele), com os dias que faltam para ele.
+- **Meu desempenho**, em "Meu concurso": os dados são só das coleções ligadas ao concurso escolhido. A escolha
+  também vai para o endereço (`?concurso=`), então o link é compartilhável; trocar o concurso limpa os
+  filtros de nome e assunto. O seletor aparece nos concursos com ou sem data.
+
+Regras: **sem escolha, vale o concurso de data mais próxima, como sempre foi**; quem tem um concurso só não vê o
+seletor e nada muda. A escolha fica guardada **neste aparelho** (navegador), não na conta: no celular e no
+computador ela é separada. Uma escolha que a tela não consegue usar (concurso sem data, que já passou ou foi
+apagado) cai no mais próximo, sem erro, e o seletor mostra qual está valendo. Os concursos aparecem do mais
+próximo ao mais distante, com o cargo e os dias que faltam. **Não mudam** com o seletor: a ordem dos cartões
+novos "pelo edital" (continua no concurso mais próximo), o limite diário de novos (é um só), o lembrete no
+celular e a nota de corte dos simulados.
+
 ## Meu desempenho
 
 No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou num período, por

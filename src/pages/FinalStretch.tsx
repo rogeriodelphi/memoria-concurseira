@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Flag, Loader2, PlayCircle } from 'lucide-react';
 
+import { ExamPicker, useFocusExam } from '../components/ExamPicker';
 import { studyPlanApi } from '../services/api';
 import type { FinalStretch, FinalStretchDiscipline } from '../types';
 import { formatExamDate } from '../utils/exam';
@@ -86,13 +87,20 @@ function DisciplineItem({ d, focus, examId }: { d: FinalStretchDiscipline; focus
 export function FinalStretchPage() {
   const [data, setData] = useState<FinalStretch | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { focus, choose } = useFocusExam();
 
   useEffect(() => {
+    let current = true;
+    setData(null);
+    setError(null);
     studyPlanApi
-      .finalStretch()
-      .then(setData)
-      .catch(() => setError('Não foi possível carregar a reta final.'));
-  }, []);
+      .finalStretch(focus)
+      .then((result) => current && setData(result))
+      .catch(() => current && setError('Não foi possível carregar a reta final.'));
+    return () => {
+      current = false;
+    };
+  }, [focus]);
 
   const exam = data?.exam ?? null;
   const phase = data?.phase ? phaseInfo(data.phase, exam!.daysLeft) : null;
@@ -108,6 +116,7 @@ export function FinalStretchPage() {
           <Flag size={24} className="text-brand-600 dark:text-brand-400" />
           Reta final
         </h1>
+        {data && <ExamPicker options={data.exams} selectedId={exam?.id ?? null} onChange={choose} className="mt-2" />}
         {exam && (
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
             <Link to={`/concursos/${exam.id}`} className="font-medium hover:text-brand-600 hover:underline">

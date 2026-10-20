@@ -15,6 +15,7 @@ import type {
   DisciplineMockExam,
   DocumentItem,
   DueFlashcard,
+  ExamOption,
   ExamPlan,
   FinalStretch,
   NewCardOrder,
@@ -321,6 +322,7 @@ function performanceParams(q: PerformanceQuery): string {
   if (q.scope === 'exam') params.set('scope', 'exam');
   if (q.name) params.set('name', q.name);
   if (q.subject) params.set('subject', q.subject);
+  if (q.exam) params.set('exam', q.exam);
   return params.toString();
 }
 
@@ -334,16 +336,20 @@ export const statsApi = {
 };
 
 // O plano de estudo: hoje, o limite diário de cartões novos na fila de revisão (`null` = sem limite).
+/** O concurso escolhido num seletor, como parâmetro do endereço (vazio = o de data mais próxima). */
+const examQuery = (examId?: string) => (examId ? `?exam=${encodeURIComponent(examId)}` : '');
+
 export const studyPlanApi = {
   get: () => request<{ dailyNewLimit: number | null }>('/study-plan'),
   // A meta para a prova do concurso com data mais próxima (`null` se não há nenhum com data).
-  exam: () => request<{ plan: ExamPlan | null }>('/study-plan/exam'),
+  // Sem `examId` (ou se ele não vale), o concurso de data mais próxima; `exams` são os que o seletor oferece.
+  exam: (examId?: string) => request<{ plan: ExamPlan | null; exams: ExamOption[] }>(`/study-plan/exam${examQuery(examId)}`),
   setDailyNewLimit: (dailyNewLimit: number | null) =>
     request<{ dailyNewLimit: number | null }>('/study-plan', { method: 'PUT', body: JSON.stringify({ dailyNewLimit }) }),
   // A reta final: a prioridade de cada disciplina do edital e o resumo da sessão do foco. Só leitura.
-  finalStretch: () => request<FinalStretch>('/study-plan/final-stretch'),
+  finalStretch: (examId?: string) => request<FinalStretch>(`/study-plan/final-stretch${examQuery(examId)}`),
   // Os cartões da sessão do foco (só de coleções ligadas ao edital, repartidos pela prioridade).
-  finalStretchQueue: () => request<{ flashcards: DueFlashcard[] }>('/study-plan/final-stretch/queue'),
+  finalStretchQueue: (examId?: string) => request<{ flashcards: DueFlashcard[] }>(`/study-plan/final-stretch/queue${examQuery(examId)}`),
   // A ordem dos cartões novos (criação ou pelo peso das disciplinas do edital) e como ela reparte os cartões.
   newOrder: () => request<NewOrderOverview>('/study-plan/new-order'),
   setNewOrder: (order: NewCardOrder) =>

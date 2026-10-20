@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Target } from 'lucide-react';
 
+import { ExamPicker, useFocusExam } from './ExamPicker';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, studyPlanApi } from '../services/api';
-import type { ExamPlan } from '../types';
+import type { ExamOption, ExamPlan } from '../types';
 import { formatExamDate } from '../utils/exam';
 import {
   cardsPerDayLabel,
@@ -45,16 +46,21 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
 export function ExamPlanCard({ onLimitChanged }: { onLimitChanged?: () => void }) {
   const { showToast } = useToast();
   const [plan, setPlan] = useState<ExamPlan | null>(null);
+  const [exams, setExams] = useState<ExamOption[]>([]);
+  const { focus, choose } = useFocusExam();
   const [selected, setSelected] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(
     () =>
       studyPlanApi
-        .exam()
-        .then(({ plan: loaded }) => setPlan(loaded))
+        .exam(focus)
+        .then(({ plan: loaded, exams: options }) => {
+          setPlan(loaded);
+          setExams(options);
+        })
         .catch(() => setPlan(null)),
-    [],
+    [focus],
   );
   useEffect(() => {
     void load();
@@ -101,6 +107,15 @@ export function ExamPlanCard({ onLimitChanged }: { onLimitChanged?: () => void }
             · {formatExamDate(exam.examDate)} ·{' '}
             {exam.daysLeft === 0 ? 'hoje' : exam.daysLeft === 1 ? 'amanhã' : `faltam ${exam.daysLeft} dias`}
           </p>
+          <ExamPicker
+            options={exams}
+            selectedId={exam.id}
+            onChange={(id) => {
+              setSelected(null);
+              choose(id);
+            }}
+            className="mt-2"
+          />
         </div>
         <div className="flex items-center gap-3">
           {plan.verdict !== 'exam_today' && (

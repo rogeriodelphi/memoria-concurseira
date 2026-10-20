@@ -268,6 +268,80 @@ test('uma prova que já passou também não conta', () => {
   assert.equal(loadFinalStretch(db, 'u1', NOW).exam, null);
 });
 
+/**
+ * Um segundo concurso do mesmo usuário (UFBA, daqui a 95 dias) com o edital dele: duas disciplinas (Informática 30 questões, Legislação 10).
+ * Liga a coleção cS (a mesma do primeiro concurso: os cartões servem aos dois) à Informática e uma coleção cL à Legislação.
+ */
+function addSecondExam(db: DatabaseSync) {
+  db.exec(`
+    INSERT INTO collections (id, user_id, name, subject) VALUES ('cL', 'u1', 'Legislação', '');
+    INSERT INTO exams VALUES ('e3', 'u1', 'UFBA - Analista de TI', '2027-01-20');
+    INSERT INTO exam_disciplines VALUES ('dU1', 'e3', 'Informática', 30, NULL, 0), ('dU2', 'e3', 'Legislação', 10, NULL, 1);
+    INSERT INTO exam_topics VALUES ('tU1', 'dU1', 'Redes', 0), ('tU2', 'dU2', 'Lei 8.112', 0);
+    INSERT INTO exam_topic_collections VALUES ('tU1', 'cS'), ('tU2', 'cL');
+  `);
+}
+
+test('com dois concursos, sem pedido vale o de data mais próxima, como sempre foi', () => {
+  const db = newDb();
+  seed(db);
+  addSecondExam(db);
+  const overview = loadFinalStretch(db, 'u1', NOW);
+  assert.equal(overview.exam?.id, 'e1');
+  assert.deepEqual(overview.disciplines.map((d) => d.id), ['dS', 'dP', 'dI']);
+});
+
+test('o concurso escolhido traz o edital dele: disciplinas, pesos, dias, fase e a fila das coleções ligadas a ele', () => {
+  const db = newDb();
+  seed(db);
+  addSecondExam(db);
+  many(db, 'l', 'cL', 5, PAST); // vencidos da Legislação, que só o segundo concurso liga
+  const first = loadFinalStretch(db, 'u1', NOW);
+  const second = loadFinalStretch(db, 'u1', NOW, 'e3');
+
+  assert.equal(second.exam?.id, 'e3');
+  assert.equal(second.exam?.daysLeft, 95);
+  assert.equal(second.phase, 'content');
+  assert.deepEqual(second.disciplines.map((d) => [d.id, d.sharePct]), [['dU1', 75], ['dU2', 25]]);
+  assert.ok(second.disciplines.every((d) => d.hasCards));
+  assert.deepEqual(second.uncoveredSharePct, 0);
+
+  // Os cartões de cS servem aos dois concursos: aparecem nos dois. cP (só do primeiro) não aparece no segundo; cL (só do segundo), no primeiro.
+  const dU1 = second.disciplines.find((d) => d.id === 'dU1')!;
+  assert.deepEqual([dU1.cards, dU1.dueCards, dU1.newCards], [10, 4, 6], 'a coleção compartilhada');
+  assert.equal(first.disciplines.find((d) => d.id === 'dS')!.cards, 10, 'e no primeiro concurso também');
+  assert.equal(second.disciplines.find((d) => d.id === 'dU2')!.dueCards, 5);
+
+  assert.deepEqual([first.queue.due, second.queue.due], [9, 9], 'primeiro: cS 4 + cP 5; segundo: cS 4 + cL 5');
+  assert.equal(second.queue.outsideDue, 5 + 3, 'cP e cU ficam fora do edital da UFBA');
+  assert.equal(first.queue.outsideDue, 5 + 3, 'cL e cU ficam fora do edital do primeiro');
+
+  const cards = loadFocusCards(db, 'u1', NOW, 'e3');
+  assert.ok(cards.every((c) => ['cS', 'cL'].includes(c.collectionId)), 'a sessão traz só cartões do edital escolhido');
+  assert.ok(!loadFocusCards(db, 'u1', NOW).some((c) => c.collectionId === 'cL'));
+});
+
+test('o pedido que não vale (sem data, passou, de outra conta, inexistente) cai no mais próximo', () => {
+  const db = newDb();
+  seed(db);
+  addSecondExam(db);
+  db.exec("INSERT INTO exams VALUES ('sem', 'u1', 'Sem data', NULL), ('velho', 'u1', 'Velho', '2026-01-10')");
+  for (const requested of ['sem', 'velho', 'e2', 'nao-existe', '', null, 7]) {
+    assert.equal(loadFinalStretch(db, 'u1', NOW, requested).exam?.id, 'e1', String(requested));
+  }
+  assert.equal(loadFocusCards(db, 'u1', NOW, 'e2').length, loadFocusCards(db, 'u1', NOW).length, 'e2 é de outra conta');
+});
+
+test('a fase segue o concurso escolhido, não o mais próximo', () => {
+  const db = newDb();
+  seed(db);
+  addSecondExam(db);
+  setExam(db, '2026-10-20'); // o primeiro, a 3 dias: últimos dias
+  assert.equal(loadFinalStretch(db, 'u1', NOW).phase, 'last');
+  assert.equal(loadFinalStretch(db, 'u1', NOW, 'e3').phase, 'content');
+  assert.equal(loadFinalStretch(db, 'u1', NOW, 'e3').queue.new, 6, 'com 95 dias entram novos, mesmo com a outra prova a 3 dias');
+});
+
 test('o resumo: concurso, fase, disciplinas em ordem, as sem cartões à parte e a fila só com o que é do edital', () => {
   const db = newDb();
   seed(db);

@@ -280,6 +280,22 @@ test('carregador: usa o concurso mais próximo que ainda não passou; o de hoje 
   assert.equal(loadExamPlan(db, 'u1', NOW)!.verdict, 'exam_today');
 });
 
+test('carregador: o concurso escolhido vale sobre o mais próximo, com a data dele; pedido que não vale cai no mais próximo', () => {
+  const db = newDb();
+  addExam(db, 'perto', '2026-12-06');
+  addExam(db, 'longe', '2027-03-01');
+  addExam(db, 'sem-data', null);
+  addExam(db, 'ontem', '2026-10-16');
+  addExam(db, 'alheio', '2026-11-01', 'u2');
+  assert.equal(loadExamPlan(db, 'u1', NOW)!.exam.id, 'perto', 'sem pedido: o mais próximo');
+  const chosen = loadExamPlan(db, 'u1', NOW, 'longe')!;
+  assert.equal(chosen.exam.id, 'longe');
+  assert.equal(chosen.exam.daysLeft, 135);
+  for (const requested of ['sem-data', 'ontem', 'alheio', 'não-existe', 7, null]) {
+    assert.equal(loadExamPlan(db, 'u1', NOW, requested)!.exam.id, 'perto', String(requested));
+  }
+});
+
 test('carregador: separa cartões novos, vencidos e estudados, só os da própria conta', () => {
   const db = newDb();
   addExam(db, 'p', '2026-12-06');

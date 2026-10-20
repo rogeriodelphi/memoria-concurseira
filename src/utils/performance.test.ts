@@ -43,7 +43,11 @@ test('presets: Hoje, 7, 15, 30 dias e desde o início', () => {
 
 test('endereço → pedido: sem nada é o padrão; os parâmetros certos são lidos', () => {
   assert.deepEqual(queryFromParams(params('')), DEFAULT_QUERY);
-  assert.deepEqual(queryFromParams(params('dias=30&escopo=concurso&nome=redes&assunto=dns')), { days: 30, range: null, scope: 'exam', name: 'redes', subject: 'dns' });
+  assert.deepEqual(queryFromParams(params('dias=30&escopo=concurso&nome=redes&assunto=dns')), { days: 30, range: null, scope: 'exam', name: 'redes', subject: 'dns', exam: null });
+  assert.equal(queryFromParams(params('escopo=concurso&concurso=ufba-1')).exam, 'ufba-1', 'o concurso escolhido vai no endereço');
+  assert.equal(queryFromParams(params('concurso=')).exam, null);
+  assert.equal(paramsFromQuery({ ...DEFAULT_QUERY, scope: 'exam', exam: 'ufba-1' }).get('concurso'), 'ufba-1');
+  assert.equal(paramsFromQuery(DEFAULT_QUERY).has('concurso'), false, 'sem escolha, o endereço fica curto');
   assert.equal(queryFromParams(params('dias=0')).days, 0, 'desde o início é válido');
   assert.deepEqual(queryFromParams(params('de=2026-10-01&ate=2026-10-17')).range, { from: '2026-10-01', to: '2026-10-17' });
 });
@@ -60,9 +64,10 @@ test('endereço → pedido: valor estranho cai no padrão, sem quebrar a página
 test('pedido → endereço: só o que difere do padrão, e o caminho de volta dá o mesmo pedido', () => {
   assert.equal(paramsFromQuery(DEFAULT_QUERY).toString(), '');
   for (const query of [
-    { days: 30, range: null, scope: 'exam' as const, name: 'seguranca da informacao', subject: '__sem_assunto__' },
-    { days: 0, range: null, scope: 'all' as const, name: null, subject: null },
-    { days: 7, range: { from: '2026-10-01', to: '2026-10-17' }, scope: 'all' as const, name: 'a & b', subject: null },
+    { days: 30, range: null, scope: 'exam' as const, name: 'seguranca da informacao', subject: '__sem_assunto__', exam: null },
+    { days: 0, range: null, scope: 'all' as const, name: null, subject: null, exam: null },
+    { days: 7, range: { from: '2026-10-01', to: '2026-10-17' }, scope: 'all' as const, name: 'a & b', subject: null, exam: null },
+    { days: 30, range: null, scope: 'exam' as const, name: null, subject: null, exam: 'ufba-1' },
   ]) {
     assert.deepEqual(queryFromParams(paramsFromQuery(query)), query);
   }

@@ -2,6 +2,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 import { ReviewSession } from '../components/ReviewSession';
 import { studyPlanApi } from '../services/api';
+import { readFocusExam } from '../utils/focusExam';
 
 /**
  * A sessão do foco da reta final: os cartões das coleções ligadas ao edital, repartidos pela prioridade das
@@ -11,7 +12,7 @@ import { studyPlanApi } from '../services/api';
 export function FinalStretchStudy() {
   return (
     <ReviewSession
-      fetchQueue={() => studyPlanApi.finalStretchQueue().then(({ flashcards }) => ({ flashcards, waitingNew: 0 }))}
+      fetchQueue={() => studyPlanApi.finalStretchQueue(readFocusExam()).then(({ flashcards }) => ({ flashcards, waitingNew: 0 }))}
       loadErrorMessage="Não foi possível carregar os cartões do foco."
       backTo="/reta-final"
       backLabel="Reta final"

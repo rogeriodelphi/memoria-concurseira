@@ -34,6 +34,8 @@ export interface PerformanceQuery {
   name: string | null;
   /** Só este assunto (a chave de agrupamento, ou NO_SUBJECT_KEY). */
   subject: string | null;
+  /** O concurso que o usuário escolheu para "Meu concurso" (se não vale, o principal). */
+  exam?: string | null;
 }
 
 export interface ResultCounts {
@@ -183,7 +185,8 @@ export function parsePerformanceQuery(raw: Record<string, unknown>): QueryResult
     return typeof v === 'string' && v !== '' ? v.slice(0, 200) : null;
   };
 
-  return { ok: true, value: { days, range, scope: scopeRaw === 'exam' ? 'exam' : 'all', name: text(raw.name), subject: text(raw.subject) } };
+  const exam = text(raw.exam);
+  return { ok: true, value: { days, range, scope: scopeRaw === 'exam' ? 'exam' : 'all', name: text(raw.name), subject: text(raw.subject), exam: exam && exam.length <= 64 ? exam : null } };
 }
 
 export interface Window {
@@ -239,6 +242,18 @@ export function mainExam(db: DatabaseSync, userId: string, now: Date): { id: str
     .prepare('SELECT id, name FROM exams WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1')
     .get(userId) as unknown as { id: string; name: string } | undefined;
   return latest ?? null;
+}
+
+/**
+ * O concurso de "Meu concurso" quando o usuário escolheu um (`requestedId`): o escolhido, se for dele (com ou sem data: aqui
+ * a data não importa, só o edital e as coleções ligadas); senão, o principal (`mainExam`).
+ */
+export function pickMainExam(db: DatabaseSync, userId: string, now: Date, requestedId?: string | null): { id: string; name: string } | null {
+  if (requestedId) {
+    const row = db.prepare('SELECT id, name FROM exams WHERE id = ? AND user_id = ?').get(requestedId, userId) as unknown as { id: string; name: string } | undefined;
+    if (row) return { id: row.id, name: row.name };
+  }
+  return mainExam(db, userId, now);
 }
 
 export function loadCollections(db: DatabaseSync, userId: string, examId: string | null): Map<string, CollectionInfo> {
@@ -310,7 +325,7 @@ const byCardsThenReviews = <T extends { cards: number; reviews: number; label: s
   b.cards - a.cards || b.reviews - a.reviews || a.label.localeCompare(b.label, 'pt-BR');
 
 export function loadPerformance(db: DatabaseSync, userId: string, now: Date, query: PerformanceQuery): Performance {
-  const exam = mainExam(db, userId, now);
+  const exam = pickMainExam(db, userId, now, query.exam);
   const scope: Scope = query.scope === 'exam' && exam ? 'exam' : 'all';
   const collections = loadCollections(db, userId, scope === 'exam' ? exam!.id : null);
 

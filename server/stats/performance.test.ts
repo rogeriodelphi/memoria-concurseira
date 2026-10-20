@@ -9,6 +9,7 @@ import {
   NO_SUBJECT_KEY,
   NO_SUBJECT_LABEL,
   parsePerformanceQuery,
+  pickMainExam,
   resolveWindow,
   type PerformanceQuery,
 } from './performance';
@@ -61,7 +62,7 @@ const refused = (raw: Record<string, unknown>, message?: RegExp) => {
 // ---------- o endereço ----------
 
 test('endereço: sem nada, o padrão é 7 dias, tudo, sem filtros', () => {
-  assert.deepEqual(parse({}), { days: 7, range: null, scope: 'all', name: null, subject: null });
+  assert.deepEqual(parse({}), { days: 7, range: null, scope: 'all', name: null, subject: null, exam: null });
 });
 
 test('endereço: períodos prontos, escopo e filtros', () => {
@@ -72,6 +73,13 @@ test('endereço: períodos prontos, escopo e filtros', () => {
   assert.equal(parse({ name: '' }).name, null, 'vazio = sem filtro');
   assert.equal(parse({ name: ['a', 'b'] }).name, 'a', 'parâmetro repetido vale o primeiro');
   assert.equal(parse({ name: 'x'.repeat(500) }).name?.length, 200);
+});
+
+test('endereço: o concurso escolhido (exam) é um texto curto; vazio ou comprido demais não vale', () => {
+  assert.equal(parse({ exam: 'abc-123' }).exam, 'abc-123');
+  assert.equal(parse({ exam: '' }).exam, null);
+  assert.equal(parse({ exam: 'x'.repeat(65) }).exam, null);
+  assert.equal(parse({ exam: ['a', 'b'] }).exam, 'a');
 });
 
 test('endereço: valores estranhos são recusados', () => {
@@ -364,6 +372,38 @@ test('"meu concurso": só as coleções ligadas ao concurso de data mais próxim
   assert.deepEqual([mine.totals.cards, mine.totalCards], [2, 3]);
   assert.deepEqual(mine.byName.map((n) => n.label), ['Redes']);
   assert.deepEqual(mine.options.names.map((o) => o.label), ['Redes'], 'os filtros só oferecem o que é do concurso');
+});
+
+test('"meu concurso" escolhido: o pedido vale sobre o de data mais próxima, e as coleções, os totais e os filtros são os dele', () => {
+  const db = build(WITH_EXAMS);
+  const chosen = loadPerformance(db, 'u1', NOW, query({ scope: 'exam', exam: 'e2' }));
+  assert.deepEqual(chosen.exam, { id: 'e2', name: 'Concurso B' });
+  assert.equal(chosen.scope, 'exam');
+  assert.deepEqual([chosen.totals.cards, chosen.totalCards], [1, 2], 'só a coleção Direito (f4 e f5; f4 estudado)');
+  assert.deepEqual(chosen.byName.map((n) => n.label), ['Direito']);
+  assert.deepEqual(chosen.options.names.map((o) => o.label), ['Direito']);
+
+  // sem pedido, continua o de data mais próxima
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ scope: 'exam' })).exam?.id, 'e1');
+  // o escolhido também aparece no escopo "todos os dados" (o botão e o nome), sem mudar os totais
+  const all = loadPerformance(db, 'u1', NOW, query({ exam: 'e2' }));
+  assert.deepEqual([all.scope, all.exam?.id, all.totals.cards], ['all', 'e2', 3]);
+});
+
+test('"meu concurso" escolhido: um concurso sem data também vale (aqui a data não importa), mas o de outra conta ou inexistente cai no principal', () => {
+  const db = build({
+    ...WITH_EXAMS,
+    exams: [
+      { id: 'e1', name: 'Concurso A', date: '2026-12-06', collections: ['c1', 'c2'] },
+      { id: 'e2', name: 'Sem data', date: null, collections: ['c3'] },
+      { id: 'e9', user: 'u2', name: 'Do outro', date: '2026-11-01', collections: ['c3'] },
+    ],
+  });
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ scope: 'exam', exam: 'e2' })).exam?.id, 'e2');
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ scope: 'exam', exam: 'e9' })).exam?.id, 'e1', 'de outra conta');
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ scope: 'exam', exam: 'não-existe' })).exam?.id, 'e1');
+  assert.equal(pickMainExam(db, 'u1', NOW, null)?.id, 'e1');
+  assert.equal(pickMainExam(db, 'u1', NOW, undefined)?.id, 'e1');
 });
 
 test('"meu concurso": sem data futura, vale o último criado; concurso passado não é o principal se há um futuro', () => {

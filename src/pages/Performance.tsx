@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, ListChecks, Loader2, Target, XCircle } from 'lucide-react';
 
+import { ExamPicker } from '../components/ExamPicker';
 import { AttentionPoints } from '../components/performance/AttentionPoints';
 import { ActiveFilters, FilterBar } from '../components/performance/Filters';
 import { BarList, DailyChart, DistributionDonut } from '../components/performance/Charts';
@@ -9,6 +10,7 @@ import { LeechesSummary } from '../components/performance/LeechesSummary';
 import { NameTable } from '../components/performance/NameTable';
 import { StudyTimePanel } from '../components/performance/StudyTimePanel';
 import { statsApi } from '../services/api';
+import { readFocusExam, saveFocusExam } from '../utils/focusExam';
 import type { PerformanceData, PerformanceQuery, StudyTimeData } from '../types';
 import {
   accuracyTone,
@@ -81,23 +83,26 @@ export function Performance() {
   const [namesExpanded, setNamesExpanded] = useState(false);
   const [subjectsExpanded, setSubjectsExpanded] = useState(false);
 
+  // O concurso de "Meu concurso": o do endereço; sem ele, o que o usuário escolheu antes neste aparelho (e, sem nenhum, o principal).
+  const apiQuery = useMemo(() => ({ ...query, exam: query.exam ?? readFocusExam() ?? null }), [query]);
+
   useEffect(() => {
     let current = true;
     setLoading(true);
     setError(null);
     statsApi
-      .performance(query)
+      .performance(apiQuery)
       .then((result) => current && setData(result))
       .catch(() => current && setError('Não foi possível carregar o desempenho.'))
       .finally(() => current && setLoading(false));
     statsApi
-      .studyTime(query)
+      .studyTime(apiQuery)
       .then((result) => current && setTime(result))
       .catch(() => current && setTime(null));
     return () => {
       current = false;
     };
-  }, [query]);
+  }, [apiQuery]);
 
   const change = (next: PerformanceQuery) => setParams(paramsFromQuery(next), { replace: true });
   const pickName = (key: string) => change({ ...query, name: query.name === key ? null : key });
@@ -123,15 +128,27 @@ export function Performance() {
           </p>
         </div>
         {data?.exam && (
-          <Segmented
-            label="Quais dados"
-            options={[
-              { value: 'exam', label: 'Meu concurso' },
-              { value: 'all', label: 'Todos os dados' },
-            ]}
-            value={scope}
-            onChange={(value) => change({ ...query, scope: value, name: null, subject: null })}
-          />
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Segmented
+              label="Quais dados"
+              options={[
+                { value: 'exam', label: 'Meu concurso' },
+                { value: 'all', label: 'Todos os dados' },
+              ]}
+              value={scope}
+              onChange={(value) => change({ ...query, scope: value, name: null, subject: null })}
+            />
+            {scope === 'exam' && (
+              <ExamPicker
+                options={data.exams}
+                selectedId={data.exam.id}
+                onChange={(id) => {
+                  saveFocusExam(id);
+                  change({ ...query, exam: id, name: null, subject: null });
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
 

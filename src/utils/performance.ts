@@ -22,7 +22,7 @@ export const TOP_BARS = 10;
 export type Metric = 'cards' | 'reviews';
 export const METRIC_LABEL: Record<Metric, string> = { cards: 'Cartões', reviews: 'Revisões' };
 
-export const DEFAULT_QUERY: PerformanceQuery = { days: DEFAULT_DAYS, range: null, scope: 'all', name: null, subject: null };
+export const DEFAULT_QUERY: PerformanceQuery = { days: DEFAULT_DAYS, range: null, scope: 'all', name: null, subject: null, exam: null };
 
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -57,6 +57,7 @@ export function queryFromParams(params: URLSearchParams): PerformanceQuery {
     scope: params.get('escopo') === 'concurso' ? 'exam' : 'all',
     name: params.get('nome') || null,
     subject: params.get('assunto') || null,
+    exam: params.get('concurso') || null,
   };
 }
 
@@ -72,6 +73,7 @@ export function paramsFromQuery(query: PerformanceQuery): URLSearchParams {
   if (query.scope === 'exam') params.set('escopo', 'concurso');
   if (query.name) params.set('nome', query.name);
   if (query.subject) params.set('assunto', query.subject);
+  if (query.exam) params.set('concurso', query.exam);
   return params;
 }
 

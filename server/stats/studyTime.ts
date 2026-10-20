@@ -16,7 +16,7 @@ import { FALLBACK_REVIEW_MS, MAX_REVIEW_MS } from './dashboard';
 import {
   groupKey,
   loadCollections,
-  mainExam,
+  pickMainExam,
   NO_SUBJECT_KEY,
   NO_SUBJECT_LABEL,
   resolveWindow,
@@ -253,7 +253,7 @@ interface ExamDiscipline {
 }
 
 export function loadStudyTime(db: DatabaseSync, userId: string, now: Date, query: PerformanceQuery): StudyTime {
-  const exam = mainExam(db, userId, now);
+  const exam = pickMainExam(db, userId, now, query.exam);
   const scope: Scope = query.scope === 'exam' && exam ? 'exam' : 'all';
   const collections = loadCollections(db, userId, scope === 'exam' ? exam!.id : null);
   const { current } = resolveWindow(query, now);

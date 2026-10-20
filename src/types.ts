@@ -184,6 +184,8 @@ export interface PerformanceData {
   scope: 'all' | 'exam';
   /** O concurso do "Meu concurso"; `null` se o usuário não tem nenhum. */
   exam: { id: string; name: string } | null;
+  /** Os concursos que o seletor oferece (todos os do usuário, com ou sem data). */
+  exams: ExamOption[];
   totalCards: number;
   totals: {
     cards: number;
@@ -257,6 +259,8 @@ export interface PerformanceQuery {
   scope: 'all' | 'exam';
   name: string | null;
   subject: string | null;
+  /** O concurso escolhido para "Meu concurso"; sem ele (ou se não vale), o principal. */
+  exam?: string | null;
 }
 
 export interface DashboardData {
@@ -677,6 +681,18 @@ export interface ExamPlan {
   newOrder: NewCardOrder;
 }
 
+/** Um concurso como opção do seletor de concurso: o nome, o cargo e quantos dias faltam. */
+export interface ExamOption {
+  id: string;
+  name: string;
+  /** O cargo; vazio se não foi informado. */
+  position: string;
+  /** AAAA-MM-DD, ou `null` se o concurso não tem data. */
+  examDate: string | null;
+  /** Dias até a prova (negativo se já passou); `null` sem data. */
+  daysLeft: number | null;
+}
+
 /** Em que fase está a preparação, pelos dias que faltam: mais de 7 (conteúdo), de 7 a 4 (só revisão) e 3 ou menos. */
 export type FinalStretchPhase = 'content' | 'review' | 'last';
 
@@ -706,6 +722,8 @@ export interface FinalStretchDiscipline {
 export interface FinalStretch {
   exam: { id: string; name: string; examDate: string; daysLeft: number } | null;
   phase: FinalStretchPhase | null;
+  /** Os concursos que o seletor oferece (os que têm prova de hoje em diante). */
+  exams: ExamOption[];
   /** As disciplinas do edital, da mais urgente à menos (as sem cartões por último). */
   disciplines: FinalStretchDiscipline[];
   /** Os ids das mais urgentes com cartões. */

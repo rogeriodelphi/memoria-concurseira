@@ -4,7 +4,7 @@ import { nextSrsState, type SrsState } from '../srs';
 import { buildDashboard, type DashboardCard, type DashboardSession } from '../stats/dashboard';
 import { MAX_DAILY_NEW_LIMIT } from './limit';
 import { getNewCardOrder, type NewCardOrder } from './newOrder';
-import { nextExam } from './nextExam';
+import { chooseExam } from './nextExam';
 import { getDailyNewLimit } from './store';
 
 /**
@@ -320,8 +320,8 @@ interface CardRow {
 }
 
 /** O plano do usuário para o próximo concurso com data, ou `null` se ele não tem nenhum. */
-export function loadExamPlan(db: DatabaseSync, userId: string, now: Date = new Date()): ExamPlan | null {
-  const exam = nextExam(db, userId, now);
+export function loadExamPlan(db: DatabaseSync, userId: string, now: Date = new Date(), examId?: unknown): ExamPlan | null {
+  const exam = chooseExam(db, userId, examId, now);
   if (!exam) return null;
 
   const cardRows = db
