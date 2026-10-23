@@ -47,6 +47,7 @@ import type {
   Summary,
   SummaryMode,
   TodoItem,
+  TutorReply,
   User,
 } from '../types';
 
@@ -62,7 +63,7 @@ export const AI_USAGE_EVENT = 'ai-usage-changed';
 // bullet points, transcrever) — depois dela o contador de tokens mudou, então
 // quem mostra o uso escuta o evento e recarrega. Também dispara em caso de
 // erro, porque uma falha pode ter mudado o status do provedor (ex.: sem crédito).
-const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices|\/question-bank\/import|\/leeches\/[^/]+\/suggest/;
+const AI_GENERATION_PATH = /\/documents\/|\/generate|\/transcribe\/|\/exams\/extract|\/exams\/[^/]+\/topics\/[^/]+\/cards|\/mock-exams\/[^/]+\/choices|\/question-bank\/import|\/leeches\/[^/]+\/suggest|\/flashcards\/[^/]+\/explain/;
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
@@ -201,6 +202,9 @@ export const flashcardsApi = {
       body: JSON.stringify(input),
     }),
   remove: (id: string) => request<{ success: true }>(`/flashcards/${id}`, { method: 'DELETE' }),
+  /** O "professor": a IA responde a uma pergunta sobre o cartão (sem `ask`, explica o cartão). Nada é gravado. */
+  explain: (id: string, input: { ask?: string; history?: { ask: string; answer: string }[] }) =>
+    request<{ reply: TutorReply }>(`/flashcards/${id}/explain`, { method: 'POST', body: JSON.stringify(input) }),
   favorites: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/favorites'),
   study: (id: string, result: StudyResult, durationMs?: number) =>
     request<{ success: true; dueAt: string; sessionId: string }>(`/flashcards/${id}/study`, {

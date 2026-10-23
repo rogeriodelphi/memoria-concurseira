@@ -16,6 +16,7 @@ import {
   type LeechFix,
   type LeechFixSource,
 } from './leechfix';
+import { parseTutorResponse, TUTOR_JSON_SCHEMA, TUTOR_SYSTEM_PROMPT, tutorUserPrompt, type TutorReply, type TutorSource } from './tutor';
 import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
   parsePastExamResponse,
@@ -306,6 +307,16 @@ export async function suggestLeechFixClaude(source: LeechFixSource): Promise<Lee
     maxTokens: 2_000,
   });
   return parseLeechFixResponse(JSON.stringify(result));
+}
+
+export async function explainCardClaude(source: TutorSource): Promise<TutorReply> {
+  const result = await callStructured({
+    system: TUTOR_SYSTEM_PROMPT,
+    content: tutorUserPrompt(source),
+    schema: TUTOR_JSON_SCHEMA,
+    maxTokens: 2_000,
+  });
+  return parseTutorResponse(JSON.stringify(result));
 }
 
 export async function verifyCardsClaude(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {

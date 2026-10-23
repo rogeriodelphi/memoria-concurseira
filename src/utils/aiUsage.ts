@@ -25,6 +25,7 @@ export const FEATURE_LABEL: Record<AiFeature, string> = {
   verify: 'Conferência de cartões',
   questions: 'Leitura de provas',
   leech: 'Sugestões para cartões difíceis',
+  tutor: 'Professor (dúvidas sobre cartões)',
 };
 
 export const STATUS_LABEL: Record<AiProviderStatus, string> = {

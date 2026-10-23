@@ -7,6 +7,14 @@ export interface User {
   createdAt: string;
 }
 
+/** A resposta do "professor" a uma pergunta sobre um cartão (veja server/ai/tutor.ts). Os opcionais vêm vazios quando a IA não os preencheu. */
+export interface TutorReply {
+  answer: string;
+  example: string;
+  tip: string;
+  caution: string;
+}
+
 /** Um lembrete de "Meus lembretes", no Painel (veja server/todos/todos.ts). */
 export interface TodoItem {
   id: string;
@@ -583,7 +591,7 @@ export interface AnkiImportResult {
   collection: { id: string; name: string } | null;
 }
 
-export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify' | 'questions' | 'leech';
+export type AiFeature = 'flashcards' | 'summary' | 'bulletpoints' | 'mindmap' | 'transcription' | 'exam' | 'tts' | 'choices' | 'verify' | 'questions' | 'leech' | 'tutor';
 export type AiProvider = 'gemini' | 'openai' | 'claude';
 export type AiProviderStatus =
   | 'ok'

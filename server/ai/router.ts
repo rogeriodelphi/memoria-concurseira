@@ -3,6 +3,7 @@ import pdfParse from 'pdf-parse';
 import { parseProviderOrder, runChain, UNSUPPORTED, type ChainSteps, type ProviderName } from './chain';
 import type { ChoiceSource, GeneratedChoice } from './choices';
 import type { LeechFix, LeechFixSource } from './leechfix';
+import type { TutorReply, TutorSource } from './tutor';
 import type { VerifiedCard, VerifySource } from './verify';
 import { MAX_EXAM_CHARS, splitIntoChunks, type Chunk, type PastExamHints } from './pastexam';
 import {
@@ -11,6 +12,7 @@ import {
   generateBulletPointsClaude,
   generateChoicesClaude,
   suggestLeechFixClaude,
+  explainCardClaude,
   generateFlashcardsClaude,
   generateMindMapClaude,
   generateSummaryClaude,
@@ -28,6 +30,7 @@ import {
   generateBulletPointsGemini,
   generateChoicesGemini,
   suggestLeechFixGemini,
+  explainCardGemini,
   hasGemini,
   verifyCardsGemini,
   type GenerationOptions,
@@ -49,6 +52,7 @@ import {
   generateBulletPointsOpenAI,
   generateChoicesOpenAI,
   suggestLeechFixOpenAI,
+  explainCardOpenAI,
   hasOpenAI,
   verifyCardsOpenAI,
   type OpenAISource,
@@ -253,6 +257,15 @@ export function suggestLeechFix(source: LeechFixSource): Promise<LeechFix> {
     openai: () => suggestLeechFixOpenAI(source),
     gemini: () => suggestLeechFixGemini(source),
     claude: () => suggestLeechFixClaude(source),
+  });
+}
+
+/** A explicação de um cartão pelo "professor": o aluno pergunta e a IA responde, uma chamada por pergunta. */
+export function explainCard(source: TutorSource): Promise<TutorReply> {
+  return chainFor('explicar o cartão', {
+    openai: () => explainCardOpenAI(source),
+    gemini: () => explainCardGemini(source),
+    claude: () => explainCardClaude(source),
   });
 }
 

@@ -10,6 +10,7 @@ import {
   type GeneratedChoice,
 } from './choices';
 import { LEECH_FIX_SYSTEM_PROMPT, leechFixUserPrompt, parseLeechFixResponse, type LeechFix, type LeechFixSource } from './leechfix';
+import { parseTutorResponse, TUTOR_SYSTEM_PROMPT, tutorUserPrompt, type TutorReply, type TutorSource } from './tutor';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 import { parseVerifyResponse, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
@@ -790,6 +791,31 @@ export async function suggestLeechFixGemini(source: LeechFixSource): Promise<Lee
     },
   });
   return parseLeechFixResponse(response.text);
+}
+
+const TUTOR_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    answer: { type: Type.STRING, description: 'A explicação ou a resposta ao pedido do aluno, em parágrafos curtos.' },
+    example: { type: Type.STRING, description: 'Um exemplo concreto e curto; vazio se não ajudar.' },
+    tip: { type: Type.STRING, description: 'Um jeito curto de lembrar; vazio se não houver um honesto.' },
+    caution: { type: Type.STRING, description: 'Uma pegadinha comum ou uma dúvida sobre o cartão; vazio se não houver.' },
+  },
+  required: ['answer', 'example', 'tip', 'caution'],
+};
+
+export async function explainCardGemini(source: TutorSource): Promise<TutorReply> {
+  const client = getClient();
+  const response = await generateContentWithRetry(client, {
+    model: MODEL,
+    contents: tutorUserPrompt(source),
+    config: {
+      systemInstruction: TUTOR_SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+      responseSchema: TUTOR_SCHEMA,
+    },
+  });
+  return parseTutorResponse(response.text);
 }
 
 const VERIFY_SCHEMA = {

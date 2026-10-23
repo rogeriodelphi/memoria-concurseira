@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Pencil, Star, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, MessageCircleQuestion, Pencil, Star, Volume2, VolumeX } from 'lucide-react';
 
 import { AddToMockExamButton } from './AddToMockExamButton';
 import { FormattedText } from './FormattedText';
 import { RichTextEditor } from './RichTextEditor';
+import { TutorModal } from './TutorModal';
 import { useStudySettings } from '../contexts/StudySettingsContext';
 import { useSpeech } from '../hooks/useSpeech';
 import { useStudyShortcuts } from '../hooks/useStudyShortcuts';
@@ -83,11 +84,15 @@ export function FlashcardReviewer({
   const [editAnswer, setEditAnswer] = useState('');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  // O "professor" (a IA responde a dúvidas sobre este cartão): enquanto a janela está aberta, os atalhos da revisão ficam
+  // desligados (1 a 4 avaliariam o cartão por trás dela).
+  const [tutorOpen, setTutorOpen] = useState(false);
 
   // Quando o cartão atual apareceu, pra medir o tempo até a avaliação. O tempo
-  // gasto editando o cartão não é estudo, então é descontado ao sair da edição.
+  // gasto editando o cartão (ou conversando com o professor) não é estudo, então é descontado ao sair.
   const shownAtRef = useRef(Date.now());
   const editStartedAtRef = useRef(0);
+  const tutorStartedAtRef = useRef(0);
 
   // (O próprio hook de voz para tudo ao sair da tela: nunca deixa som tocando
   // sozinho em segundo plano.)
@@ -108,6 +113,7 @@ export function FlashcardReviewer({
   useEffect(() => {
     stopSpeech();
     setEditing(false);
+    setTutorOpen(false);
     shownAtRef.current = Date.now();
   }, [current.id]);
 
@@ -133,7 +139,19 @@ export function FlashcardReviewer({
 
   // Atalhos de teclado: Enter mostra a resposta, 1 a 4 avaliam, ← volta, → pula. Desligados com
   // o cartão em edição: ali as teclas são de quem escreve, e → pularia o cartão perdendo o texto.
-  useStudyShortcuts({ enabled: !editing, revealed, canGoBack, busy, onReveal, onRate: rate, onBack, onSkip });
+  useStudyShortcuts({ enabled: !editing && !tutorOpen, revealed, canGoBack, busy, onReveal, onRate: rate, onBack, onSkip });
+
+  function openTutor() {
+    // A voz do cartão não deve competir com a conversa.
+    stopSpeech();
+    tutorStartedAtRef.current = Date.now();
+    setTutorOpen(true);
+  }
+
+  function closeTutor() {
+    shownAtRef.current += Date.now() - tutorStartedAtRef.current;
+    setTutorOpen(false);
+  }
 
   function startEditing() {
     // A voz do cartão que está sendo reescrito não faz mais sentido.
@@ -214,39 +232,47 @@ export function FlashcardReviewer({
 
   return (
     <div className="card relative flex min-h-[320px] flex-col justify-between p-8">
-      {(onUpdated || onToggleFavorite) && (
-        <div className="absolute right-4 top-4 flex items-center gap-5 sm:gap-2.5">
-          <AddToMockExamButton
-            flashcardId={current.id}
+      {tutorOpen && <TutorModal card={current} onClose={closeTutor} />}
+      <div className="absolute right-4 top-4 flex items-center gap-5 sm:gap-2.5">
+        <button
+          type="button"
+          onClick={openTutor}
+          className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+          title="Perguntar ao professor (IA): explicar, dar um exemplo, criar um macete"
+          aria-label="Perguntar ao professor"
+        >
+          <MessageCircleQuestion size={17} />
+        </button>
+        <AddToMockExamButton
+          flashcardId={current.id}
+          className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+        />
+        {onUpdated && (
+          <button
+            type="button"
+            onClick={startEditing}
             className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
-          />
-          {onUpdated && (
-            <button
-              type="button"
-              onClick={startEditing}
-              className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
-              title="Editar pergunta e resposta"
-              aria-label="Editar pergunta e resposta"
-            >
-              <Pencil size={17} />
-            </button>
-          )}
-          {onToggleFavorite && (
-            <button
-              type="button"
-              onClick={onToggleFavorite}
-              className={`tap-area transition-colors ${
-                current.favorite
-                  ? 'text-amber-500 hover:text-amber-600'
-                  : 'text-neutral-300 hover:text-amber-500 dark:text-neutral-600 dark:hover:text-amber-400'
-              }`}
-              title={current.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-            >
-              <Star size={18} fill={current.favorite ? 'currentColor' : 'none'} />
-            </button>
-          )}
-        </div>
-      )}
+            title="Editar pergunta e resposta"
+            aria-label="Editar pergunta e resposta"
+          >
+            <Pencil size={17} />
+          </button>
+        )}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            className={`tap-area transition-colors ${
+              current.favorite
+                ? 'text-amber-500 hover:text-amber-600'
+                : 'text-neutral-300 hover:text-amber-500 dark:text-neutral-600 dark:hover:text-amber-400'
+            }`}
+            title={current.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+          >
+            <Star size={18} fill={current.favorite ? 'currentColor' : 'none'} />
+          </button>
+        )}
+      </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         {originLabel && (
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">

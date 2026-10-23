@@ -28,6 +28,7 @@ import {
   type LeechFix,
   type LeechFixSource,
 } from './leechfix';
+import { parseTutorResponse, TUTOR_JSON_SCHEMA, TUTOR_SYSTEM_PROMPT, tutorUserPrompt, type TutorReply, type TutorSource } from './tutor';
 import { recordUsage, reportProviderOutcome, type ProviderStatus } from './usage';
 import { parseVerifyResponse, VERIFY_JSON_SCHEMA, VERIFY_SYSTEM_PROMPT, verifyUserPrompt, type VerifiedCard, type VerifySource } from './verify';
 import {
@@ -496,6 +497,22 @@ export async function suggestLeechFixOpenAI(source: LeechFixSource): Promise<Lee
     },
   });
   return parseLeechFixResponse(response.choices[0]?.message?.content ?? undefined);
+}
+
+export async function explainCardOpenAI(source: TutorSource): Promise<TutorReply> {
+  const client = getClient();
+  const response = await chatCompletionWithRetry(client, {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: TUTOR_SYSTEM_PROMPT },
+      { role: 'user', content: tutorUserPrompt(source) },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'tutor', strict: true, schema: TUTOR_JSON_SCHEMA },
+    },
+  });
+  return parseTutorResponse(response.choices[0]?.message?.content ?? undefined);
 }
 
 export async function verifyCardsOpenAI(sources: VerifySource[], context: string): Promise<VerifiedCard[]> {

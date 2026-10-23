@@ -614,6 +614,28 @@ crescer, e o que não é revisado a tempo se esquece.
   traz os atrasados, junto com os de hoje e os novos.
 - É só leitura (`GET /api/stats/review-debt` e `GET /api/flashcards/overdue`): nada é gravado, e nenhuma tabela nova foi criada.
 
+## Professor (perguntar à IA sobre o cartão)
+
+Na revisão (e ao estudar uma coleção), o ícone de **interrogação** no canto do cartão abre o **Professor**: uma janela em que
+você pede à IA para explicar o cartão, e ela responde sobre aquele cartão.
+
+- **Atalhos de pergunta:** "Explique melhor", "Dê um exemplo", "Crie um macete" e "Por que é assim?". Ou escreva a sua dúvida
+  (até 400 caracteres) e envie. As perguntas seguintes levam junto as últimas respostas (até 3 trocas), então dá para
+  aprofundar ("e se faltar um nó?") sem repetir o contexto.
+- **A resposta:** a explicação em parágrafos curtos e, quando fizerem sentido, um **exemplo**, um **macete** e uma **atenção**
+  (uma pegadinha comum ou uma dúvida sobre o que o cartão diz). Texto puro, sem formatação da IA.
+- **O cartão é a referência.** A IA pode usar conhecimento geral para explicar, mas é instruída a não inventar números, datas,
+  artigos de lei nem jurisprudência, e a apontar algo estranho no cartão só como dúvida, nunca como correção. A janela lembra
+  que a IA pode errar e que vale o seu cartão e a sua fonte.
+- **Nada é gravado.** Nem no cartão, nem na revisão, nem em histórico: a conversa some ao fechar (Esc ou fora da janela). O
+  tempo que você passa conversando **não conta** no tempo de revisão do cartão, e os atalhos da revisão (1 a 4, Enter, setas)
+  ficam desligados enquanto a janela está aberta, para um número digitado não avaliar o cartão por trás.
+- Usa a mesma cadeia de provedores dos outros recursos de IA (`AI_PROVIDER_ORDER`: OpenAI, Gemini e Claude, passando ao
+  próximo se um falha), uma chamada por pergunta. O gasto aparece em **Uso de IA** como "Professor (dúvidas sobre cartões)". Se
+  a IA falhar (cota, rede, resposta inútil), a janela mostra o motivo e nada mais acontece. Cartão só com figura não tem texto
+  para a IA ler.
+- Uma rota nova, `POST /api/flashcards/:id/explain` (`{ ask?, history? }`); nenhuma tabela nova.
+
 ## Meus lembretes
 
 No **Painel**, o cartão **Meus lembretes** é uma lista curta de coisas a não esquecer (a inscrição de um concurso, pedir um

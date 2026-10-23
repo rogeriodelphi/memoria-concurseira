@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 import express, { type Response } from 'express';
 
 import { db } from '../db';
+import { explainCard } from '../ai/router';
+import { withUsageContext } from '../ai/usage';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { notFrozen } from '../collections/frozen';
 import { duplicateKey } from '../duplicates';
@@ -13,6 +15,7 @@ import { MAX_REVIEW_MS } from '../stats/dashboard';
 import { loadMissedCards, parseMissedQuery } from '../stats/missed';
 import { loadOverdueCards } from '../stats/reviewDebt';
 import { selectDueCards } from '../studyplan/store';
+import { explainFlashcard } from '../tutor/explain';
 import { recordStudy, undoStudy } from './study';
 
 /** Quantas coleções cabem numa fila de "estudar a disciplina inteira". */
@@ -153,6 +156,24 @@ flashcardsRouter.post('/:id/study', (req: AuthedRequest, res: Response) => {
 
   // `sessionId` é o que a tela usa para desfazer esta avaliação ("Voltar ao cartão anterior").
   res.json({ success: true, dueAt, sessionId });
+});
+
+// O "professor": o aluno pergunta sobre o cartão e a IA responde (`{ ask?, history? }`). Só responde: nada é gravado, nem no
+// cartão nem na revisão. Falha da IA (cota, rede, resposta inútil) é 422 com o motivo, como nas demais gerações.
+flashcardsRouter.post('/:id/explain', async (req: AuthedRequest, res: Response) => {
+  try {
+    const result = await withUsageContext({ userId: req.userId!, feature: 'tutor' }, () =>
+      explainFlashcard(db, req.userId!, req.params.id, req.body ?? {}, explainCard),
+    );
+    if (!result.ok) {
+      res.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+    res.json({ success: true, ...result.value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Não foi possível gerar a explicação.';
+    res.status(422).json({ success: false, error: message });
+  }
 });
 
 flashcardsRouter.post('/:id/study/undo', (req: AuthedRequest, res: Response) => {
