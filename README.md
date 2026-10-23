@@ -308,11 +308,19 @@ questões (10, 20, 30, 50 ou todas):
   continua guardado. O gasto aparece em **Uso de IA**, como "Alternativas de simulado".
 - Se você editar a pergunta ou a resposta do cartão, as alternativas dele são geradas de novo
   na próxima prova (mudar só a formatação não conta). Cartões só com imagem não viram questão.
+- **Selecionar, tachar e confirmar:** tocar numa alternativa só a **seleciona** (a escolhida fica
+  destacada; tocar de novo tira a seleção). A resposta só conta quando você aperta **Confirmar
+  resposta**, então dá para trocar de ideia antes. O ícone de **riscado** ao lado de cada
+  alternativa a **tacha** (eliminar, como numa prova de papel): o texto fica riscado e esmaecido, e
+  tocar no ícone de novo a destaca. Tachar a selecionada tira a seleção, e selecionar uma tachada a
+  destaca. Essas marcas existem só durante a questão (não são gravadas) e somem ao passar para a
+  próxima. "Não sei" responde na hora.
 - A posição da correta é sorteada a cada prova. Depois de responder, aparecem o gabarito e
   a **resposta do próprio cartão** (a IA pode errar; vale o que está no cartão). "Não sei"
   conta como erro, sem chute.
-- Atalhos: `1` a `5` (ou `A` a `E`) escolhem, `0` é "não sei", `Enter` segue para a próxima,
-  `←` volta e refaz a anterior.
+- Atalhos: `1` a `5` (ou `A` a `E`) **selecionam**, `T` tacha a selecionada, `Enter` confirma a
+  selecionada (e, depois de responder, segue para a próxima), `0` é "não sei", `←` volta e refaz a
+  anterior. Sem alternativa selecionada, `Enter` não responde por você.
 - O histórico do simulado mostra o **tipo** de cada tentativa (autoavaliado ou múltipla
   escolha). Tentativas antigas contam como autoavaliadas.
 
@@ -507,10 +515,19 @@ até você avaliar os cartões, e a revisão global, o limite diário e a ordem 
 
 - **Prioridade de cada disciplina:** a parte da prova ainda em aberto = o **peso** dela (questões ×
   peso no edital, o mesmo da ordem pelo edital) × o que **falta dominar**. O domínio é o quanto dos
-  cartões você já **viu** × o seu **acerto** (Bom ou Fácil) nos últimos 30 dias; com poucas revisões o
-  acerto é puxado para 60% (como se houvesse mais 5 revisões), para pouca amostra não decidir sozinha.
-  A disciplina sem nenhum cartão fica no fim, sem posição (não há o que revisar), e a tela avisa quanto
-  da prova ela vale. As 3 primeiras são o **foco**.
+  cartões você já **viu** × o seu **acerto** (Bom ou Fácil) nos últimos 30 dias × a **cobertura do
+  edital**; com poucas revisões o acerto é puxado para 60% (como se houvesse mais 5 revisões), para
+  pouca amostra não decidir sozinha. A disciplina sem nenhum cartão fica no fim, sem posição (não há o
+  que revisar), e a tela avisa quanto da prova ela vale. As 3 primeiras são o **foco**.
+- **Cobertura do edital:** a fração dos **tópicos** da disciplina que têm ao menos um cartão (numa
+  coleção ligada ao tópico e não congelada). Sem ela, ver todos os cartões que existem pareceria
+  dominar a disciplina mesmo com a maioria dos tópicos sem material: uma disciplina com 12 cartões
+  todos vistos, mas só 1 de 2 tópicos coberto, tem o domínio pela metade. Cada disciplina mostra
+  "35 de 134 tópicos do edital com cartão", e a tela traz um aviso com o total (quantos tópicos estão
+  sem material) e o caminho para cobri-los (na página do concurso, a IA gera os cartões, que você
+  confere antes de estudar). Edital sem tópicos cadastrados não tem o que descontar: o cálculo é o de
+  antes. O desconto vale para a **prioridade** (e, por ela, para a repartição das vagas da sessão); o
+  que entra na sessão continua sendo só cartão que existe.
 - **A fase vem dos dias que faltam:** mais de 7 dias, ainda dá para ver conteúdo novo; de 7 a 4, só
   revisão; 3 ou menos, só revisão e descanso. A mesma divisão da "Meta para a prova".
 - **A sessão do foco** (`/reta-final/estudar`) traz só cartões de coleções **ligadas ao edital**, até
@@ -549,6 +566,53 @@ apagado) cai no mais próximo, sem erro, e o seletor mostra qual está valendo. 
 próximo ao mais distante, com o cargo e os dias que faltam. **Não mudam** com o seletor: a ordem dos cartões
 novos "pelo edital" (continua no concurso mais próximo), o limite diário de novos (é um só), o lembrete no
 celular e a nota de corte dos simulados.
+
+### Coleções sem ligação ao edital
+
+Na página de um concurso (**Concursos → abrir**), o painel **Coleções ainda sem ligação ao edital** lista as suas
+coleções que não estão ligadas a nenhum tópico daquele concurso. Enquanto soltas, os cartões delas **não entram no
+progresso do concurso, na Reta final nem na ordem dos novos pelo edital**. A sugestão que já existia parte do tópico
+("este tópico tem uma coleção parecida"); este painel parte da **coleção** ("esta coleção combina com estes
+tópicos"):
+
+- **Ligar com um clique:** cada coleção traz até 3 tópicos sugeridos, pela comparação do texto do tópico com o assunto
+  e o nome da coleção (a mesma regra da sugestão por tópico; sem IA, grátis, sempre o mesmo resultado). Quando o
+  assunto da coleção é praticamente o tópico ("quase igual"), só esses aparecem; senão, os "prováveis", do mais parecido
+  ao menos. Um tópico que já tem outra coleção também pode receber esta (vem avisado).
+- **Coleção que cobre a disciplina inteira:** se ela casa com mais de 3 tópicos empatados (por exemplo "Redes de
+  Computadores" com todos os tópicos "Redes de Computadores e Sistemas Distribuídos: ..."), o painel não escolhe três
+  ao acaso: diz com quantos casa e pede para você escolher.
+- **Escolher à mão:** "Escolher o tópico..." abre a lista de tópicos do edital por disciplina, com busca quando a
+  lista é longa (sem acento nem caixa, todas as palavras). É o caminho para o que não casa por palavras, como "Acentuação
+  Gráfica" e o tópico "Ortografia oficial".
+- **Não é deste concurso:** uma coleção que serve a outro edital (legislação da UFBA, por exemplo) sai da lista só
+  daquele concurso, e dá para mostrá-la de novo em "Escondidas neste concurso". A marca é por concurso (uma tabela
+  nova, `exam_ignored_collections`, que entra na exportação da conta) e some junto com o concurso ou a coleção.
+- Ligar só acrescenta (nunca remove vínculos) e nada é ligado sem o seu clique. Os mesmos cartões podem servir a mais de um
+  concurso: ligar a coleção ao outro edital não tira do primeiro.
+
+## Dívida de revisão
+
+No **Painel**, o cartão **Dívida de revisão** (some quando não há atrasados) mostra quantos cartões **já estudados**
+venceram **antes de hoje** e ainda não foram revisados, há quantos dias, e como foi a sua última semana. Um cartão novo
+que entra todo dia volta nos dias seguintes para revisão: quem gasta quase todo o estudo em cartões novos vê o atrasado
+crescer, e o que não é revisado a tempo se esquece.
+
+- **O atrasado:** o total, o mais antigo (em dias de calendário) e a divisão por faixa (1 a 3, 4 a 7, 8 a 14 e mais de 14
+  dias). Coleção congelada não conta; cartão novo também não (não venceu, nunca foi estudado). O nível pede atenção a
+  partir de 25 atrasados e é alto a partir de 100 (a cor do cartão acompanha).
+- **A última semana** (7 dias, contando hoje): quantas revisões foram a **primeira vez** de um cartão (cartão novo, a mesma
+  definição do Painel) e quantas foram de cartão **já estudado**. Com o ritmo de revisões de cartões antigos por dia, o
+  cartão diz em quantos dias o atrasado acabaria "nesse ritmo", sem contar o que vence nesse meio-tempo: é um aviso de
+  ordem de grandeza, não uma previsão.
+- **Sugestão sobre o limite diário de novos:** só aparece com a dívida em atenção ou alta e mais de 60% da semana em
+  cartões novos. Sugere baixar o limite (ou definir um, se não há) e revisar os atrasados antes dos novos. **Nada muda
+  sozinho**: o limite continua sendo o das Configurações.
+- **Pôr em dia** (`/atrasados/estudar`): uma sessão só com os **25 atrasados há mais tempo** (do mais atrasado ao menos),
+  sem nenhum cartão novo. Cada sessão tira um lote da dívida; é só voltar ao Painel para pegar o próximo. O que você avalia
+  entra no agendamento como qualquer revisão. A revisão global ("Revisar pendentes") continua exatamente como era e também
+  traz os atrasados, junto com os de hoje e os novos.
+- É só leitura (`GET /api/stats/review-debt` e `GET /api/flashcards/overdue`): nada é gravado, e nenhuma tabela nova foi criada.
 
 ## Meu desempenho
 
@@ -633,6 +697,30 @@ No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou n
   acentos); coleções sem assunto entram em "Sem assunto". Tudo vem do histórico de revisões: nada é
   guardado à parte, e a página não altera nem apaga nada.
 
+## Congelar uma coleção
+
+Uma coleção **congelada** sai das revisões automáticas sem que nada nos cartões mude: nem a data de vencimento, nem o
+agendamento. Serve para pôr de lado, por um tempo, uma coleção que não é prioridade agora (a legislação de um concurso
+que ficou para depois, por exemplo). Congele e descongele pelo **ícone de floco de neve** na lista de coleções (ao lado
+de "Abrir") ou pelo botão **Congelar / Descongelar** na página da coleção; a coleção ganha o selo **Congelada** e o número
+de cartões que ficaram em espera.
+
+- **Fora de:** a revisão global (vencidos e novos, e o "novos aguardando"), a revisão de uma disciplina (inclusive pela
+  página do concurso), os lembretes, o Painel (pendentes, novos e "vence amanhã"), a lista e os totais da página
+  Coleções, a **Meta para a prova**, a **Reta final** (prioridade das disciplinas e fila do foco), a ordem dos novos pelo
+  edital, a revisão de favoritos e as sanguessugas. A Reta final avisa quando coleções congeladas do concurso ficam de
+  fora, para não parecer que faltam cartões.
+- **Continua valendo:** o histórico de estudo. O progresso do concurso (cartões vistos por tópico) e o Meu desempenho não
+  mudam. O que já foi aprendido na coleção também segue contando como "maduro" no Painel.
+- **Ainda dá para estudar:** o botão **Estudar** da página da coleção funciona normalmente, e o "Revisar só isso" dos pontos
+  de atenção do Meu desempenho também (é uma escolha explícita sua). O que você avaliar entra no agendamento como sempre.
+- **Ao descongelar:** os cartões que venceram durante o congelamento voltam todos de uma vez (as datas não são mexidas), e
+  o aviso diz quantos voltaram. Se forem muitos, o limite diário de novos e a Meta ajudam a diluir.
+- Congelar é uma tabela nova (`frozen_collections`, uma linha por coleção congelada; entra na exportação da conta e some
+  junto com a coleção). Toda consulta que monta uma fila ou uma contagem de revisão usa o mesmo trecho de SQL
+  (`notFrozen`, em `server/collections/frozen.ts`); os testes de `frozen.test.ts` conferem a fila, o Painel, a ordem dos
+  novos, a Meta, a Reta final e as sanguessugas.
+
 ## Disciplinas (coleções agrupadas)
 
 Na lista de coleções, as coleções de **mesmo nome** (sem diferenciar maiúsculas nem acentos)
@@ -643,4 +731,5 @@ navegador; pesquisando, todas abrem. Nome que aparece uma vez só continua sendo
 "Estudar a disciplina inteira" abre uma revisão com os pendentes de todas as coleções da
 disciplina juntos (`/disciplina/estudar`). Como estudar uma coleção direto, ela não é contida
 pelo limite diário de cartões novos. Nessa revisão (e na global) cada cartão mostra a coleção e o
-assunto dela.
+assunto dela. Ao estudar uma coleção direto (botão **Estudar** dela), o assunto aparece logo abaixo do
+nome, no alto da tela.

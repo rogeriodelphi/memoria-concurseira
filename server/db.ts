@@ -6,6 +6,8 @@ import { MOCK_EXAM_SCHEMA, upgradeMockExamSchema } from './mockexams/schema';
 import { AI_REVIEW_SCHEMA } from './aireview/schema';
 import { QUESTION_BANK_SCHEMA, upgradeQuestionBankSchema } from './questionbank/schema';
 import { LEECH_SCHEMA } from './leeches/schema';
+import { IGNORED_COLLECTIONS_SCHEMA } from './exams/unlinked';
+import { FROZEN_SCHEMA } from './collections/frozen';
 import { REMINDER_SCHEMA } from './reminders/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
@@ -332,3 +334,9 @@ upgradeQuestionBankSchema(db);
 
 // Cartões sanguessuga: quando o usuário recomeça a contagem de erros de um cartão.
 db.exec(LEECH_SCHEMA);
+
+// "Esta coleção não é deste concurso": para a lista de coleções soltas do concurso não insistir nelas.
+db.exec(IGNORED_COLLECTIONS_SCHEMA);
+
+// Coleções congeladas: fora das revisões automáticas, sem mexer nos cartões.
+db.exec(FROZEN_SCHEMA);

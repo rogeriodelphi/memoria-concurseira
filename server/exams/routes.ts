@@ -5,6 +5,7 @@ import multer, { type FileFilterCallback } from 'multer';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { notFrozen } from '../collections/frozen';
 import { extractSyllabus, generateFlashcards, MAX_SYLLABUS_CHARS } from '../ai/router';
 import { withUsageContext } from '../ai/usage';
 import { mockExamFromDiscipline } from '../mockexams/fromDiscipline';
@@ -20,6 +21,7 @@ import {
   type TopicLinks,
 } from './progress';
 import { STRONG_SCORE, suggestCollections } from './suggest';
+import { buildUnlinked, loadIgnoredIds, setCollectionIgnored } from './unlinked';
 
 export const examsRouter = express.Router();
 examsRouter.use(requireAuth);
@@ -142,7 +144,7 @@ function loadCollectionStats(userId: string, now: Date): { stats: CollectionStat
       `SELECT c.id, c.name, c.subject,
               COUNT(f.id) AS cards,
               COALESCE(SUM(CASE WHEN f.due_at IS NULL THEN 1 ELSE 0 END), 0) AS new_cards,
-              COALESCE(SUM(CASE WHEN f.due_at IS NOT NULL AND f.due_at <= ? THEN 1 ELSE 0 END), 0) AS due_cards
+              COALESCE(SUM(CASE WHEN f.due_at IS NOT NULL AND f.due_at <= ? AND ${notFrozen('c.id')} THEN 1 ELSE 0 END), 0) AS due_cards
        FROM collections c LEFT JOIN flashcards f ON f.collection_id = c.id
        WHERE c.user_id = ?
        GROUP BY c.id
@@ -236,7 +238,17 @@ examsRouter.get('/:id', (req: AuthedRequest, res: Response) => {
   // Quantos cartões da IA cada tópico tem esperando conferência (ainda não são material: não entram na cobertura).
   const drafts = draftCountsByTopic(db, req.userId!, row.id);
 
-  res.json({ success: true, exam: examHeader(row, now), ...progress, suggestions, collections, drafts });
+  // O caminho contrário das sugestões acima: as coleções que não estão ligadas a nenhum tópico deste concurso, e os tópicos que
+  // combinam com cada uma. As marcadas como "não é deste concurso" ficam à parte.
+  const statsById = new Map(stats.map((s) => [s.id, s]));
+  const { unlinked: unlinkedCollections, ignored: ignoredCollections } = buildUnlinked({
+    collections: collections.map((c) => ({ id: c.id, name: c.name, subject: c.subject, cards: c.cards, newCards: statsById.get(c.id)?.newCards ?? 0, dueCards: statsById.get(c.id)?.dueCards ?? 0 })),
+    topics: progress.disciplines.flatMap((d) => d.topics.map((t) => ({ id: t.id, title: t.title, discipline: d.name, hasMaterial: t.collectionIds.length > 0 }))),
+    linkedCollectionIds: new Set(progress.disciplines.flatMap((d) => d.topics.flatMap((t) => t.collectionIds))),
+    ignoredIds: loadIgnoredIds(db, row.id),
+  });
+
+  res.json({ success: true, exam: examHeader(row, now), ...progress, suggestions, collections, drafts, unlinkedCollections, ignoredCollections });
 });
 
 // ---------- análise do edital (IA) ----------
@@ -549,4 +561,29 @@ examsRouter.post('/:id/links', (req: AuthedRequest, res: Response) => {
     }
   });
   res.json({ success: true, added });
+});
+
+// "Esta coleção não é deste concurso": ela sai da lista de coleções soltas dele (e volta com o DELETE). Pedir de novo é inofensivo.
+examsRouter.put('/:id/ignored-collections/:collectionId', (req: AuthedRequest, res: Response) => {
+  const exam = loadOwnedExam(req.userId!, req.params.id);
+  if (!exam) {
+    res.status(404).json({ success: false, error: 'Concurso não encontrado.' });
+    return;
+  }
+  if (!allOwnedCollections(req.userId!, [req.params.collectionId])) {
+    res.status(404).json({ success: false, error: 'Coleção não encontrada.' });
+    return;
+  }
+  setCollectionIgnored(db, exam.id, req.params.collectionId, true);
+  res.json({ success: true });
+});
+
+examsRouter.delete('/:id/ignored-collections/:collectionId', (req: AuthedRequest, res: Response) => {
+  const exam = loadOwnedExam(req.userId!, req.params.id);
+  if (!exam) {
+    res.status(404).json({ success: false, error: 'Concurso não encontrado.' });
+    return;
+  }
+  setCollectionIgnored(db, exam.id, req.params.collectionId, false);
+  res.json({ success: true });
 });

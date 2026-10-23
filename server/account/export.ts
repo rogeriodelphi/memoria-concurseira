@@ -97,6 +97,16 @@ const EXPORTED: ExportedTable[] = [
   },
   { table: 'qb_saved_filters', sql: 'SELECT * FROM qb_saved_filters WHERE user_id = ? ORDER BY rowid' },
   {
+    table: 'exam_ignored_collections',
+    sql: `SELECT i.* FROM exam_ignored_collections i JOIN exams e ON e.id = i.exam_id
+          WHERE e.user_id = ? ORDER BY i.rowid`,
+  },
+  {
+    table: 'frozen_collections',
+    sql: `SELECT z.* FROM frozen_collections z JOIN collections c ON c.id = z.collection_id
+          WHERE c.user_id = ? ORDER BY z.rowid`,
+  },
+  {
     table: 'leech_state',
     sql: `SELECT l.* FROM leech_state l JOIN flashcards f ON f.id = l.flashcard_id
           JOIN collections c ON c.id = f.collection_id

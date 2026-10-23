@@ -2,9 +2,11 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { notFrozen } from '../collections/frozen';
 import { getDailyNewLimit } from '../studyplan/store';
 import { listExamOptions } from '../studyplan/nextExam';
 import { loadPerformance, parsePerformanceQuery } from './performance';
+import { loadReviewDebt } from './reviewDebt';
 import { loadStudyTime } from './studyTime';
 import { buildDashboard, type DashboardCard, type DashboardSession } from './dashboard';
 
@@ -156,6 +158,12 @@ statsRouter.get('/study-time', (req: AuthedRequest, res: Response) => {
   res.json({ success: true, ...loadStudyTime(db, req.userId!, new Date(), parsed.value) });
 });
 
+// A dívida de revisão: os cartões já estudados que venceram antes de hoje, há quantos dias, e o ritmo da última semana
+// (cartões novos × cartões antigos). Só leitura.
+statsRouter.get('/review-debt', (req: AuthedRequest, res: Response) => {
+  res.json({ success: true, ...loadReviewDebt(db, req.userId!, new Date()) });
+});
+
 statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {
   const userId = req.userId!;
 
@@ -170,11 +178,11 @@ statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {
 
   const cards = db
     .prepare(
-      `SELECT f.due_at, f.repetitions, f.interval_days
+      `SELECT f.due_at, f.repetitions, f.interval_days, NOT ${notFrozen('c.id')} AS frozen
        FROM flashcards f JOIN collections c ON c.id = f.collection_id
        WHERE c.user_id = ?`,
     )
-    .all(userId) as unknown as { due_at: string | null; repetitions: number; interval_days: number }[];
+    .all(userId) as unknown as { due_at: string | null; repetitions: number; interval_days: number; frozen: number }[];
 
   const dashboard = buildDashboard(
     sessions.map(
@@ -185,7 +193,7 @@ statsRouter.get('/dashboard', (req: AuthedRequest, res: Response) => {
         durationMs: s.duration_ms,
       }),
     ),
-    cards.map((c): DashboardCard => ({ dueAt: c.due_at, repetitions: c.repetitions, intervalDays: c.interval_days })),
+    cards.map((c): DashboardCard => ({ dueAt: c.due_at, repetitions: c.repetitions, intervalDays: c.interval_days, frozen: c.frozen === 1 })),
     new Date(),
     getDailyNewLimit(db, userId),
   );

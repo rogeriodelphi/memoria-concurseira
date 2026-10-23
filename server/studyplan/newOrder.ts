@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import { nextExam, type NextExam } from './nextExam';
 
 /**
@@ -192,12 +193,15 @@ interface NewCardRow {
   collection_id: string;
 }
 
-/** Os novos do usuário, do mais antigo ao mais novo, e quantos cartões já estudados há por coleção. */
+/**
+ * Os novos do usuário (fora os das coleções congeladas), do mais antigo ao mais novo, e quantos cartões já estudados há
+ * por coleção (esses contam também nas congeladas: o que já foi aprendido continua valendo para o equilíbrio).
+ */
 function loadCards(db: DatabaseSync, userId: string) {
   const newCards = db
     .prepare(
       `SELECT f.id, f.collection_id FROM flashcards f JOIN collections c ON c.id = f.collection_id
-       WHERE c.user_id = ? AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC`,
+       WHERE c.user_id = ? AND f.due_at IS NULL AND ${notFrozen('c.id')} ORDER BY f.created_at ASC, f.rowid ASC`,
     )
     .all(userId) as unknown as NewCardRow[];
   const learned = db

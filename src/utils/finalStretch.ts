@@ -42,14 +42,33 @@ export function phaseInfo(phase: FinalStretchPhase, daysLeft: number): PhaseInfo
   };
 }
 
-/** Os fatos de uma disciplina, em frases curtas. */
-export function disciplineFacts(d: Pick<FinalStretchDiscipline, 'hasCards' | 'sharePct' | 'seenPct' | 'accuracyPct' | 'reviews30'>): string[] {
+/**
+ * Os fatos de uma disciplina, em frases curtas. Com tópicos cadastrados no edital, diz quantos têm cartão (é essa
+ * cobertura que desconta o domínio: ver os cartões que existem não é dominar uma disciplina de que metade dos tópicos
+ * não tem cartão).
+ */
+export function disciplineFacts(
+  d: Pick<FinalStretchDiscipline, 'hasCards' | 'sharePct' | 'seenPct' | 'accuracyPct' | 'reviews30'> & Partial<Pick<FinalStretchDiscipline, 'topics' | 'coveredTopics'>>,
+): string[] {
   if (!d.hasCards) return [`Pesa ${d.sharePct}% da prova`, 'nenhum cartão ligado a ela'];
-  return [
-    `Pesa ${d.sharePct}% da prova`,
-    `viu ${d.seenPct ?? 0}% dos cartões`,
-    d.accuracyPct !== null ? `acerta ${d.accuracyPct}% (${plural(d.reviews30, 'revisão', 'revisões')} em 30 dias)` : 'sem revisões nos últimos 30 dias',
-  ];
+  const facts = [`Pesa ${d.sharePct}% da prova`, `viu ${d.seenPct ?? 0}% dos cartões`];
+  if (d.topics) facts.push(`${d.coveredTopics ?? 0} de ${plural(d.topics, 'tópico', 'tópicos')} do edital com cartão`);
+  facts.push(d.accuracyPct !== null ? `acerta ${d.accuracyPct}% (${plural(d.reviews30, 'revisão', 'revisões')} em 30 dias)` : 'sem revisões nos últimos 30 dias');
+  return facts;
+}
+
+/**
+ * O aviso da cobertura do edital: quantos dos tópicos têm cartão, quando faltam, e o que isso faz com o domínio.
+ * `null` quando o edital não tem tópicos ou todos já têm cartão.
+ */
+export function coverageNote(topics: number, coveredTopics: number): string | null {
+  if (topics <= 0 || coveredTopics >= topics) return null;
+  const tail = 'O domínio de cada disciplina é descontado por isso, porque ver todos os cartões que existem não é dominar o que o edital cobra.';
+  if (topics === 1) return `O único tópico do edital está sem cartão. ${tail}`;
+  const missing = topics - coveredTopics;
+  const pct = Math.round((coveredTopics / topics) * 100);
+  const lead = coveredTopics === 0 ? `Nenhum dos ${plural(topics, 'tópico', 'tópicos')} do edital tem cartão` : `Só ${coveredTopics.toLocaleString('pt-BR')} dos ${plural(topics, 'tópico', 'tópicos')} do edital ${coveredTopics === 1 ? 'tem' : 'têm'} cartão (${pct}%)`;
+  return `${lead}: ${plural(missing, 'tópico está', 'tópicos estão')} sem material. ${tail}`;
 }
 
 export type MasteryTone = 'good' | 'ok' | 'bad' | 'none';

@@ -4,12 +4,14 @@ import express, { type Response } from 'express';
 
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
+import { notFrozen } from '../collections/frozen';
 import { duplicateKey } from '../duplicates';
 import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 import type { StudyResult } from '../srs';
 import { MAX_REVIEW_MS } from '../stats/dashboard';
 import { loadMissedCards, parseMissedQuery } from '../stats/missed';
+import { loadOverdueCards } from '../stats/reviewDebt';
 import { selectDueCards } from '../studyplan/store';
 import { recordStudy, undoStudy } from './study';
 
@@ -295,6 +297,16 @@ flashcardsRouter.get('/due', (req: AuthedRequest, res: Response) => {
   });
 });
 
+// Os cartões atrasados há mais tempo (venceram antes de hoje), no máximo um lote: a sessão "Pôr em dia" da dívida de
+// revisão. Só cartões já estudados e de coleções não congeladas; nenhum novo entra.
+flashcardsRouter.get('/overdue', (req: AuthedRequest, res: Response) => {
+  const cards = loadOverdueCards(db, req.userId!, new Date());
+  res.json({
+    success: true,
+    flashcards: cards.map((row) => ({ ...mapFlashcard(row), collectionName: row.collection_name, collectionSubject: row.collection_subject })),
+  });
+});
+
 // Os cartões que o usuário errou (Errei ou Difícil) num período, nas coleções escolhidas, vencidos ou não: a lista de
 // "Revisar só isso" dos pontos de atenção. `?collectionIds=a,b&from=AAAA-MM-DD&to=AAAA-MM-DD`; ids que não são do usuário
 // não trazem cartão nenhum.
@@ -316,7 +328,7 @@ flashcardsRouter.get('/favorites', (req: AuthedRequest, res: Response) => {
     .prepare(
       `SELECT f.*, c.name as collection_name, c.subject as collection_subject FROM flashcards f
        JOIN collections c ON c.id = f.collection_id
-       WHERE c.user_id = ? AND f.favorite = 1
+       WHERE c.user_id = ? AND f.favorite = 1 AND ${notFrozen('c.id')}
        ORDER BY f.created_at DESC`,
     )
     .all(req.userId!) as unknown as (FlashcardRow & { collection_name: string; collection_subject: string })[];

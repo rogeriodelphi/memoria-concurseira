@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { FinalStretch } from '../types';
-import { disciplineFacts, gainText, masteryTone, phaseInfo, queueHeadline, queueNotes, remainingText } from './finalStretch';
+import { coverageNote, disciplineFacts, gainText, masteryTone, phaseInfo, queueHeadline, queueNotes, remainingText } from './finalStretch';
 
 const queue = (over: Partial<FinalStretch['queue']> = {}): FinalStretch['queue'] => ({
   total: 15,
@@ -59,6 +59,31 @@ test('disciplineFacts: o peso, o visto e o acerto; sem revisões ou sem cartões
     'sem revisões nos últimos 30 dias',
   ]);
   assert.deepEqual(disciplineFacts({ hasCards: false, sharePct: 14, seenPct: null, accuracyPct: null, reviews30: 0 }), ['Pesa 14% da prova', 'nenhum cartão ligado a ela']);
+});
+
+test('disciplineFacts: com tópicos no edital, diz quantos têm cartão (e sem tópicos cadastrados não diz nada)', () => {
+  const base = { hasCards: true, sharePct: 71, seenPct: 42, accuracyPct: 88, reviews30: 40 };
+  assert.deepEqual(disciplineFacts({ ...base, topics: 134, coveredTopics: 35 }), [
+    'Pesa 71% da prova',
+    'viu 42% dos cartões',
+    '35 de 134 tópicos do edital com cartão',
+    'acerta 88% (40 revisões em 30 dias)',
+  ]);
+  assert.equal(disciplineFacts({ ...base, topics: 1, coveredTopics: 1 })[2], '1 de 1 tópico do edital com cartão');
+  assert.equal(disciplineFacts({ ...base, topics: 0, coveredTopics: 0 }).length, 3, 'sem tópicos cadastrados não há o que contar');
+  assert.equal(disciplineFacts({ hasCards: false, sharePct: 14, seenPct: null, accuracyPct: null, reviews30: 0, topics: 5, coveredTopics: 0 }).length, 2, 'sem cartões, a frase de sempre');
+});
+
+test('coverageNote: só aparece quando falta cobertura, e diz quantos tópicos estão sem material', () => {
+  assert.equal(coverageNote(0, 0), null, 'edital sem tópicos');
+  assert.equal(coverageNote(12, 12), null, 'tudo coberto');
+  const text = coverageNote(148, 42)!;
+  assert.match(text, /^Só 42 dos 148 tópicos do edital têm cartão \(28%\): 106 tópicos estão sem material\./);
+  assert.match(text, /O domínio de cada disciplina é descontado por isso/);
+  assert.match(coverageNote(10, 1)!, /^Só 1 dos 10 tópicos do edital tem cartão \(10%\): 9 tópicos estão sem material\./);
+  assert.match(coverageNote(10, 9)!, /1 tópico está sem material/);
+  assert.match(coverageNote(8, 0)!, /^Nenhum dos 8 tópicos do edital tem cartão: 8 tópicos estão sem material\./);
+  assert.match(coverageNote(1, 0)!, /^O único tópico do edital está sem cartão\./);
 });
 
 test('masteryTone: abaixo de 40 é ruim, até 69 médio, 70 ou mais bom; sem cartões, nenhum', () => {

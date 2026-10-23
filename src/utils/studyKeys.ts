@@ -128,7 +128,12 @@ export function studyShortcut(event: KeyEventLike, context: ShortcutContext): St
 
 /** O que um atalho de teclado pode fazer na prova de múltipla escolha. */
 export type ChoiceShortcut =
+  /** Seleciona a alternativa (ainda não responde: falta confirmar). */
   | { type: 'pick'; index: number }
+  /** Tacha (ou destaca) a alternativa selecionada. */
+  | { type: 'cross' }
+  /** Confirma a alternativa selecionada: aí sim a resposta conta. */
+  | { type: 'confirm' }
   | { type: 'dontknow' }
   | { type: 'next' }
   | { type: 'back' };
@@ -136,8 +141,10 @@ export type ChoiceShortcut =
 export interface ChoiceShortcutContext {
   /** Quantas alternativas a questão tem (4 ou 5). */
   optionCount: number;
-  /** O usuário já escolheu (ou desistiu): o gabarito está à mostra e só falta seguir. */
+  /** O usuário já respondeu (confirmou ou desistiu): o gabarito está à mostra e só falta seguir. */
   picked: boolean;
+  /** Há uma alternativa selecionada, esperando a confirmação. */
+  selected: boolean;
   /** Há uma resposta anterior a desfazer. */
   canGoBack: boolean;
   keyboardNavigation: boolean;
@@ -146,9 +153,11 @@ export interface ChoiceShortcutContext {
 /**
  * Os atalhos da múltipla escolha, com as mesmas proteções dos outros (modificadores, teclas
  * repetidas, composição e campos de texto não acionam nada):
- * - antes de responder: 1 a 5 (ou A a E) escolhem a alternativa, 0 é "não sei";
- * - depois de responder: Enter segue para a próxima, com a regra do botão focado por Tab de sempre
- *   (nesse caso o Enter "clica" o botão); as alternativas não mudam mais;
+ * - antes de responder: 1 a 5 (ou A a E) SELECIONAM a alternativa (trocar de ideia é só apertar outra), T tacha a
+ *   selecionada, Enter confirma a selecionada (sem seleção, Enter não responde por você) e 0 é "não sei", que responde
+ *   na hora;
+ * - depois de responder: Enter segue para a próxima; as alternativas não mudam mais;
+ * - nos dois Enter vale a regra do botão focado por Tab de sempre (nesse caso o Enter "clica" o botão);
  * - ← volta e desfaz a resposta anterior, a qualquer momento.
  */
 export function choiceShortcut(event: KeyEventLike, context: ChoiceShortcutContext): ChoiceShortcut | null {
@@ -156,14 +165,13 @@ export function choiceShortcut(event: KeyEventLike, context: ChoiceShortcutConte
 
   if (event.key === 'ArrowLeft') return context.canGoBack ? { type: 'back' } : null;
 
-  if (context.picked) {
-    // `revealed: false` aqui só diz "decida pelo foco": o Enter segue, a menos que seja de um botão focado por Tab.
-    return event.key === 'Enter' && revealsOnEnter(event, { revealed: false, keyboardNavigation: context.keyboardNavigation })
-      ? { type: 'next' }
-      : null;
-  }
+  // `revealed: false` aqui só diz "decida pelo foco": o Enter age, a menos que seja de um botão focado por Tab.
+  const enterActs = event.key === 'Enter' && revealsOnEnter(event, { revealed: false, keyboardNavigation: context.keyboardNavigation });
+  if (context.picked) return enterActs ? { type: 'next' } : null;
+  if (event.key === 'Enter') return enterActs && context.selected ? { type: 'confirm' } : null;
 
   if (event.key === '0') return { type: 'dontknow' };
+  if (event.key.toLowerCase() === 't') return context.selected ? { type: 'cross' } : null;
   const key = event.key.toLowerCase();
   const byNumber = /^[1-5]$/.test(key) ? Number(key) - 1 : -1;
   const byLetter = /^[a-e]$/.test(key) ? key.charCodeAt(0) - 'a'.charCodeAt(0) : -1;

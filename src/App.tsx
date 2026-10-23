@@ -19,6 +19,7 @@ import { CollectionNew } from './pages/CollectionNew';
 import { CollectionDetail } from './pages/CollectionDetail';
 import { StudyMode } from './pages/StudyMode';
 import { GlobalReview } from './pages/GlobalReview';
+import { OverdueReview } from './pages/OverdueReview';
 import { DisciplineStudy } from './pages/DisciplineStudy';
 import { HandsFree } from './pages/HandsFree';
 import { FavoritesReview } from './pages/FavoritesReview';
@@ -91,6 +92,7 @@ export default function App() {
                       <Route path="/colecoes/:id" element={<CollectionDetail />} />
                       <Route path="/colecoes/:id/estudar" element={<StudyMode />} />
                       <Route path="/revisar" element={<GlobalReview />} />
+                      <Route path="/atrasados/estudar" element={<OverdueReview />} />
                       <Route path="/maos-livres" element={<HandsFree />} />
                       <Route path="/disciplina/estudar" element={<DisciplineStudy />} />
                       <Route path="/favoritos" element={<FavoritesReview />} />

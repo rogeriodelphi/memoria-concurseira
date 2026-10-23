@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import { nextSrsState, type SrsState } from '../srs';
 import { buildDashboard, type DashboardCard, type DashboardSession } from '../stats/dashboard';
 import { MAX_DAILY_NEW_LIMIT } from './limit';
@@ -319,7 +320,10 @@ interface CardRow {
   repetitions: number;
 }
 
-/** O plano do usuário para o próximo concurso com data, ou `null` se ele não tem nenhum. */
+/**
+ * O plano do usuário para o próximo concurso com data, ou `null` se ele não tem nenhum. Os cartões de coleções
+ * congeladas não entram na conta: a meta é a carga das revisões, e congelar tira a coleção delas.
+ */
 export function loadExamPlan(db: DatabaseSync, userId: string, now: Date = new Date(), examId?: unknown): ExamPlan | null {
   const exam = chooseExam(db, userId, examId, now);
   if (!exam) return null;
@@ -327,7 +331,7 @@ export function loadExamPlan(db: DatabaseSync, userId: string, now: Date = new D
   const cardRows = db
     .prepare(
       `SELECT f.due_at, f.ease_factor, f.interval_days, f.repetitions
-       FROM flashcards f JOIN collections c ON c.id = f.collection_id WHERE c.user_id = ?`,
+       FROM flashcards f JOIN collections c ON c.id = f.collection_id WHERE c.user_id = ? AND ${notFrozen('c.id')}`,
     )
     .all(userId) as unknown as CardRow[];
   const sessions = db

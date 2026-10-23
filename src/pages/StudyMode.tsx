@@ -47,16 +47,20 @@ export function StudyMode() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <div className="mb-6 flex items-center justify-between">
-        <Link
-          to={`/colecoes/${collection.id}`}
-          className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-        >
-          <ArrowLeft size={16} />
-          {collection.name}
-        </Link>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            to={`/colecoes/${collection.id}`}
+            className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+          >
+            <ArrowLeft size={16} className="shrink-0" />
+            {collection.name}
+          </Link>
+          {/* O assunto da coleção, logo abaixo do nome (alinhado a ele, depois da seta). */}
+          {collection.subject && <p className="mt-1 pl-[22px] text-sm text-neutral-400 dark:text-neutral-500">{collection.subject}</p>}
+        </div>
         {queue.length > 0 && (
-          <p className="text-sm text-neutral-400 dark:text-neutral-500">
+          <p className="shrink-0 text-sm text-neutral-400 dark:text-neutral-500">
             {queue.length} restante{queue.length === 1 ? '' : 's'}
           </p>
         )}

@@ -11,6 +11,7 @@
 import crypto from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import { mapFlashcard, type FlashcardRow } from '../mappers';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 
@@ -91,7 +92,10 @@ const RECENT = `
   WHERE s.user_id = ? AND c.user_id = ? AND (r.reset_at IS NULL OR s.studied_at > r.reset_at)
 `;
 
-/** Os cartões sanguessuga do usuário, do que mais errou ao que menos, e entre iguais o revisado mais recentemente. */
+/**
+ * Os cartões sanguessuga do usuário, do que mais errou ao que menos, e entre iguais o revisado mais recentemente. Os de
+ * coleções congeladas não entram (nem no total): voltam à lista quando a coleção for descongelada.
+ */
 export function loadLeeches(db: DatabaseSync, userId: string, minErrors: number = DEFAULT_MIN_ERRORS, now: Date = new Date()): LeechList {
   const rows = db
     .prepare(
@@ -107,7 +111,7 @@ export function loadLeeches(db: DatabaseSync, userId: string, minErrors: number 
        JOIN flashcards f ON f.id = k.flashcard_id
        JOIN collections c ON c.id = f.collection_id
        LEFT JOIN leech_state ls ON ls.flashcard_id = f.id
-       WHERE f.repetitions < ${CONSOLIDATED_STREAK}
+       WHERE f.repetitions < ${CONSOLIDATED_STREAK} AND ${notFrozen('c.id')}
        ORDER BY k.errors DESC, k.last_at DESC, f.rowid
        LIMIT ${MAX_LEECHES}`,
     )

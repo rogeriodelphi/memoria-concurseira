@@ -5,6 +5,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { mapDocument, mapFlashcard, type DocumentRow, type FlashcardRow } from '../mappers';
+import { frozenAt, setCollectionFrozen } from './frozen';
 
 export const collectionsRouter = express.Router();
 collectionsRouter.use(requireAuth);
@@ -26,7 +27,7 @@ function collectionSummary(row: CollectionRow) {
       n: number;
     }
   ).n;
-  const dueCount = (
+  const pendingCount = (
     db
       .prepare('SELECT COUNT(*) AS n FROM flashcards WHERE collection_id = ? AND (due_at IS NULL OR due_at <= ?)')
       .get(row.id, new Date().toISOString()) as { n: number }
@@ -36,6 +37,9 @@ function collectionSummary(row: CollectionRow) {
       n: number;
     }
   ).n;
+  // Coleção congelada não tem pendentes nas revisões: a lista e os totais não a contam. O que ficaria pendente vai
+  // à parte, para a tela mostrar "N pendentes ao descongelar".
+  const frozen = frozenAt(db, row.id);
   const document = db
     .prepare('SELECT status FROM documents WHERE collection_id = ? ORDER BY created_at DESC LIMIT 1')
     .get(row.id) as { status: string } | undefined;
@@ -47,7 +51,10 @@ function collectionSummary(row: CollectionRow) {
     description: row.description,
     category: row.category,
     flashcardCount,
-    dueCount,
+    dueCount: frozen ? 0 : pendingCount,
+    frozen: frozen !== null,
+    frozenAt: frozen,
+    frozenDueCount: frozen ? pendingCount : 0,
     favoriteCount,
     status: document?.status ?? 'sem_documento',
     createdAt: row.created_at,
@@ -118,6 +125,7 @@ collectionsRouter.get('/:id', (req: AuthedRequest, res: Response) => {
       subject: row.subject,
       description: row.description,
       category: row.category,
+      frozenAt: frozenAt(db, row.id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     },
@@ -195,6 +203,28 @@ collectionsRouter.put('/:id', (req: AuthedRequest, res: Response) => {
   ).run(nextName, nextSubject, nextDescription, nextCategory, new Date().toISOString(), existing.id);
 
   const row = db.prepare('SELECT * FROM collections WHERE id = ?').get(existing.id) as unknown as CollectionRow;
+  res.json({ success: true, collection: collectionSummary(row) });
+});
+
+// Congelar tira a coleção das revisões automáticas (fila, Painel, lembretes, Meta, Reta final...) sem tocar nos cartões;
+// ela segue estudável pelo "Estudar" dela. Pedir duas vezes o mesmo não muda nada.
+collectionsRouter.put('/:id/freeze', (req: AuthedRequest, res: Response) => {
+  const row = loadOwnedCollection(req.userId!, req.params.id);
+  if (!row) {
+    res.status(404).json({ success: false, error: 'Coleção não encontrada.' });
+    return;
+  }
+  setCollectionFrozen(db, row.id, true);
+  res.json({ success: true, collection: collectionSummary(row) });
+});
+
+collectionsRouter.delete('/:id/freeze', (req: AuthedRequest, res: Response) => {
+  const row = loadOwnedCollection(req.userId!, req.params.id);
+  if (!row) {
+    res.status(404).json({ success: false, error: 'Coleção não encontrada.' });
+    return;
+  }
+  setCollectionFrozen(db, row.id, false);
   res.json({ success: true, collection: collectionSummary(row) });
 });
 

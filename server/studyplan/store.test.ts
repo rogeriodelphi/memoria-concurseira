@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { FROZEN_SCHEMA } from '../collections/frozen';
 import { countNewLearnedToday, getDailyNewLimit, localDayBounds, selectDueCards, setDailyNewLimit } from './store';
 
 // 14/10/2026, 15:00 no horário local do computador que roda o teste.
@@ -10,6 +11,7 @@ const at = (hour: number, dayOffset = 0) => new Date(2026, 9, 14 + dayOffset, ho
 
 function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
+  db.exec(FROZEN_SCHEMA);
   db.exec(`
     CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER, new_card_order TEXT NOT NULL DEFAULT 'created');
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL, subject TEXT NOT NULL DEFAULT '');

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronRight, Headphones, Info, Link2, ListChecks, Loader2, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 
+import { UnlinkedCollections } from '../components/exams/UnlinkedCollections';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useToast } from '../contexts/ToastContext';
 import { DRAFTS_CHANGED_EVENT } from '../hooks/usePendingDrafts';
@@ -303,6 +304,9 @@ export function ExamDetail() {
   if (!data) return <p className="text-sm text-neutral-400 dark:text-neutral-500">Carregando...</p>;
 
   const { exam, overall, disciplines, suggestions } = data;
+  const unlinkedCollections = data.unlinkedCollections ?? [];
+  const ignoredCollections = data.ignoredCollections ?? [];
+  const topicOptions = disciplines.flatMap((d) => d.topics.map((t) => ({ id: t.id, title: t.title, discipline: d.name })));
   const drafts = data.drafts ?? {};
   const totalDrafts = Object.values(drafts).reduce((n, v) => n + v, 0);
   const countdown = daysLeftLabel(exam.daysLeft);
@@ -686,11 +690,20 @@ export function ExamDetail() {
             nada é vinculado sem a sua confirmação.
           </p>
           <p>
+            <strong>Coleções ainda sem ligação</strong>: as suas coleções que não estão ligadas a nenhum tópico deste concurso. Os cartões
+            delas não entram no progresso, na Reta final nem na ordem pelo edital. Cada uma vem com os tópicos que combinam (ligar é um
+            clique), ou você escolhe o tópico, ou diz que ela não é deste concurso (ela sai da lista só aqui, e dá para mostrá-la de novo).
+          </p>
+          <p>
             <strong>Gerar cartões com IA</strong>: num tópico sem material, a IA escreve cerca de {CARDS_PER_TOPIC} cartões a partir do
             título dele e do concurso, do cargo e da banca, numa coleção nova já vinculada. Sem texto-fonte, podem ter imprecisões: por
             isso eles ficam em “Cartões da IA a conferir” e só entram na revisão depois que você os aprova (ou corrige).
           </p>
         </div>
+      )}
+
+      {topicOptions.length > 0 && (unlinkedCollections.length > 0 || ignoredCollections.length > 0) && (
+        <UnlinkedCollections examId={exam.id} unlinked={unlinkedCollections} ignored={ignoredCollections} topics={topicOptions} onChanged={load} />
       )}
 
       <div className="space-y-3">

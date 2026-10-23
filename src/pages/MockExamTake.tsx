@@ -10,6 +10,7 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  Strikethrough,
   Timer,
   Trophy,
   Undo2,
@@ -41,6 +42,7 @@ import {
   PREPARE_BATCH_SIZE,
   type BuiltQuestion,
 } from '../utils/mockExamChoices';
+import { crossSelected, NO_MARKS, selectOption, toggleCross, type ChoiceMarks } from '../utils/choiceMarks';
 import { shuffle } from '../utils/studyQueue';
 
 type Phase = 'intro' | 'preparing' | 'running' | 'finished';
@@ -83,7 +85,9 @@ export function MockExamTake() {
   const [runMode, setRunMode] = useState<AttemptMode>('self');
   const [run, setRun] = useState<RunState<RunCard> | null>(null);
   const [revealed, setRevealed] = useState(false);
+  /** A resposta CONFIRMADA (ou `DONT_KNOW`); antes disso o usuário só seleciona e tacha, em `marks`. */
   const [picked, setPicked] = useState<number | null>(null);
+  const [marks, setMarks] = useState<ChoiceMarks>(NO_MARKS);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [totalMs, setTotalMs] = useState(0);
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -155,6 +159,7 @@ export function MockExamTake() {
     setRun(startRun(cards));
     setRevealed(false);
     setPicked(null);
+    setMarks(NO_MARKS);
     setOpenWrong(new Set());
     setSaveState('idle');
     setElapsedMs(0);
@@ -253,6 +258,7 @@ export function MockExamTake() {
     setRun(next);
     setRevealed(false);
     setPicked(null);
+    setMarks(NO_MARKS);
     shownAtRef.current = Date.now();
     if (isFinished(next)) {
       const durationMs = Date.now() - startedAtRef.current;
@@ -262,10 +268,34 @@ export function MockExamTake() {
     }
   }
 
-  function pick(index: number) {
+  // Antes de responder o usuário só marca: seleciona a alternativa que acha certa e tacha as que descarta. A resposta só
+  // conta quando ele confirma (ou diz "não sei"); depois disso as marcas não mudam mais.
+  function select(index: number) {
+    if (picked !== null) return;
+    setMarks((m) => selectOption(m, index));
+  }
+
+  function cross(index: number) {
+    if (picked !== null) return;
+    setMarks((m) => toggleCross(m, index));
+  }
+
+  function crossCurrent() {
+    if (picked !== null) return;
+    setMarks((m) => crossSelected(m));
+  }
+
+  /** Confirma a alternativa selecionada: o tempo da resposta é o que levou até aqui, não o de ler o gabarito. */
+  function confirmPick() {
+    if (picked !== null || marks.selected === null) return;
+    pickedAfterMsRef.current = Date.now() - shownAtRef.current;
+    setPicked(marks.selected);
+  }
+
+  function dontKnow() {
     if (picked !== null) return;
     pickedAfterMsRef.current = Date.now() - shownAtRef.current;
-    setPicked(index);
+    setPicked(DONT_KNOW);
   }
 
   /** Segue para a próxima questão, registrando se a escolhida era a correta. */
@@ -280,6 +310,7 @@ export function MockExamTake() {
     setRun(undoAnswer(run));
     setRevealed(false);
     setPicked(null);
+    setMarks(NO_MARKS);
     shownAtRef.current = Date.now();
   }
 
@@ -308,8 +339,11 @@ export function MockExamTake() {
         ? {
             optionCount: shownCard.built.options.length,
             picked: picked !== null,
-            onPick: pick,
-            onDontKnow: () => pick(DONT_KNOW),
+            selected: marks.selected !== null,
+            onPick: select,
+            onCross: crossCurrent,
+            onConfirm: confirmPick,
+            onDontKnow: dontKnow,
             onNext: next,
           }
         : undefined,
@@ -713,8 +747,12 @@ export function MockExamTake() {
           card={card}
           built={built}
           picked={picked}
+          marks={marks}
           isLast={isLast}
-          onPick={pick}
+          onSelect={select}
+          onCross={cross}
+          onConfirm={confirmPick}
+          onDontKnow={dontKnow}
           onNext={next}
         />
       ) : (
@@ -783,9 +821,9 @@ export function MockExamTake() {
           {built ? (
             <>
               <kbd className={KEY_CLASS}>1</kbd>–<kbd className={KEY_CLASS}>{built.options.length}</kbd> ou{' '}
-              <kbd className={KEY_CLASS}>A</kbd>–<kbd className={KEY_CLASS}>{optionLetter(built.options.length - 1)}</kbd> escolhem ·{' '}
-              <kbd className={KEY_CLASS}>0</kbd> não sei · <kbd className={KEY_CLASS}>Enter</kbd> segue ·{' '}
-              <kbd className={KEY_CLASS}>←</kbd> volta
+              <kbd className={KEY_CLASS}>A</kbd>–<kbd className={KEY_CLASS}>{optionLetter(built.options.length - 1)}</kbd> selecionam ·{' '}
+              <kbd className={KEY_CLASS}>T</kbd> tacha · <kbd className={KEY_CLASS}>Enter</kbd> confirma e segue ·{' '}
+              <kbd className={KEY_CLASS}>0</kbd> não sei · <kbd className={KEY_CLASS}>←</kbd> volta
             </>
           ) : (
             <>
@@ -832,20 +870,33 @@ function ModeOption({
   );
 }
 
-/** Uma questão de múltipla escolha: as alternativas e, depois de responder, o gabarito e a resposta do cartão. */
+/**
+ * Uma questão de múltipla escolha: as alternativas e, depois de responder, o gabarito e a resposta do cartão. Antes de
+ * responder o usuário seleciona a alternativa que acha certa e tacha as que descarta (marcas só na tela); a resposta
+ * só vale quando ele confirma. "Não sei" responde na hora.
+ */
 function ChoiceQuestionView({
   card,
   built,
   picked,
+  marks,
   isLast,
-  onPick,
+  onSelect,
+  onCross,
+  onConfirm,
+  onDontKnow,
   onNext,
 }: {
   card: RunCard;
   built: BuiltQuestion;
+  /** A resposta confirmada (`DONT_KNOW` se desistiu); `null` enquanto não respondeu. */
   picked: number | null;
+  marks: ChoiceMarks;
   isLast: boolean;
-  onPick: (index: number) => void;
+  onSelect: (index: number) => void;
+  onCross: (index: number) => void;
+  onConfirm: () => void;
+  onDontKnow: () => void;
   onNext: () => void;
 }) {
   const answered = picked !== null;
@@ -865,24 +916,38 @@ function ChoiceQuestionView({
         />
       </div>
 
+      {!answered && (
+        <p className="mb-3 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+          Toque numa alternativa para selecionar e confirme. O ícone riscado elimina as que você descarta.
+        </p>
+      )}
+
       <ul className="space-y-2" role="list">
         {built.options.map((option, index) => {
           const isCorrect = index === built.correctIndex;
           const isPicked = index === picked;
+          const isSelected = !answered && index === marks.selected;
+          const isCrossed = !answered && marks.crossed.has(index);
+          const letter = optionLetter(index);
           let tone = 'border-neutral-200 hover:border-brand-400 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800/50';
           if (answered) {
             if (isCorrect) tone = 'border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-950/40';
             else if (isPicked) tone = 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-950/40';
             else tone = 'border-neutral-200 opacity-60 dark:border-neutral-700';
+          } else if (isSelected) {
+            tone = 'border-brand-500 bg-brand-50/70 ring-1 ring-brand-500 dark:border-brand-500 dark:bg-brand-950/30';
+          } else if (isCrossed) {
+            tone = 'border-neutral-200 bg-neutral-50/60 opacity-60 hover:opacity-100 dark:border-neutral-700 dark:bg-neutral-800/30';
           }
           return (
-            <li key={index}>
+            <li key={index} className="flex items-start gap-2">
               <button
                 type="button"
                 disabled={answered}
-                onClick={() => onPick(index)}
-                aria-label={`Alternativa ${optionLetter(index)}`}
-                className={`flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors disabled:cursor-default ${tone}`}
+                onClick={() => onSelect(index)}
+                aria-pressed={answered ? undefined : isSelected}
+                aria-label={`Alternativa ${letter}${isCrossed ? ' (tachada)' : ''}`}
+                className={`flex min-w-0 flex-1 items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors disabled:cursor-default ${tone}`}
               >
                 <span
                   className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
@@ -890,30 +955,60 @@ function ChoiceQuestionView({
                       ? 'bg-brand-600 text-white'
                       : answered && isPicked
                         ? 'bg-red-600 text-white'
-                        : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+                        : isSelected
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
                   }`}
                 >
-                  {answered && isCorrect ? <Check size={14} /> : answered && isPicked ? <X size={14} /> : optionLetter(index)}
+                  {answered && isCorrect ? <Check size={14} /> : answered && isPicked ? <X size={14} /> : letter}
                 </span>
-                <span className="min-w-0 flex-1 whitespace-pre-wrap text-neutral-800 dark:text-neutral-200">{option}</span>
+                <span
+                  className={`min-w-0 flex-1 whitespace-pre-wrap text-neutral-800 dark:text-neutral-200 ${
+                    isCrossed ? 'line-through decoration-2 decoration-neutral-500' : ''
+                  }`}
+                >
+                  {option}
+                </span>
               </button>
+              {!answered && (
+                <button
+                  type="button"
+                  onClick={() => onCross(index)}
+                  aria-pressed={isCrossed}
+                  aria-label={isCrossed ? `Destacar a alternativa ${letter}` : `Tachar a alternativa ${letter}`}
+                  title={isCrossed ? 'Destacar de novo' : 'Tachar: eliminar esta alternativa (tecla T, com ela selecionada)'}
+                  className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                    isCrossed
+                      ? 'border-neutral-300 bg-neutral-100 text-neutral-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200'
+                      : 'border-transparent text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+                  }`}
+                >
+                  <Strikethrough size={16} />
+                </button>
+              )}
             </li>
           );
         })}
       </ul>
 
       {!answered ? (
-        <button
-          type="button"
-          onClick={() => onPick(DONT_KNOW)}
-          className="mx-auto mt-4 flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm sm:py-1.5 font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-        >
-          <CircleHelp size={15} />
-          Não sei
-          <kbd className="hidden rounded border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 font-sans text-[11px] font-medium text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 sm:inline">
-            0
-          </kbd>
-        </button>
+        <div className="mt-4">
+          <button type="button" onClick={onConfirm} disabled={marks.selected === null} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50">
+            Confirmar resposta
+            <kbd className="ml-2 hidden rounded bg-white/20 px-1.5 py-0.5 font-sans text-xs font-medium sm:inline">Enter</kbd>
+          </button>
+          <button
+            type="button"
+            onClick={onDontKnow}
+            className="mx-auto mt-3 flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm sm:py-1.5 font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          >
+            <CircleHelp size={15} />
+            Não sei
+            <kbd className="hidden rounded border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 font-sans text-[11px] font-medium text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 sm:inline">
+              0
+            </kbd>
+          </button>
+        </div>
       ) : (
         <div className="mt-5">
           <p

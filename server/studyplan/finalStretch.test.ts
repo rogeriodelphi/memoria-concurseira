@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { FROZEN_SCHEMA, setCollectionFrozen } from '../collections/frozen';
 import {
   ACCURACY_PRIOR,
   computeFinalStretch,
+  coverageFactor,
   DEFAULT_FOCUS_NEW,
   FOCUS_TOP,
   loadFinalStretch,
@@ -202,6 +204,7 @@ const daysAgo = (n: number) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000)
 
 function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
+  db.exec(FROZEN_SCHEMA);
   db.exec(`
     CREATE TABLE users (id TEXT PRIMARY KEY, daily_new_limit INTEGER, new_card_order TEXT NOT NULL DEFAULT 'created');
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, subject TEXT NOT NULL DEFAULT '');
@@ -504,4 +507,76 @@ test('é só leitura: nenhuma tabela muda ao calcular a reta final nem ao montar
 
 test('as primeiras disciplinas do foco são no máximo 3', () => {
   assert.equal(FOCUS_TOP, 3);
+});
+
+// ---------- a cobertura do edital ----------
+
+test('coverageFactor: a fração dos tópicos com cartão; sem tópicos cadastrados nada é descontado', () => {
+  assert.equal(coverageFactor(10, 5), 0.5);
+  assert.equal(coverageFactor(10, 0), 0);
+  assert.equal(coverageFactor(10, 10), 1);
+  assert.equal(coverageFactor(10, 14), 1, 'nunca passa de 100%');
+  assert.equal(coverageFactor(0, 0), 1, 'edital sem tópicos');
+  assert.equal(coverageFactor(undefined, undefined), 1, 'dado ausente não desconta');
+  assert.equal(coverageFactor(10, undefined), 0);
+});
+
+test('prioridade: o domínio é descontado pela cobertura do edital, e a disciplina mal coberta sobe na ordem', () => {
+  // Mesmos cartões, todos vistos, mesmo acerto (sem revisões: 60%); só a cobertura difere.
+  const base = { cards: 12, newCards: 0, reviews: 0, hits: 0 };
+  const ranked = rankDisciplines([
+    stats({ id: 'inteira', points: 10, ...base, topics: 4, coveredTopics: 4 }),
+    stats({ id: 'metade', points: 10, ...base, topics: 4, coveredTopics: 2 }),
+    stats({ id: 'sem-edital', points: 10, ...base }),
+  ]);
+  const by = Object.fromEntries(ranked.map((d) => [d.id, d]));
+  assert.equal(by.inteira.masteryPct, 60, 'cobertura total: o domínio de sempre (100% visto × 60%)');
+  assert.equal(by.metade.masteryPct, 30, 'metade dos tópicos sem cartão: o domínio cai à metade');
+  assert.equal(by['sem-edital'].masteryPct, 60, 'sem tópicos cadastrados não há desconto');
+  assert.ok(by.metade.gainPct > by.inteira.gainPct, 'a mal coberta tem mais prova em aberto');
+  assert.equal(ranked[0].id, 'metade', 'e vem primeiro na ordem');
+  assert.deepEqual([by.metade.topics, by.metade.coveredTopics, by.metade.coveragePct], [4, 2, 50]);
+  assert.deepEqual([by['sem-edital'].topics, by['sem-edital'].coveredTopics, by['sem-edital'].coveragePct], [0, 0, null]);
+});
+
+test('prioridade: sem os campos da cobertura o resultado é o de antes (nada muda para quem não tem tópicos)', () => {
+  const ranked = rankDisciplines([stats({ id: 'A', points: 50, cards: 10, newCards: 0, reviews: 20, hits: 10 })]);
+  assert.equal(ranked[0].masteryPct, 52);
+  assert.equal(ranked[0].gainPct, 48);
+});
+
+test('cobertura com o banco: conta os tópicos com cartão por disciplina, e coleção congelada não cobre', () => {
+  const db = newDb();
+  seed(db);
+  const before = loadFinalStretch(db, 'u1', NOW);
+  const dSBefore = before.disciplines.find((d) => d.id === 'dS')!;
+  assert.deepEqual([dSBefore.topics, dSBefore.coveredTopics, dSBefore.coveragePct], [1, 1, 100]);
+  assert.deepEqual([before.topics, before.coveredTopics], [3, 2], 'Redes e Concordância têm cartão; Reading não');
+
+  // Um segundo tópico de Específicos, sem coleção ligada: a cobertura da disciplina cai a 50% e o domínio com ela.
+  db.exec("INSERT INTO exam_topics VALUES ('tS2', 'dS', 'Sistemas distribuídos', 1)");
+  const half = loadFinalStretch(db, 'u1', NOW);
+  const dS = half.disciplines.find((d) => d.id === 'dS')!;
+  assert.deepEqual([dS.topics, dS.coveredTopics, dS.coveragePct], [2, 1, 50]);
+  assert.ok(Math.abs(dS.masteryPct! - dSBefore.masteryPct! / 2) <= 1, `${dSBefore.masteryPct}% → ${dS.masteryPct}%`);
+  assert.ok(dS.gainPct > dSBefore.gainPct);
+  assert.deepEqual([half.topics, half.coveredTopics], [4, 2]);
+
+  // Congelar a coleção de Específicos: o único tópico com cartão deixa de ter, como o resto da reta final a trata.
+  setCollectionFrozen(db, 'cS', true);
+  const frozen = loadFinalStretch(db, 'u1', NOW);
+  assert.equal(frozen.disciplines.find((d) => d.id === 'dS')!.coveredTopics, 0);
+  assert.equal(frozen.coveredTopics, 1);
+});
+
+test('cobertura: tópico ligado a uma coleção vazia ou de outra conta não conta como coberto', () => {
+  const db = newDb();
+  seed(db);
+  db.exec(`
+    INSERT INTO collections (id, user_id, name, subject) VALUES ('cVazia', 'u1', 'Vazia', '');
+    INSERT INTO exam_topics VALUES ('tV', 'dI', 'Writing', 1), ('tX', 'dI', 'Listening', 2);
+    INSERT INTO exam_topic_collections VALUES ('tV', 'cVazia'), ('tX', 'cX');
+  `);
+  const dI = loadFinalStretch(db, 'u1', NOW).disciplines.find((d) => d.id === 'dI')!;
+  assert.deepEqual([dI.topics, dI.coveredTopics], [3, 0], 'sem cartão numa coleção vazia e com a coleção de outra conta, ninguém cobre');
 });

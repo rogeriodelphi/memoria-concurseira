@@ -174,8 +174,10 @@ test('simulado: as mesmas proteções do estudo (modificador, repetida, composi�
 
 // ---------- múltipla escolha ----------
 
-const PICKING: ChoiceShortcutContext = { optionCount: 5, picked: false, canGoBack: true, keyboardNavigation: false };
-const PICKED: ChoiceShortcutContext = { ...PICKING, picked: true };
+const PICKING: ChoiceShortcutContext = { optionCount: 5, picked: false, selected: false, canGoBack: true, keyboardNavigation: false };
+/** Uma alternativa selecionada, esperando a confirmação. */
+const SELECTED: ChoiceShortcutContext = { ...PICKING, selected: true };
+const PICKED: ChoiceShortcutContext = { ...PICKING, picked: true, selected: true };
 
 function choicePress(
   key: string,
@@ -189,7 +191,7 @@ function choicePress(
   );
 }
 
-test('múltipla escolha: 1 a 5 e A a E escolhem a alternativa; 0 é "não sei"', () => {
+test('múltipla escolha: 1 a 5 e A a E selecionam a alternativa; 0 é "não sei"', () => {
   for (let i = 0; i < 5; i++) {
     assert.deepEqual(choicePress(String(i + 1)), { type: 'pick', index: i });
     assert.deepEqual(choicePress('abcde'[i]), { type: 'pick', index: i });
@@ -212,9 +214,29 @@ test('múltipla escolha: depois de responder, as alternativas não mudam e Enter
   assert.equal(choicePress('Enter', PICKING), null, 'Enter não responde por você');
 });
 
+test('múltipla escolha: Enter confirma a alternativa selecionada, e só com seleção', () => {
+  assert.deepEqual(choicePress('Enter', SELECTED), { type: 'confirm' });
+  assert.equal(choicePress('Enter', PICKING), null, 'sem seleção, Enter não responde');
+  assert.deepEqual(choicePress('Enter', PICKED), { type: 'next' }, 'depois de confirmar, Enter segue');
+  // Trocar de ideia antes de confirmar é só selecionar outra; 0 continua respondendo "não sei" na hora.
+  assert.deepEqual(choicePress('c', SELECTED), { type: 'pick', index: 2 });
+  assert.deepEqual(choicePress('0', SELECTED), { type: 'dontknow' });
+});
+
+test('múltipla escolha: T tacha a alternativa selecionada, e sem seleção não faz nada', () => {
+  assert.deepEqual(choicePress('t', SELECTED), { type: 'cross' });
+  assert.deepEqual(choicePress('T', SELECTED), { type: 'cross' }, 'Caps Lock ligado');
+  assert.equal(choicePress('t', PICKING), null);
+  assert.equal(choicePress('t', PICKED), null, 'depois de responder, nada muda');
+  assert.equal(choicePress('t', SELECTED, {}, { tagName: 'INPUT' }), null);
+});
+
 test('múltipla escolha: Enter num botão focado por Tab é "clicar" nele; focado pelo mouse, segue', () => {
   const tabbed: ChoiceShortcutContext = { ...PICKED, keyboardNavigation: true };
   assert.equal(choicePress('Enter', tabbed, {}, { tagName: 'BUTTON' }), null);
+  const tabbedSelected: ChoiceShortcutContext = { ...SELECTED, keyboardNavigation: true };
+  assert.equal(choicePress('Enter', tabbedSelected, {}, { tagName: 'BUTTON' }), null, 'num botão focado por Tab, Enter é clicar nele, não confirmar');
+  assert.deepEqual(choicePress('Enter', SELECTED, {}, { tagName: 'BUTTON' }), { type: 'confirm' }, 'botão focado pelo mouse: Enter confirma');
   assert.deepEqual(choicePress('Enter', PICKED, {}, { tagName: 'BUTTON' }), { type: 'next' });
   assert.deepEqual(choicePress('Enter', tabbed, {}, BODY), { type: 'next' });
 });
@@ -229,6 +251,7 @@ test('múltipla escolha: as mesmas proteções (modificador, repetida, composiç
   for (const modifier of ['ctrlKey', 'altKey', 'metaKey', 'shiftKey'] as const) {
     assert.equal(choicePress('1', PICKING, { [modifier]: true }), null, modifier);
     assert.equal(choicePress('Enter', PICKED, { [modifier]: true }), null, modifier);
+    assert.equal(choicePress('Enter', SELECTED, { [modifier]: true }), null, modifier);
   }
   assert.equal(choicePress('1', PICKING, { repeat: true }), null);
   assert.equal(choicePress('Enter', PICKED, { isComposing: true }), null);

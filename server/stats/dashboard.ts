@@ -26,6 +26,8 @@ export interface DashboardCard {
   dueAt: string | null;
   repetitions: number;
   intervalDays: number;
+  /** Cartão de coleção congelada: conta como maduro, mas não como novo, vencido nem de amanhã. */
+  frozen?: boolean;
 }
 
 export interface DashboardData {
@@ -267,6 +269,7 @@ export function buildDashboard(
   let matureCards = 0;
   for (const card of cards) {
     if (card.intervalDays >= MATURE_INTERVAL_DAYS) matureCards++;
+    if (card.frozen) continue;
     if (card.dueAt === null) {
       newCount++;
       continue;

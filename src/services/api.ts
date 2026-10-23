@@ -39,6 +39,7 @@ import type {
   SearchResults,
   PerformanceData,
   PerformanceQuery,
+  ReviewDebt,
   StatsData,
   StudyTimeData,
   StudyResult,
@@ -126,6 +127,9 @@ export const collectionsApi = {
     }),
   remove: (id: string) => request<{ success: true }>(`/collections/${id}`, { method: 'DELETE' }),
   stats: (id: string) => request<CollectionStats>(`/collections/${id}/stats`),
+  /** Congela a coleção: sai das revisões automáticas, sem mexer nos cartões. */
+  freeze: (id: string) => request<{ collection: CollectionSummary }>(`/collections/${id}/freeze`, { method: 'PUT' }),
+  unfreeze: (id: string) => request<{ collection: CollectionSummary }>(`/collections/${id}/freeze`, { method: 'DELETE' }),
 };
 
 type GenerationResult = { document: DocumentItem; flashcards: Flashcard[] };
@@ -205,6 +209,8 @@ export const flashcardsApi = {
     request<{ flashcards: DueFlashcard[]; waitingNew: number }>(
       `/flashcards/due?collectionIds=${encodeURIComponent(collectionIds.join(','))}`,
     ),
+  // Os atrasados há mais tempo (venceram antes de hoje), no máximo um lote: a sessão "Pôr em dia". Nenhum cartão novo entra.
+  overdue: () => request<{ flashcards: DueFlashcard[] }>('/flashcards/overdue'),
   // Os cartões que o usuário errou (Errei ou Difícil) nas coleções, num período (AAAA-MM-DD, os dois inclusive), vencidos ou não.
   missed: (collectionIds: string[], from: string, to: string) =>
     request<{ flashcards: DueFlashcard[] }>(
@@ -302,6 +308,11 @@ export const examsApi = {
     request<DisciplineMockExam>(`/exams/${examId}/disciplines/${disciplineId}/mock-exam`, { method: 'POST' }),
   addLinks: (examId: string, links: { topicId: string; collectionIds: string[] }[]) =>
     request<{ added: number }>(`/exams/${examId}/links`, { method: 'POST', body: JSON.stringify({ links }) }),
+  // "Esta coleção não é deste concurso": ela sai da lista de coleções soltas dele (e volta com o desfazer).
+  ignoreCollection: (examId: string, collectionId: string) =>
+    request<{ success: true }>(`/exams/${examId}/ignored-collections/${collectionId}`, { method: 'PUT' }),
+  unignoreCollection: (examId: string, collectionId: string) =>
+    request<{ success: true }>(`/exams/${examId}/ignored-collections/${collectionId}`, { method: 'DELETE' }),
   // Pede à IA os cartões de um tópico sem material: cria uma coleção nova, já ligada ao tópico.
   generateTopicCards: (examId: string, topicId: string, quantity?: number) =>
     request<{ collection: { id: string; name: string; subject: string }; added: number }>(
@@ -329,6 +340,8 @@ function performanceParams(q: PerformanceQuery): string {
 export const statsApi = {
   get: () => request<StatsData>('/stats'),
   dashboard: () => request<DashboardData>('/stats/dashboard'),
+  // A dívida de revisão: os cartões já estudados que venceram antes de hoje e o ritmo da última semana. Só leitura.
+  reviewDebt: () => request<ReviewDebt>('/stats/review-debt'),
   // "Meu desempenho": o estudado num período por nome de coleção e por assunto, com filtros.
   performance: (q: PerformanceQuery) => request<PerformanceData>(`/stats/performance?${performanceParams(q)}`),
   // O tempo de estudo (Pomodoro e cartões) do mesmo período e filtros, por nome e por disciplina do edital.

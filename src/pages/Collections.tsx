@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Snowflake,
   Star,
   Trash2,
   Upload,
@@ -30,6 +31,7 @@ import {
   saveExpandedGroups,
   type CollectionEntry,
 } from '../utils/collectionGroups';
+import { collectionLabel, freezeMessage, frozenBadgeText, unfreezeMessage } from '../utils/frozen';
 
 function stripHtml(value: string, format: string): string {
   return format === 'html' ? value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : value;
@@ -59,6 +61,7 @@ export function Collections() {
   const [saving, setSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [freezingId, setFreezingId] = useState<string | null>(null);
 
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[] | null>(null);
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
@@ -236,6 +239,22 @@ export function Collections() {
     }
   }
 
+  /** Congela (ou descongela) a coleção: ela sai das revisões automáticas, sem mexer nos cartões. */
+  async function toggleFreeze(c: CollectionSummary) {
+    setFreezingId(c.id);
+    try {
+      const { collection } = c.frozen ? await collectionsApi.unfreeze(c.id) : await collectionsApi.freeze(c.id);
+      setCollections((prev) => prev?.map((item) => (item.id === c.id ? collection : item)) ?? prev);
+      showToast(c.frozen ? unfreezeMessage(collectionLabel(c), collection.dueCount) : freezeMessage(collectionLabel(c)));
+      // O aviso de "meta de hoje" vem do Painel: recarregar para acompanhar a mudança.
+      statsApi.dashboard().then(setPlan).catch(() => {});
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Não foi possível mudar o congelamento da coleção.', 'error');
+    } finally {
+      setFreezingId(null);
+    }
+  }
+
   const pencilClass =
     'shrink-0 p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300';
 
@@ -344,6 +363,31 @@ export function Collections() {
     </span>
   );
 
+  /** O selo (e o botão) da coleção congelada. */
+  const frozenBadge = (waiting: number, extra = '') => (
+    <span
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 ${extra}`}
+      title="Fora das revisões automáticas; os cartões ficam como estão"
+    >
+      <Snowflake size={12} className="shrink-0" />
+      {frozenBadgeText(waiting)}
+    </span>
+  );
+
+  const freezeButton = (c: CollectionSummary) => (
+    <button
+      type="button"
+      onClick={() => void toggleFreeze(c)}
+      disabled={freezingId === c.id}
+      className="rounded p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-sky-600 disabled:opacity-50 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-sky-300"
+      title={c.frozen ? 'Descongelar: volta para as revisões' : 'Congelar: sai das revisões, sem mexer nos cartões'}
+      aria-label={c.frozen ? `Descongelar ${collectionLabel(c)}` : `Congelar ${collectionLabel(c)}`}
+      aria-pressed={c.frozen}
+    >
+      <Snowflake size={16} className={c.frozen ? 'text-sky-600 dark:text-sky-300' : ''} />
+    </button>
+  );
+
   /** A revisão dos pendentes de todas as coleções da disciplina (só as que têm algo pendente vão no endereço). */
   const studyHref = (group: GroupEntry) =>
     `/disciplina/estudar?ids=${group.items
@@ -364,7 +408,7 @@ export function Collections() {
         <td className="px-6 py-4 text-neutral-600 dark:text-neutral-300">
           <div className="flex items-center gap-2">
             <span>{c.flashcardCount}</span>
-            {c.dueCount > 0 && dueBadge(c.dueCount)}
+            {c.frozen ? frozenBadge(c.frozenDueCount) : c.dueCount > 0 && dueBadge(c.dueCount)}
           </div>
         </td>
         <td className="px-6 py-4">
@@ -374,9 +418,12 @@ export function Collections() {
           {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
         </td>
         <td className="px-6 py-4 text-right">
-          <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
-            Abrir
-          </Link>
+          <div className="flex items-center justify-end gap-2">
+            {freezeButton(c)}
+            <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
+              Abrir
+            </Link>
+          </div>
         </td>
       </tr>
     );
@@ -444,14 +491,17 @@ export function Collections() {
           </span>
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-          <span className="flex items-center gap-1.5">
+          <span className="flex flex-wrap items-center gap-1.5">
             {c.flashcardCount} flashcard{c.flashcardCount === 1 ? '' : 's'} ·{' '}
             {new Date(c.updatedAt).toLocaleDateString('pt-BR')}
-            {c.dueCount > 0 && dueBadge(c.dueCount)}
+            {c.frozen ? frozenBadge(c.frozenDueCount) : c.dueCount > 0 && dueBadge(c.dueCount)}
           </span>
-          <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
-            Abrir
-          </Link>
+          <span className="flex shrink-0 items-center gap-2">
+            {freezeButton(c)}
+            <Link to={`/colecoes/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
+              Abrir
+            </Link>
+          </span>
         </div>
       </div>
     );

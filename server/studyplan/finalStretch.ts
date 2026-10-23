@@ -4,14 +4,18 @@
  * próxima (o mesmo que a "Meta para a prova" e a ordem pelo edital usam):
  *
  *  1. a PRIORIDADE de cada disciplina: quanto da prova ainda está em aberto nela, ou seja, o peso na prova vezes o
- *     que falta dominar. Dominar = quanto dos cartões já foi visto × o acerto dos últimos 30 dias;
+ *     que falta dominar. Dominar = quanto dos cartões já foi visto × o acerto dos últimos 30 dias × a cobertura do edital
+ *     (a fração dos tópicos da disciplina que têm ao menos um cartão: ver tudo o que existe não é dominar a disciplina se
+ *     metade dos tópicos dela não tem cartão nenhum);
  *  2. a FILA DO FOCO: os cartões vencidos e, enquanto falta mais de uma semana, alguns novos, repartidos entre as
  *     disciplinas na proporção dessa prioridade, e não do peso puro.
  *
- * É uma estimativa para decidir onde gastar o tempo, não uma previsão de nota.
+ * É uma estimativa para decidir onde gastar o tempo, não uma previsão de nota. Coleções congeladas são tratadas como se
+ * não existissem aqui (cartões, revisões e fila): congelar é dizer que elas não entram nas revisões agora.
  */
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import { mapFlashcard } from '../mappers';
 import { FINAL_REVIEW_DAYS, LAST_DAYS } from './examPlan';
 import { newCardsForToday } from './limit';
@@ -70,6 +74,12 @@ export interface DisciplineStats {
   /** Revisões dos últimos 30 dias e quantas foram "Bom" ou "Fácil". */
   reviews: number;
   hits: number;
+  /**
+   * Os tópicos da disciplina no edital e quantos têm ao menos um cartão (em coleção não congelada). Omitidos, ou com
+   * `topics` 0 (edital sem tópicos cadastrados), a cobertura não entra na conta: não há como saber o que falta.
+   */
+  topics?: number;
+  coveredTopics?: number;
 }
 
 export interface RankedDiscipline {
@@ -85,8 +95,13 @@ export interface RankedDiscipline {
   /** O acerto dos últimos 30 dias (Bom ou Fácil). `null` sem revisões no período. */
   accuracyPct: number | null;
   reviews30: number;
-  /** Quanto já está dominado: o visto vezes o acerto (suavizado), em %. `null` sem cartões. */
+  /** Quanto já está dominado: o visto vezes o acerto (suavizado) vezes a cobertura do edital, em %. `null` sem cartões. */
   masteryPct: number | null;
+  /** Os tópicos da disciplina no edital e quantos têm ao menos um cartão (0 e 0 sem tópicos cadastrados). */
+  topics: number;
+  coveredTopics: number;
+  /** Os tópicos com cartão em % dos tópicos da disciplina; `null` sem tópicos cadastrados. */
+  coveragePct: number | null;
   /** Quanto da prova ainda está em aberto nesta disciplina (peso × o que falta dominar), em % da prova. */
   gainPct: number;
   /** A posição entre as que têm cartões (1 = a mais urgente); `null` se não tem cartões. */
@@ -94,11 +109,20 @@ export interface RankedDiscipline {
   hasCards: boolean;
 }
 
+/** A fração (0 a 1) dos tópicos com cartão; 1 quando a disciplina não tem tópicos cadastrados (nada a descontar). */
+export function coverageFactor(topics: number | undefined, coveredTopics: number | undefined): number {
+  if (!topics || topics <= 0) return 1;
+  return Math.min(Math.max((coveredTopics ?? 0) / topics, 0), 1);
+}
+
 /**
  * Ordena as disciplinas da mais urgente à menos: a que tem mais "pontos em aberto" (`gain = fatia da prova ×
  * (1 − domínio)`) vem primeiro; empate, a de mais pontos, e depois a ordem da prova. Disciplina sem nenhum cartão
  * vai para o fim e não recebe posição: não há o que revisar nela (o domínio dela é zero e a fatia inteira está em
  * aberto, mas o remédio é ligar coleções ao tópico, não revisar).
+ *
+ * O domínio é o visto × o acerto × a cobertura do edital: sem a cobertura, uma disciplina com 12 cartões todos vistos
+ * pareceria dominada mesmo com metade dos tópicos dela sem material.
  */
 export function rankDisciplines(inputs: DisciplineStats[]): RankedDiscipline[] {
   const total = inputs.reduce((sum, d) => sum + d.points, 0);
@@ -106,7 +130,7 @@ export function rankDisciplines(inputs: DisciplineStats[]): RankedDiscipline[] {
     const share = total > 0 ? d.points / total : 0;
     const hasCards = d.cards > 0;
     const seen = hasCards ? (d.cards - d.newCards) / d.cards : 0;
-    const mastery = hasCards ? seen * smoothedAccuracy(d.hits, d.reviews) : 0;
+    const mastery = hasCards ? seen * smoothedAccuracy(d.hits, d.reviews) * coverageFactor(d.topics, d.coveredTopics) : 0;
     return { d, index, share, hasCards, seen, mastery, gain: share * (1 - mastery) };
   });
   const order = [...rows].sort(
@@ -125,6 +149,9 @@ export function rankDisciplines(inputs: DisciplineStats[]): RankedDiscipline[] {
     accuracyPct: r.d.reviews > 0 ? Math.round((r.d.hits / r.d.reviews) * 100) : null,
     reviews30: r.d.reviews,
     masteryPct: r.hasCards ? Math.round(r.mastery * 100) : null,
+    topics: r.d.topics ?? 0,
+    coveredTopics: r.d.topics ? Math.min(r.d.coveredTopics ?? 0, r.d.topics) : 0,
+    coveragePct: r.d.topics ? Math.round(coverageFactor(r.d.topics, r.d.coveredTopics) * 100) : null,
     gainPct: Math.round(r.gain * 1000) / 10,
     rank: r.hasCards ? ++rank : null,
     hasCards: r.hasCards,
@@ -205,6 +232,11 @@ export interface FinalStretch {
   focus: string[];
   /** A fatia da prova (em %) das disciplinas que não têm nenhum cartão. */
   uncoveredSharePct: number;
+  /** Quantas coleções ligadas a este edital estão congeladas (ficam de fora da prioridade e da fila). */
+  frozenCollections: number;
+  /** Os tópicos do edital (todas as disciplinas) e quantos têm ao menos um cartão: a cobertura que entra no domínio. */
+  topics: number;
+  coveredTopics: number;
   queue: FocusQueueSummary;
 }
 
@@ -238,7 +270,7 @@ export function computeFinalStretch(
 ): { overview: FinalStretch; dueIds: string[]; newIds: string[] } {
   const context = loadExamOrderContext(db, userId, now, chooseExam(db, userId, examId, now));
   if (!context) {
-    return { overview: { exam: null, phase: null, disciplines: [], focus: [], uncoveredSharePct: 0, queue: EMPTY_QUEUE }, dueIds: [], newIds: [] };
+    return { overview: { exam: null, phase: null, disciplines: [], focus: [], uncoveredSharePct: 0, frozenCollections: 0, topics: 0, coveredTopics: 0, queue: EMPTY_QUEUE }, dueIds: [], newIds: [] };
   }
   const nowIso = now.toISOString();
   const since = new Date(now.getTime() - STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -249,7 +281,7 @@ export function computeFinalStretch(
               SUM(CASE WHEN f.due_at IS NULL THEN 1 ELSE 0 END) AS new_cards,
               SUM(CASE WHEN f.due_at IS NOT NULL AND f.due_at <= ? THEN 1 ELSE 0 END) AS due_cards
        FROM flashcards f JOIN collections c ON c.id = f.collection_id
-       WHERE c.user_id = ? GROUP BY f.collection_id`,
+       WHERE c.user_id = ? AND ${notFrozen('c.id')} GROUP BY f.collection_id`,
     )
     .all(nowIso, userId) as unknown as { collection_id: string; cards: number; new_cards: number; due_cards: number }[];
   const reviewStats = db
@@ -259,13 +291,44 @@ export function computeFinalStretch(
        FROM study_sessions s
        JOIN flashcards f ON f.id = s.flashcard_id
        JOIN collections c ON c.id = f.collection_id
-       WHERE s.user_id = ? AND c.user_id = ? AND s.studied_at >= ? AND s.studied_at <= ?
+       WHERE s.user_id = ? AND c.user_id = ? AND s.studied_at >= ? AND s.studied_at <= ? AND ${notFrozen('c.id')}
        GROUP BY f.collection_id`,
     )
     .all(userId, userId, since, nowIso) as unknown as { collection_id: string; reviews: number; hits: number }[];
 
+  // A cobertura do edital: de cada disciplina, quantos tópicos têm ao menos um cartão (numa coleção do usuário que não
+  // esteja congelada, a mesma regra do resto da reta final).
+  const topicRows = db
+    .prepare(
+      `SELECT t.discipline_id AS discipline_id, COUNT(*) AS topics,
+              COALESCE(SUM(CASE WHEN EXISTS (
+                SELECT 1 FROM exam_topic_collections l
+                JOIN collections c ON c.id = l.collection_id
+                JOIN flashcards f ON f.collection_id = c.id
+                WHERE l.topic_id = t.id AND c.user_id = ? AND ${notFrozen('c.id')}
+              ) THEN 1 ELSE 0 END), 0) AS covered
+       FROM exam_topics t JOIN exam_disciplines d ON d.id = t.discipline_id
+       WHERE d.exam_id = ? GROUP BY t.discipline_id`,
+    )
+    .all(userId, context.exam.id) as unknown as { discipline_id: string; topics: number; covered: number }[];
+  const coverage = new Map(topicRows.map((r) => [r.discipline_id, r]));
+
   const byDiscipline = new Map<string, DisciplineStats>(
-    context.disciplines.map((d) => [d.id, { id: d.id, name: d.name, points: d.points, cards: 0, newCards: 0, dueCards: 0, reviews: 0, hits: 0 }]),
+    context.disciplines.map((d) => [
+      d.id,
+      {
+        id: d.id,
+        name: d.name,
+        points: d.points,
+        cards: 0,
+        newCards: 0,
+        dueCards: 0,
+        reviews: 0,
+        hits: 0,
+        topics: coverage.get(d.id)?.topics ?? 0,
+        coveredTopics: coverage.get(d.id)?.covered ?? 0,
+      },
+    ]),
   );
   let outsideDue = 0;
   let outsideNew = 0;
@@ -301,7 +364,7 @@ export function computeFinalStretch(
     db
       .prepare(
         `SELECT f.id AS id, f.collection_id AS collection_id FROM flashcards f JOIN collections c ON c.id = f.collection_id
-         WHERE c.user_id = ? AND f.due_at IS NOT NULL AND f.due_at <= ? ORDER BY f.due_at ASC, f.rowid ASC`,
+         WHERE c.user_id = ? AND f.due_at IS NOT NULL AND f.due_at <= ? AND ${notFrozen('c.id')} ORDER BY f.due_at ASC, f.rowid ASC`,
       )
       .all(userId, nowIso) as unknown as CardIdRow[],
   );
@@ -309,7 +372,7 @@ export function computeFinalStretch(
     db
       .prepare(
         `SELECT f.id AS id, f.collection_id AS collection_id FROM flashcards f JOIN collections c ON c.id = f.collection_id
-         WHERE c.user_id = ? AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC`,
+         WHERE c.user_id = ? AND f.due_at IS NULL AND ${notFrozen('c.id')} ORDER BY f.created_at ASC, f.rowid ASC`,
       )
       .all(userId) as unknown as CardIdRow[],
   );
@@ -329,6 +392,11 @@ export function computeFinalStretch(
 
   const withCards = disciplines.filter((d) => d.hasCards);
   const uncoveredSharePct = disciplines.filter((d) => !d.hasCards).reduce((sum, d) => sum + d.sharePct, 0);
+  const linked = [...context.collectionGroup.keys()];
+  const frozenCollections =
+    linked.length === 0
+      ? 0
+      : (db.prepare(`SELECT COUNT(*) AS n FROM frozen_collections WHERE collection_id IN (${linked.map(() => '?').join(', ')})`).get(...linked) as unknown as { n: number }).n;
   return {
     overview: {
       exam: context.exam,
@@ -336,6 +404,9 @@ export function computeFinalStretch(
       disciplines,
       focus: withCards.slice(0, FOCUS_TOP).map((d) => d.id),
       uncoveredSharePct,
+      frozenCollections,
+      topics: disciplines.reduce((sum, d) => sum + d.topics, 0),
+      coveredTopics: disciplines.reduce((sum, d) => sum + d.coveredTopics, 0),
       queue: {
         total: picked.due.length + picked.fresh.length,
         due: picked.due.length,

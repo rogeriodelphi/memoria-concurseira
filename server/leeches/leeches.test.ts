@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { FROZEN_SCHEMA } from '../collections/frozen';
 import { recordStudy } from '../flashcards/study';
 import type { StudyResult } from '../srs';
 import {
@@ -20,6 +21,7 @@ import { LEECH_SCHEMA } from './schema';
 
 function newDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
+  db.exec(FROZEN_SCHEMA);
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(`
     CREATE TABLE users (id TEXT PRIMARY KEY);

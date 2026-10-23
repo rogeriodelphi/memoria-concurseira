@@ -16,7 +16,13 @@ export interface CollectionSummary {
   description: string;
   category: string;
   flashcardCount: number;
+  /** Pendentes de revisão; 0 enquanto a coleção está congelada (ela não entra nas revisões nem nos totais). */
   dueCount: number;
+  /** Congelada: fora das revisões automáticas, com os cartões intactos. */
+  frozen: boolean;
+  frozenAt: string | null;
+  /** Só congelada: quantos cartões estariam pendentes (voltam à fila ao descongelar). */
+  frozenDueCount: number;
   favoriteCount: number;
   status: CollectionStatus;
   createdAt: string;
@@ -29,6 +35,7 @@ export interface CollectionDetail {
   subject: string;
   description: string;
   category: string;
+  frozenAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -384,6 +391,42 @@ export interface ExamCollectionSuggestion {
   strong: boolean;
 }
 
+/** Um tópico do edital sugerido para uma coleção que ainda não está ligada ao concurso. */
+export interface TopicLinkSuggestion {
+  topicId: string;
+  title: string;
+  discipline: string;
+  /** De 0,5 a 1. */
+  score: number;
+  /** Tão parecido que é praticamente o mesmo assunto. */
+  strong: boolean;
+  /** O tópico já tem outra coleção ligada (ainda pode receber esta). */
+  linked: boolean;
+}
+
+/** Uma coleção do usuário que não está ligada a nenhum tópico do concurso, com os tópicos que combinam com ela. */
+export interface UnlinkedCollection {
+  id: string;
+  name: string;
+  subject: string;
+  cards: number;
+  newCards: number;
+  dueCards: number;
+  suggestions: TopicLinkSuggestion[];
+  /** Quantos tópicos empatam no topo, quando são mais que o limite de sugestões (a coleção cobre a disciplina inteira). 0 se não há esse empate. */
+  tied: number;
+}
+
+/** Uma coleção marcada como "não é deste concurso". */
+export interface IgnoredCollection {
+  id: string;
+  name: string;
+  subject: string;
+  cards: number;
+  newCards: number;
+  dueCards: number;
+}
+
 export interface ExamDetail {
   exam: ExamHeader;
   disciplines: ExamDisciplineProgress[];
@@ -393,6 +436,9 @@ export interface ExamDetail {
   collections: { id: string; name: string; subject: string; cards: number }[];
   /** topicId -> quantos cartões da IA esperam conferência (só os tópicos que têm). */
   drafts: Record<string, number>;
+  /** As coleções que não estão ligadas a nenhum tópico deste concurso (menos as marcadas como "não é deste concurso"). */
+  unlinkedCollections: UnlinkedCollection[];
+  ignoredCollections: IgnoredCollection[];
 }
 
 // ---------- Cartões da IA a conferir ----------
@@ -693,6 +739,29 @@ export interface ExamOption {
   daysLeft: number | null;
 }
 
+/** A dívida de revisão (veja server/stats/reviewDebt.ts): os cartões já estudados que venceram antes de hoje e o ritmo da semana. */
+export interface ReviewDebt {
+  /** Os cartões estudados que venceram antes de hoje (não conta coleção congelada). */
+  overdue: number;
+  /** Quantos estão atrasados há 1 a 3 dias, 4 a 7, 8 a 14 e mais de 14. */
+  lateBy: { upTo3: number; upTo7: number; upTo14: number; over14: number };
+  /** Há quantos dias está atrasado o mais antigo; `null` sem atrasados. */
+  oldestDays: number | null;
+  /** A última semana: revisões feitas, quantas eram a primeira vez de um cartão e quantas de cartão já estudado. */
+  week: { days: number; reviews: number; newCards: number; oldCards: number };
+  /** Revisões de cartões já estudados por dia, em média na janela. */
+  oldPerDay: number;
+  /** O cartão novo em % das revisões da semana; `null` sem revisões. */
+  newSharePct: number | null;
+  /** Dias para zerar o atrasado no ritmo da semana (sem contar o que vence no meio-tempo); `null` sem revisões de cartões antigos. */
+  daysToClear: number | null;
+  level: 'ok' | 'attention' | 'high';
+  /** Quantos cartões a sessão "Pôr em dia" traz agora. */
+  batch: number;
+  /** O limite diário de cartões novos; `null` = sem limite. */
+  dailyNewLimit: number | null;
+}
+
 /** Em que fase está a preparação, pelos dias que faltam: mais de 7 (conteúdo), de 7 a 4 (só revisão) e 3 ou menos. */
 export type FinalStretchPhase = 'content' | 'review' | 'last';
 
@@ -709,8 +778,13 @@ export interface FinalStretchDiscipline {
   /** O acerto (Bom ou Fácil) dos últimos 30 dias, em %. `null` sem revisões no período. */
   accuracyPct: number | null;
   reviews30: number;
-  /** Quanto já está dominado: o visto vezes o acerto (suavizado), em %. `null` sem cartões. */
+  /** Quanto já está dominado: o visto vezes o acerto (suavizado) vezes a cobertura do edital, em %. `null` sem cartões. */
   masteryPct: number | null;
+  /** Os tópicos da disciplina no edital e quantos têm ao menos um cartão (0 e 0 sem tópicos cadastrados). */
+  topics: number;
+  coveredTopics: number;
+  /** Os tópicos com cartão em % dos tópicos da disciplina; `null` sem tópicos cadastrados. */
+  coveragePct: number | null;
   /** Quanto da prova ainda está em aberto nesta disciplina (peso × o que falta dominar), em % da prova. */
   gainPct: number;
   /** A posição entre as que têm cartões (1 = a mais urgente); `null` se não tem cartões. */
@@ -730,6 +804,11 @@ export interface FinalStretch {
   focus: string[];
   /** A fatia da prova (em %) das disciplinas sem nenhum cartão. */
   uncoveredSharePct: number;
+  /** Quantas coleções ligadas a este edital estão congeladas (ficam de fora da prioridade e da fila). */
+  frozenCollections: number;
+  /** Os tópicos do edital (todas as disciplinas) e quantos têm ao menos um cartão: a cobertura que entra no domínio. */
+  topics: number;
+  coveredTopics: number;
   queue: {
     total: number;
     due: number;

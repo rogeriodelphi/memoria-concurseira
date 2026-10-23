@@ -21,6 +21,7 @@ import {
   Plus,
   Repeat,
   Search,
+  Snowflake,
   Sparkles,
   Star,
   Target,
@@ -48,6 +49,7 @@ import { RichTextEditor } from '../components/RichTextEditor';
 import { AddToMockExamButton } from '../components/AddToMockExamButton';
 import { FormattedText } from '../components/FormattedText';
 import { toEditorHtml } from '../utils/flashcardEditor';
+import { collectionLabel, freezeMessage, frozenNotice, unfreezeMessage } from '../utils/frozen';
 import type {
   CollectionDetail as CollectionDetailType,
   CollectionStats,
@@ -166,6 +168,7 @@ export function CollectionDetail() {
   const [nameDraft, setNameDraft] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
   const [savingName, setSavingName] = useState(false);
+  const [togglingFreeze, setTogglingFreeze] = useState(false);
 
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -209,6 +212,23 @@ export function CollectionDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Congela (ou descongela) a coleção: ela sai das revisões automáticas, sem mexer nos cartões. */
+  async function handleToggleFreeze() {
+    if (!collection) return;
+    const wasFrozen = collection.frozenAt !== null;
+    const label = collectionLabel(collection);
+    setTogglingFreeze(true);
+    try {
+      const { collection: summary } = wasFrozen ? await collectionsApi.unfreeze(collection.id) : await collectionsApi.freeze(collection.id);
+      setCollection((prev) => (prev ? { ...prev, frozenAt: summary.frozenAt } : prev));
+      showToast(wasFrozen ? unfreezeMessage(label, summary.dueCount) : freezeMessage(label));
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Não foi possível mudar o congelamento da coleção.', 'error');
+    } finally {
+      setTogglingFreeze(false);
+    }
+  }
 
   async function handleRename() {
     if (!id) return;
@@ -693,6 +713,18 @@ export function CollectionDetail() {
             </Link>
           )}
           {flashcards.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleToggleFreeze()}
+              disabled={togglingFreeze}
+              className="btn-secondary"
+              title={collection.frozenAt ? 'Volta a coleção para as revisões' : 'Tira a coleção das revisões automáticas, sem mexer nos cartões'}
+            >
+              <Snowflake size={16} />
+              {collection.frozenAt ? 'Descongelar' : 'Congelar'}
+            </button>
+          )}
+          {flashcards.length > 0 && (
             <button onClick={handleExportPdf} disabled={exportingPdf} className="btn-secondary">
               <FileText size={16} />
               {exportingPdf ? 'Exportando...' : 'Exportar para PDF'}
@@ -728,6 +760,21 @@ export function CollectionDetail() {
         </div>
       </div>
 
+      {collection.frozenAt && (
+        <div
+          role="status"
+          className="mb-6 flex flex-col gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-sky-900 dark:bg-sky-950/30"
+        >
+          <p className="flex min-w-0 flex-1 items-start gap-2 text-sm text-sky-800 dark:text-sky-300">
+            <Snowflake size={16} className="mt-0.5 shrink-0" />
+            <span>{frozenNotice(collection.frozenAt)}</span>
+          </p>
+          <button type="button" onClick={() => void handleToggleFreeze()} disabled={togglingFreeze} className="btn-secondary shrink-0 self-start sm:self-auto">
+            Descongelar
+          </button>
+        </div>
+      )}
+
       {stats && stats.totals.flashcards > 0 && (
         <div className="card mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
           <div className="flex items-center gap-2 text-sm">
@@ -745,7 +792,7 @@ export function CollectionDetail() {
           <div className="flex items-center gap-2 text-sm">
             <Clock size={15} className="shrink-0 text-neutral-400 dark:text-neutral-500" />
             <span className="font-semibold text-neutral-900 dark:text-neutral-100">{stats.totals.dueCount}</span>
-            <span className="text-neutral-500 dark:text-neutral-400">pendentes</span>
+            <span className="text-neutral-500 dark:text-neutral-400">{collection.frozenAt ? 'pendentes (em espera)' : 'pendentes'}</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Star size={15} className="shrink-0 text-neutral-400 dark:text-neutral-500" />

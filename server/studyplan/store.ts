@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import type { FlashcardRow } from '../mappers';
 import { newCardsForToday, parseDailyNewLimit } from './limit';
 import { getNewCardOrder, pickNewCardIdsByExam } from './newOrder';
@@ -45,7 +46,7 @@ export function countNewLearnedToday(db: DatabaseSync, userId: string, now: Date
   return row.n;
 }
 
-const SELECT_CARDS = `SELECT f.*, c.name AS collection_name, c.subject AS collection_subject FROM flashcards f JOIN collections c ON c.id = f.collection_id`;
+export const SELECT_CARDS = `SELECT f.*, c.name AS collection_name, c.subject AS collection_subject FROM flashcards f JOIN collections c ON c.id = f.collection_id`;
 
 /**
  * Os `count` novos que entram hoje na ordem do edital (ver `pickByExamWeight`), ou `null` para o
@@ -78,7 +79,7 @@ export interface DueSelection {
  * A fila da revisão global: todos os cartões já estudados e vencidos, mais os novos — todos eles
  * sem limite diário, ou só quantos ainda cabem hoje. Os novos que entram são os mais antigos
  * (na ordem em que foram criados ou importados), para um lote de cartões ser estudado
- * por inteiro antes do seguinte.
+ * por inteiro antes do seguinte. Coleções congeladas ficam de fora (também de `waitingNew`).
  */
 export function selectDueCards(
   db: DatabaseSync,
@@ -97,7 +98,7 @@ export function selectDueCards(
     db
       .prepare(
         `SELECT COUNT(*) AS n FROM flashcards f JOIN collections c ON c.id = f.collection_id
-         WHERE c.user_id = ? ${scope} AND f.due_at IS NULL`,
+         WHERE c.user_id = ? ${scope} AND f.due_at IS NULL AND ${notFrozen('c.id')}`,
       )
       .get(userId, ...scopeArgs) as unknown as { n: number }
   ).n;
@@ -112,11 +113,11 @@ export function selectDueCards(
       : (byExam ? newCardsByExam(db, userId, now, allowed) : null) ??
         (db
           .prepare(
-            `${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NULL ORDER BY f.created_at ASC, f.rowid ASC LIMIT ?`,
+            `${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NULL AND ${notFrozen('c.id')} ORDER BY f.created_at ASC, f.rowid ASC LIMIT ?`,
           )
           .all(userId, ...scopeArgs, allowed) as unknown as DueRow[]);
   const dueCards = db
-    .prepare(`${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NOT NULL AND f.due_at <= ? ORDER BY f.due_at ASC`)
+    .prepare(`${SELECT_CARDS} WHERE c.user_id = ? ${scope} AND f.due_at IS NOT NULL AND f.due_at <= ? AND ${notFrozen('c.id')} ORDER BY f.due_at ASC`)
     .all(userId, ...scopeArgs, now.toISOString()) as unknown as DueRow[];
 
   return { cards: [...newCards, ...dueCards], waitingNew: totalNew - newCards.length };

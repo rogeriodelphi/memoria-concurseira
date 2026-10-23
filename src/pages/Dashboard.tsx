@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Headphones, Info, Play } from 'lucide-react';
 
 import { ExamPlanCard } from '../components/ExamPlanCard';
+import { ReviewDebtCard } from '../components/ReviewDebtCard';
 import { statsApi } from '../services/api';
 import type { DashboardData } from '../types';
 
@@ -369,6 +370,7 @@ export function Dashboard() {
       </div>
 
       <ExamPlanCard onLimitChanged={reloadDashboard} />
+      <ReviewDebtCard />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!data && !error && <p className="text-sm text-neutral-400 dark:text-neutral-500">Carregando...</p>}

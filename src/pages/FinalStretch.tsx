@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Flag, Loader2, PlayCircle } from 'lucide-react';
+import { AlertTriangle, Flag, Loader2, PlayCircle, Snowflake } from 'lucide-react';
 
 import { ExamPicker, useFocusExam } from '../components/ExamPicker';
 import { studyPlanApi } from '../services/api';
 import type { FinalStretch, FinalStretchDiscipline } from '../types';
 import { formatExamDate } from '../utils/exam';
-import { disciplineFacts, gainText, masteryTone, phaseInfo, queueHeadline, queueNotes, remainingText, type MasteryTone, type Tone } from '../utils/finalStretch';
+import { retaFrozenNote } from '../utils/frozen';
+import { coverageNote, disciplineFacts, gainText, masteryTone, phaseInfo, queueHeadline, queueNotes, remainingText, type MasteryTone, type Tone } from '../utils/finalStretch';
 import { plural } from '../utils/performance';
 
 const PHASE_CLASS: Record<Tone, string> = {
@@ -192,12 +193,33 @@ export function FinalStretchPage() {
               Da disciplina mais urgente à menos. As {data.focus.length === 1 ? 'primeira' : `${data.focus.length} primeiras`} são o foco.
             </p>
 
+            {coverageNote(data.topics, data.coveredTopics) && (
+              <p className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  {coverageNote(data.topics, data.coveredTopics)}{' '}
+                  <Link to={`/concursos/${exam.id}`} className="font-medium underline">
+                    Veja os tópicos sem material
+                  </Link>{' '}
+                  (lá a IA pode gerar os cartões, que você confere antes de estudar).
+                </span>
+              </p>
+            )}
+
+            {data.frozenCollections > 0 && (
+              <p className="mb-4 flex items-start gap-2 rounded-lg bg-sky-50 p-3 text-xs text-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+                <Snowflake size={14} className="mt-0.5 shrink-0" />
+                <span>{retaFrozenNote(data.frozenCollections)}</span>
+              </p>
+            )}
+
             {data.uncoveredSharePct > 0 && (
               <p className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 <span>
-                  Cerca de {data.uncoveredSharePct}% da prova está em disciplinas sem nenhum cartão: o app não tem o que revisar nelas. Vale criar ou ligar cartões a
-                  essas disciplinas.
+                  Cerca de {data.uncoveredSharePct}% da prova está em disciplinas sem nenhum cartão
+                  {data.frozenCollections > 0 && ' (ou só com coleções congeladas)'}: o app não tem o que revisar nelas. Vale criar ou ligar cartões a essas
+                  disciplinas.
                 </span>
               </p>
             )}
@@ -215,8 +237,8 @@ export function FinalStretchPage() {
 
           <p className="text-[11px] leading-relaxed text-neutral-400 dark:text-neutral-500">
             Como é calculado: a parte da prova ainda em aberto numa disciplina é o peso dela (questões × peso no edital) vezes o que falta dominar. O domínio é
-            quanto dos cartões você já viu × o seu acerto (Bom ou Fácil) nos últimos 30 dias; com poucas revisões o acerto é puxado para 60%, para um punhado de
-            revisões não decidir sozinho. É uma estimativa para escolher onde gastar o tempo, não uma previsão de nota. A carga de cada dia até a prova está na
+            quanto dos cartões você já viu × o seu acerto (Bom ou Fácil) nos últimos 30 dias × a fração dos tópicos do edital que têm cartão (sem tópicos
+            cadastrados, essa parte não entra); com poucas revisões o acerto é puxado para 60%, para um punhado de revisões não decidir sozinho. É uma estimativa para escolher onde gastar o tempo, não uma previsão de nota. A carga de cada dia até a prova está na
             "Meta para a prova", no Painel.
           </p>
         </>
