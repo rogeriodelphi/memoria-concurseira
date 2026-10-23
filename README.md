@@ -591,6 +591,34 @@ tópicos"):
 - Ligar só acrescenta (nunca remove vínculos) e nada é ligado sem o seu clique. Os mesmos cartões podem servir a mais de um
   concurso: ligar a coleção ao outro edital não tira do primeiro.
 
+## Cronograma até a prova
+
+A tela **Cronograma** (`/cronograma`, no menu lateral e com o atalho "Cronograma →" no cartão "Meta para a prova" do Painel)
+monta, do concurso escolhido, o **dia a dia até a prova**: quais tópicos do edital estudar em cada dia. A "Meta para a prova" diz
+quantos *cartões* por dia; o cronograma diz *o que estudar*.
+
+- **Suas escolhas** ("Seu tempo", por concurso): quantos **minutos por dia** você tem para estudar tópicos (de 10 a 480, fora a
+  revisão dos cartões), quantos minutos leva **um tópico** (de 10 a 120, e não mais que o tempo do dia) e em que **dias da semana**
+  você estuda. Os padrão são 40 min por dia, 30 por tópico e todos os dias. O tempo do dia vira tópicos inteiros e a sobra vai
+  para o dia seguinte (40 e 30 dão 1, 1, 2, 1, 1, 2..., em média 1,3 tópico por dia).
+- **A ordem:** cada disciplina entra **na proporção do peso dela na prova** (questões × peso no edital, a mesma escolha por cota da
+  "ordem dos cartões novos pelo edital"), e dentro dela vale a **ordem do edital**. Assim a disciplina que vale mais recebe mais
+  tópicos, e as pequenas (Inglês, Português) não ficam para o fim.
+- **Os últimos dias são só de revisão** (7, ou um terço do que falta se faltar pouco, a mesma conta da "Meta para a prova"):
+  nenhum tópico novo, e o plano aponta a Reta final. Os dias da semana em que você não estuda aparecem como descanso.
+- **Marcar como estudado:** o círculo de cada tópico. O tópico estudado sai do plano e passa a contar para a cota da disciplina
+  dele; a lista "Tópicos que você marcou como estudados" permite desmarcar.
+- **O plano é refeito a cada vez, a partir de hoje**, com o que você ainda não marcou: o tópico que ficou para trás volta nos
+  próximos dias sozinho, sem ninguém reorganizar nada. Só as suas escolhas e as marcas de "estudei" são guardadas.
+- **Quando não cabe:** o que não cabe até a prova fica de fora (os menos prioritários, contados por disciplina) e a tela diz
+  quanto tempo faria caber: "cerca de 120 min por dia" e, quando dá, "10 min por tópico (mantendo 40 min por dia)". Quando
+  cabe, diz em que dia termina e quantos dias de estudo sobram.
+- Cada tópico mostra os cartões ligados a ele (quantos e quantos % já vistos), com o atalho **Estudar os cartões** (a revisão das
+  coleções dele) ou **Criar cartões** (a página do concurso, onde a IA gera os cartões do tópico, que você confere antes).
+- É uma **ordem de estudo sugerida**, não uma garantia de nota. Tabelas novas: `schedule_settings` (as escolhas, uma linha por
+  concurso) e `schedule_topic_done` (os tópicos marcados); as duas entram na exportação da conta e somem com o concurso.
+  Rotas: `GET /api/schedule`, `PUT /api/schedule/settings` e `PUT /api/schedule/topics/:id/done`.
+
 ## Dívida de revisão
 
 No **Painel**, o cartão **Dívida de revisão** (some quando não há atrasados) mostra quantos cartões **já estudados**

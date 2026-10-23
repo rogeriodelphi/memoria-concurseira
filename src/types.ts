@@ -757,6 +757,83 @@ export interface ExamOption {
   daysLeft: number | null;
 }
 
+/** O cronograma até a prova (veja server/schedule): dia a dia, quais tópicos do edital estudar. */
+export interface ScheduleSettings {
+  minutesPerDay: number;
+  minutesPerTopic: number;
+  /** Em que dias da semana o usuário estuda (0 = domingo). */
+  weekdays: number[];
+}
+
+/** `study`: dia de tópicos novos; `review`: só revisão; `rest`: dia da semana que o usuário não estuda; `exam`: a prova. */
+export type ScheduleDayKind = 'study' | 'review' | 'rest' | 'exam';
+
+export interface ScheduleDay {
+  /** AAAA-MM-DD. */
+  date: string;
+  weekday: number;
+  kind: ScheduleDayKind;
+  /** Os tópicos do dia, na ordem de prioridade (só dias `study` têm). */
+  topicIds: string[];
+  minutes: number;
+}
+
+export type ScheduleVerdict = 'fits' | 'overflow' | 'nothing_left' | 'no_time';
+
+export interface ScheduleSummary {
+  daysLeft: number;
+  reviewPhaseDays: number;
+  studyDays: number;
+  reviewDays: number;
+  restDays: number;
+  topicsTotal: number;
+  topicsDone: number;
+  topicsPending: number;
+  topicsScheduled: number;
+  capacityTopics: number;
+  /** Os tópicos que não cabem até a prova, na ordem de prioridade. */
+  leftOut: string[];
+  /** Minutos por dia que fariam tudo caber; `null` se tudo cabe. */
+  neededMinutesPerDay: number | null;
+  finishDate: string | null;
+  freeStudyDays: number;
+  verdict: ScheduleVerdict;
+}
+
+export interface ScheduleTopic {
+  id: string;
+  title: string;
+  disciplineId: string;
+  done: boolean;
+  cards: number;
+  /** Os cartões já vistos, em %; `null` sem cartões. */
+  seenPct: number | null;
+  /** As coleções ligadas (sem as congeladas), para abrir o estudo do tópico. */
+  collectionIds: string[];
+}
+
+export interface ScheduleDiscipline {
+  id: string;
+  name: string;
+  sharePct: number;
+  topics: number;
+  done: number;
+}
+
+export interface Schedule {
+  exam: { id: string; name: string; examDate: string; daysLeft: number };
+  /** AAAA-MM-DD, hoje. */
+  today: string;
+  settings: ScheduleSettings;
+  /** `false` enquanto o usuário não escolheu nada (valem as escolhas padrão). */
+  settingsSaved: boolean;
+  disciplines: ScheduleDiscipline[];
+  /** Todos os tópicos do edital, na ordem dele. */
+  topics: ScheduleTopic[];
+  days: ScheduleDay[];
+  summary: ScheduleSummary;
+}
+
 /** A dívida de revisão (veja server/stats/reviewDebt.ts): os cartões já estudados que venceram antes de hoje e o ritmo da semana. */
 export interface ReviewDebt {
   /** Os cartões estudados que venceram antes de hoje (não conta coleção congelada). */

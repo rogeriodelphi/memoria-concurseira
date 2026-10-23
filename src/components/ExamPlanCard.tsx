@@ -119,9 +119,14 @@ export function ExamPlanCard({ onLimitChanged }: { onLimitChanged?: () => void }
         </div>
         <div className="flex items-center gap-3">
           {plan.verdict !== 'exam_today' && (
-            <Link to="/reta-final" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-              Reta final →
-            </Link>
+            <>
+              <Link to="/cronograma" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+                Cronograma →
+              </Link>
+              <Link to="/reta-final" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+                Reta final →
+              </Link>
+            </>
           )}
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${TONE_CLASS[verdict.tone]}`}>{verdict.label}</span>
         </div>

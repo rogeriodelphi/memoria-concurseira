@@ -27,6 +27,7 @@ import { Settings } from './pages/Settings';
 import { AiReview } from './pages/AiReview';
 import { MissedStudy } from './pages/MissedStudy';
 import { FinalStretchPage } from './pages/FinalStretch';
+import { SchedulePage } from './pages/Schedule';
 import { FinalStretchStudy } from './pages/FinalStretchStudy';
 import { Leeches } from './pages/Leeches';
 import { LeechesReview } from './pages/LeechesReview';
@@ -101,6 +102,7 @@ export default function App() {
                       <Route path="/configuracoes" element={<Settings />} />
                       <Route path="/conferir-cartoes" element={<AiReview />} />
                       <Route path="/revisar-erros" element={<MissedStudy />} />
+                      <Route path="/cronograma" element={<SchedulePage />} />
                       <Route path="/reta-final" element={<FinalStretchPage />} />
                       <Route path="/reta-final/estudar" element={<FinalStretchStudy />} />
                       <Route path="/sanguessugas" element={<Leeches />} />

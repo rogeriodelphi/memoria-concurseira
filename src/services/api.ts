@@ -40,6 +40,8 @@ import type {
   PerformanceData,
   PerformanceQuery,
   ReviewDebt,
+  Schedule,
+  ScheduleSettings,
   StatsData,
   StudyTimeData,
   StudyResult,
@@ -109,6 +111,18 @@ export const authApi = {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+};
+
+/** O cronograma até a prova: dia a dia, quais tópicos do edital estudar. O servidor refaz o plano a cada leitura. */
+export const scheduleApi = {
+  /** `schedule` é `null` se o usuário não tem concurso com data de hoje em diante. */
+  get: (exam?: string) =>
+    request<{ schedule: Schedule | null; exams: ExamOption[] }>(`/schedule${exam ? `?exam=${encodeURIComponent(exam)}` : ''}`),
+  saveSettings: (examId: string, settings: ScheduleSettings) =>
+    request<{ schedule: Schedule | null; exams: ExamOption[] }>('/schedule/settings', { method: 'PUT', body: JSON.stringify({ examId, ...settings }) }),
+  /** Marca (ou desmarca) um tópico como estudado e devolve o cronograma já refeito. */
+  setTopicDone: (topicId: string, done: boolean) =>
+    request<{ schedule: Schedule | null; exams: ExamOption[] }>(`/schedule/topics/${topicId}/done`, { method: 'PUT', body: JSON.stringify({ done }) }),
 };
 
 /** "Meus lembretes" do Painel: uma lista curta de coisas a não esquecer, que o usuário marca como feitas. */

@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import {
   BarChart3,
+  CalendarDays,
   ClipboardCheck,
   FileText,
   Headphones,
@@ -124,6 +125,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             >
               <Target size={18} />
               Concursos
+            </NavLink>
+            <NavLink
+              to="/cronograma"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-brand-800' : 'text-brand-50 hover:bg-brand-700'
+                }`
+              }
+            >
+              <CalendarDays size={18} />
+              Cronograma
             </NavLink>
             <NavLink
               to="/simulados"

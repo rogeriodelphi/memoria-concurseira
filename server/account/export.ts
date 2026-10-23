@@ -113,6 +113,19 @@ const EXPORTED: ExportedTable[] = [
           WHERE c.user_id = ? ORDER BY l.rowid`,
   },
   { table: 'todo_items', sql: 'SELECT * FROM todo_items WHERE user_id = ? ORDER BY rowid' },
+  {
+    table: 'schedule_settings',
+    sql: `SELECT s.* FROM schedule_settings s JOIN exams e ON e.id = s.exam_id
+          WHERE e.user_id = ? ORDER BY s.rowid`,
+  },
+  {
+    table: 'schedule_topic_done',
+    sql: `SELECT s.* FROM schedule_topic_done s
+          JOIN exam_topics t ON t.id = s.topic_id
+          JOIN exam_disciplines d ON d.id = t.discipline_id
+          JOIN exams e ON e.id = d.exam_id
+          WHERE e.user_id = ? ORDER BY s.rowid`,
+  },
   { table: 'pomodoro_tasks', sql: 'SELECT * FROM pomodoro_tasks WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_notes', sql: 'SELECT * FROM pomodoro_notes WHERE user_id = ? ORDER BY rowid' },
   { table: 'ai_usage', sql: 'SELECT * FROM ai_usage WHERE user_id = ? ORDER BY rowid' },

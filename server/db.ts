@@ -10,6 +10,7 @@ import { IGNORED_COLLECTIONS_SCHEMA } from './exams/unlinked';
 import { FROZEN_SCHEMA } from './collections/frozen';
 import { REMINDER_SCHEMA } from './reminders/schema';
 import { TODO_SCHEMA } from './todos/schema';
+import { SCHEDULE_SCHEMA } from './schedule/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
 if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 5)) {
@@ -344,3 +345,6 @@ db.exec(FROZEN_SCHEMA);
 
 // "Meus lembretes" do Painel: a lista de coisas a não esquecer, de cada usuário.
 db.exec(TODO_SCHEMA);
+
+// O cronograma até a prova: as escolhas do usuário e os tópicos que ele marcou como estudados (o plano é refeito a cada leitura).
+db.exec(SCHEDULE_SCHEMA);
