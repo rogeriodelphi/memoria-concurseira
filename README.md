@@ -614,6 +614,21 @@ crescer, e o que não é revisado a tempo se esquece.
   traz os atrasados, junto com os de hoje e os novos.
 - É só leitura (`GET /api/stats/review-debt` e `GET /api/flashcards/overdue`): nada é gravado, e nenhuma tabela nova foi criada.
 
+## Meus lembretes
+
+No **Painel**, o cartão **Meus lembretes** é uma lista curta de coisas a não esquecer (a inscrição de um concurso, pedir um
+documento, baixar uma prova), que você marca como feitas.
+
+- **Escrever:** o campo "Adicionar novo lembrete..." e o botão **+** (ou Enter). O texto é aparado e fica numa linha só, com
+  até 200 caracteres; cada conta guarda até 200 lembretes (feitos ou não).
+- **Marcar como feito:** o círculo à esquerda. O lembrete feito fica riscado e desce para depois dos pendentes (o último a
+  ser feito primeiro); tocar de novo o desmarca. Os pendentes ficam na ordem em que foram escritos (o mais antigo em cima).
+- **Apagar:** a lixeira de cada um, e **Limpar os lembretes feitos** apaga todos os feitos de uma vez (os pendentes ficam).
+- É só seu e **não tem relação com os cartões nem com a fila de revisão**; também não é o lembrete de estudo por push do
+  celular (esse está em Configurações). Se a leitura falhar, o cartão some e o resto do Painel segue normal.
+- Uma tabela nova, `todo_items` (uma linha por lembrete; entra na exportação da conta e some junto com o usuário), e as rotas
+  `GET/POST /api/todos`, `PATCH/DELETE /api/todos/:id` e `DELETE /api/todos` (limpar os feitos).
+
 ## Meu desempenho
 
 No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou num período, por

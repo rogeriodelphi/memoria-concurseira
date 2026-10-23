@@ -46,6 +46,7 @@ import type {
   TtsInfo,
   Summary,
   SummaryMode,
+  TodoItem,
   User,
 } from '../types';
 
@@ -107,6 +108,16 @@ export const authApi = {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+};
+
+/** "Meus lembretes" do Painel: uma lista curta de coisas a não esquecer, que o usuário marca como feitas. */
+export const todosApi = {
+  list: () => request<{ todos: TodoItem[] }>('/todos'),
+  add: (text: string) => request<{ todo: TodoItem }>('/todos', { method: 'POST', body: JSON.stringify({ text }) }),
+  setDone: (id: string, done: boolean) => request<{ todo: TodoItem }>(`/todos/${id}`, { method: 'PATCH', body: JSON.stringify({ done }) }),
+  remove: (id: string) => request<Record<string, never>>(`/todos/${id}`, { method: 'DELETE' }),
+  /** Apaga de uma vez os já feitos (os pendentes ficam). */
+  clearDone: () => request<{ removed: number }>('/todos', { method: 'DELETE' }),
 };
 
 export const collectionsApi = {

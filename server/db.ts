@@ -9,6 +9,7 @@ import { LEECH_SCHEMA } from './leeches/schema';
 import { IGNORED_COLLECTIONS_SCHEMA } from './exams/unlinked';
 import { FROZEN_SCHEMA } from './collections/frozen';
 import { REMINDER_SCHEMA } from './reminders/schema';
+import { TODO_SCHEMA } from './todos/schema';
 
 const [nodeMajor, nodeMinor] = process.version.slice(1).split('.').map(Number);
 if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 5)) {
@@ -340,3 +341,6 @@ db.exec(IGNORED_COLLECTIONS_SCHEMA);
 
 // Coleções congeladas: fora das revisões automáticas, sem mexer nos cartões.
 db.exec(FROZEN_SCHEMA);
+
+// "Meus lembretes" do Painel: a lista de coisas a não esquecer, de cada usuário.
+db.exec(TODO_SCHEMA);

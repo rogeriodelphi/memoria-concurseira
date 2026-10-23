@@ -112,6 +112,7 @@ const EXPORTED: ExportedTable[] = [
           JOIN collections c ON c.id = f.collection_id
           WHERE c.user_id = ? ORDER BY l.rowid`,
   },
+  { table: 'todo_items', sql: 'SELECT * FROM todo_items WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_tasks', sql: 'SELECT * FROM pomodoro_tasks WHERE user_id = ? ORDER BY rowid' },
   { table: 'pomodoro_notes', sql: 'SELECT * FROM pomodoro_notes WHERE user_id = ? ORDER BY rowid' },
   { table: 'ai_usage', sql: 'SELECT * FROM ai_usage WHERE user_id = ? ORDER BY rowid' },

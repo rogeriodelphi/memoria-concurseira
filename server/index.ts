@@ -30,6 +30,7 @@ import { remindersRouter } from './reminders/routes';
 import { startReminderSchedule } from './reminders/scheduler';
 import { studyPlanRouter } from './studyplan/routes';
 import { leechesRouter } from './leeches/routes';
+import { todosRouter } from './todos/routes';
 import { startBackupSchedule } from './backup';
 import { bindAddress, cacheControlFor } from './hosting';
 
@@ -78,6 +79,7 @@ app.use('/api/reminders', remindersRouter);
 app.use('/api/ai-review', aiReviewRouter);
 app.use('/api/question-bank', questionBankRouter);
 app.use('/api/leeches', leechesRouter);
+app.use('/api/todos', todosRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ success: true, ok: true });

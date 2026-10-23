@@ -7,6 +7,16 @@ export interface User {
   createdAt: string;
 }
 
+/** Um lembrete de "Meus lembretes", no Painel (veja server/todos/todos.ts). */
+export interface TodoItem {
+  id: string;
+  text: string;
+  done: boolean;
+  createdAt: string;
+  /** Quando foi marcado como feito; `null` enquanto pendente. */
+  doneAt: string | null;
+}
+
 export type CollectionStatus = 'sem_documento' | 'processing' | 'completed' | 'error';
 
 export interface CollectionSummary {
