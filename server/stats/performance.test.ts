@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { FROZEN_SCHEMA, setCollectionFrozen } from '../collections/frozen';
 import {
   groupKey,
   loadPerformance,
@@ -35,6 +36,7 @@ function build(seed: Seed): DatabaseSync {
     CREATE TABLE exam_topics (id TEXT PRIMARY KEY, discipline_id TEXT NOT NULL, title TEXT NOT NULL);
     CREATE TABLE exam_topic_collections (topic_id TEXT NOT NULL, collection_id TEXT NOT NULL);
   `);
+  db.exec(FROZEN_SCHEMA);
   for (const c of seed.collections ?? []) db.prepare('INSERT INTO collections (id, user_id, name, subject) VALUES (?, ?, ?, ?)').run(c.id, c.user ?? 'u1', c.name, c.subject);
   for (const f of seed.cards ?? []) db.prepare('INSERT INTO flashcards (id, collection_id) VALUES (?, ?)').run(f.id, f.collection);
   for (const s of seed.sessions ?? []) db.prepare('INSERT INTO study_sessions (flashcard_id, user_id, result, studied_at) VALUES (?, ?, ?, ?)').run(s.card, s.user ?? 'u1', s.result ?? 'bom', s.when);
@@ -451,6 +453,27 @@ test('cartões errados: os que têm ao menos um Errei ou Difícil no período, c
   assert.equal(result.byName[0].subjects[0].missedCards, 1);
   assert.equal(result.bySubject[0].missedCards, 1);
   assert.equal(loadPerformance(db, 'u1', NOW, query({ days: 0 })).byName[0].missedCards, 2, 'desde o início, o f3 também');
+});
+
+test('cartões errados: os de coleção congelada não contam (não há o que rever), mas o acerto e as revisões continuam os mesmos', () => {
+  const db = build({
+    collections: [{ id: 'c1', name: 'Redes', subject: 'DNS' }, { id: 'c2', name: 'Redes', subject: 'Cluster' }],
+    cards: [{ id: 'f1', collection: 'c1' }, { id: 'f2', collection: 'c2' }],
+    sessions: [{ card: 'f1', result: 'errei', when: at(1) }, { card: 'f2', result: 'errei', when: at(1) }, { card: 'f2', result: 'bom', when: at(2) }],
+  });
+  const before = loadPerformance(db, 'u1', NOW, query({ days: 7 }));
+  assert.equal(before.byName[0].missedCards, 2);
+  setCollectionFrozen(db, 'c2', true);
+  const after = loadPerformance(db, 'u1', NOW, query({ days: 7 }));
+  assert.equal(after.byName[0].missedCards, 1, 'só o f1 pode ser revisto');
+  const cluster = after.byName[0].subjects.find((s) => s.label === 'Cluster')!;
+  assert.equal(cluster.missedCards, 0, 'o assunto congelado não tem errados para rever');
+  assert.deepEqual([cluster.reviews, cluster.good, cluster.bad, cluster.accuracyPct], [2, 1, 1, 50], 'mas a história dele continua nas contas');
+  assert.equal(after.byName[0].reviews, before.byName[0].reviews);
+  assert.equal(after.byName[0].accuracyPct, before.byName[0].accuracyPct);
+  assert.equal(after.bySubject.reduce((n, s) => n + s.missedCards, 0), 1);
+  setCollectionFrozen(db, 'c2', false);
+  assert.equal(loadPerformance(db, 'u1', NOW, query({ days: 7 })).byName[0].missedCards, 2, 'descongelada, volta');
 });
 
 test('base da comparação: quantas revisões o período anterior teve (zero sem período anterior)', () => {

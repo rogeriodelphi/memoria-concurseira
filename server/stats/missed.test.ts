@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
+import { FROZEN_SCHEMA, setCollectionFrozen } from '../collections/frozen';
 import { loadMissedCards, MAX_MISSED_CARDS, parseMissedQuery } from './missed';
 
 const NOW = new Date(2026, 9, 17, 15, 0, 0);
@@ -20,6 +21,7 @@ function newDb(): DatabaseSync {
     CREATE TABLE study_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, flashcard_id TEXT NOT NULL, user_id TEXT NOT NULL, result TEXT NOT NULL, studied_at TEXT NOT NULL);
     INSERT INTO collections VALUES ('c1', 'u1', 'Redes', 'DNS'), ('c2', 'u1', 'Direito', 'CF'), ('cx', 'u2', 'Do outro', '');
   `);
+  db.exec(FROZEN_SCHEMA);
   return db;
 }
 const card = (db: DatabaseSync, id: string, collection: string, due: string | null = null) =>
@@ -57,6 +59,21 @@ test('traz os cartões com Errei ou Difícil no período, vencidos ou não, e s�
   assert.ok(rows.every((r) => r.collection_name === 'Redes' && r.collection_subject === 'DNS'));
   assert.equal(rows.find((r) => r.id === 'errou')!.due_at, '2099-01-01', 'os dados do cartão vêm como estão: nada foi remarcado');
   assert.equal(rows.find((r) => r.id === 'errou')!.question, 'P errou');
+});
+
+test('coleção congelada fica de fora da revisão dos errados, e volta quando é descongelada', () => {
+  const db = newDb();
+  card(db, 'redes', 'c1');
+  card(db, 'direito', 'c2');
+  session(db, 'redes', 'errei', at(1));
+  session(db, 'direito', 'errei', at(1));
+  assert.deepEqual(ids(loadMissedCards(db, 'u1', ['c1', 'c2'], RANGE)).sort(), ['direito', 'redes']);
+  setCollectionFrozen(db, 'c2', true);
+  assert.deepEqual(ids(loadMissedCards(db, 'u1', ['c1', 'c2'], RANGE)), ['redes']);
+  assert.deepEqual(loadMissedCards(db, 'u1', ['c2'], RANGE), [], 'só a congelada: nada a rever');
+  setCollectionFrozen(db, 'c2', false);
+  assert.deepEqual(ids(loadMissedCards(db, 'u1', ['c1', 'c2'], RANGE)).sort(), ['direito', 'redes']);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM study_sessions').get()!.n, 2, 'o histórico não mudou');
 });
 
 test('um erro que o cartão cometeu antes do período, ou depois dele, não conta; os dois dias do período entram inteiros', () => {

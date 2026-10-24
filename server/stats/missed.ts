@@ -2,10 +2,13 @@
  * Os cartões que o usuário errou (Errei ou Difícil) num período, em coleções escolhidas: é a lista de "Revisar só
  * isso" dos pontos de atenção do "Meu desempenho". Vale para qualquer cartão, vencido ou não: quem escolhe revisar
  * os que errou não é contido pela data de vencimento (revisar antes do prazo é o mesmo que "estudar tudo mesmo
- * assim" de uma coleção). Só leitura: nada muda até o usuário avaliar os cartões na revisão.
+ * assim" de uma coleção). Coleções congeladas ficam de fora, como em toda revisão (o histórico delas continua valendo no
+ * Meu desempenho, e o número de errados dos pontos de atenção já as desconta). Só leitura: nada muda até o usuário avaliar
+ * os cartões na revisão.
  */
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import type { FlashcardRow } from '../mappers';
 import { parseDay } from './performance';
 
@@ -45,7 +48,7 @@ export function loadMissedCards(db: DatabaseSync, userId: string, collectionIds:
          WHERE user_id = ? AND result IN ('errei', 'dificil') AND studied_at >= ? AND studied_at < ?
          GROUP BY flashcard_id
        ) m ON m.flashcard_id = f.id
-       WHERE c.user_id = ? AND c.id IN (${collectionIds.map(() => '?').join(', ')})
+       WHERE c.user_id = ? AND c.id IN (${collectionIds.map(() => '?').join(', ')}) AND ${notFrozen('c.id')}
        ORDER BY m.misses DESC, m.last_miss DESC, f.rowid
        LIMIT ${MAX_MISSED_CARDS}`,
     )

@@ -709,8 +709,8 @@ No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou n
   mais** no período (e, para a queda, 6 ou mais no período anterior): com menos que isso o acerto balança
   demais para dizer algo. Cada ponto traz os motivos e dois botões: **Revisar os N errados** e **Filtrar**.
 - **Revisar os errados** (`/revisar-erros`) abre só os cartões daquele grupo que você errou (**Errei** ou
-  **Difícil**) no período da página, **vencidos ou não**, os que mais errou primeiro (até 200). É uma
-  revisão extra: o que você avaliar entra no agendamento como qualquer revisão. O "voltar" leva à página
+  **Difícil**) no período da página, **vencidos ou não**, os que mais errou primeiro (até 200), sem os de
+  **coleções congeladas** (o N do botão já os desconta). É uma revisão extra: o que você avaliar entra no agendamento como qualquer revisão. O "voltar" leva à página
   com o mesmo período e filtros.
 - **Cartões sanguessuga** (`/sanguessugas`, com um aviso na página): são os cartões que você erra sempre e
   que gastam revisão sem fixar. Um cartão entra quando marcou **Errei** (não "Difícil") **4 vezes ou mais
@@ -777,8 +777,11 @@ de cartões que ficaram em espera.
   fora, para não parecer que faltam cartões.
 - **Continua valendo:** o histórico de estudo. O progresso do concurso (cartões vistos por tópico) e o Meu desempenho não
   mudam. O que já foi aprendido na coleção também segue contando como "maduro" no Painel.
-- **Ainda dá para estudar:** o botão **Estudar** da página da coleção funciona normalmente, e o "Revisar só isso" dos pontos
-  de atenção do Meu desempenho também (é uma escolha explícita sua). O que você avaliar entra no agendamento como sempre.
+- **Ainda dá para estudar:** o botão **Estudar** da página da coleção funciona normalmente. O que você avaliar entra no
+  agendamento como sempre.
+- **Meu desempenho:** o acerto, as revisões e os gráficos continuam contando a história da coleção congelada, mas ela não
+  tem o que "Revisar os errados": os cartões dela ficam de fora dessa revisão, e o número de errados dos pontos de atenção
+  já os desconta (um assunto cujos errados estão todos em coleção congelada não vira ponto de atenção).
 - **Ao descongelar:** os cartões que venceram durante o congelamento voltam todos de uma vez (as datas não são mexidas), e
   o aviso diz quantos voltaram. Se forem muitos, o limite diário de novos e a Meta ajudam a diluir.
 - Congelar é uma tabela nova (`frozen_collections`, uma linha por coleção congelada; entra na exportação da conta e some

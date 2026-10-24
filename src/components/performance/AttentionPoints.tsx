@@ -29,7 +29,7 @@ export function AttentionPoints({
         Pontos de atenção
       </h2>
       <p className="mb-4 mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-        Onde o acerto está abaixo de {LOW_ACCURACY}% ou caiu bastante em relação ao período anterior (só com {MIN_REVIEWS} revisões ou mais).
+        Onde o acerto está abaixo de {LOW_ACCURACY}% ou caiu bastante em relação ao período anterior (só com {MIN_REVIEWS} revisões ou mais). Os cartões de coleções congeladas não entram nos errados para rever.
       </p>
 
       {points.length === 0 ? (

@@ -9,6 +9,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 
+import { notFrozen } from '../collections/frozen';
 import { nextExam } from '../studyplan/nextExam';
 
 export const DEFAULT_PERFORMANCE_DAYS = 7;
@@ -232,6 +233,8 @@ interface SessionRow {
   result: string;
   at: string;
   cid: string;
+  /** 1 se a coleção do cartão está congelada: o histórico dela vale, mas não há o que "Revisar os errados" nela. */
+  frozen: number;
 }
 
 /** O concurso do "Meu concurso": o de data mais próxima que ainda não passou; sem data, o criado por último. */
@@ -282,7 +285,8 @@ export function loadCollections(db: DatabaseSync, userId: string, examId: string
 function loadSessions(db: DatabaseSync, userId: string, window: Window): SessionRow[] {
   return db
     .prepare(
-      `SELECT ss.flashcard_id AS card, ss.result AS result, ss.studied_at AS at, f.collection_id AS cid
+      `SELECT ss.flashcard_id AS card, ss.result AS result, ss.studied_at AS at, f.collection_id AS cid,
+              NOT ${notFrozen('f.collection_id')} AS frozen
        FROM study_sessions ss JOIN flashcards f ON f.id = ss.flashcard_id
        WHERE ss.user_id = ? ${window.start ? 'AND ss.studied_at >= ?' : ''} AND ss.studied_at < ?`,
     )
@@ -294,7 +298,10 @@ const BAD = new Set(['errei', 'dificil']);
 
 interface Acc {
   cards: Set<string>;
-  /** Os cartões com alguma revisão "Errei" ou "Difícil". */
+  /**
+   * Os cartões com alguma revisão "Errei" ou "Difícil" que ainda dá para rever: os de coleção congelada ficam de fora (o
+   * "Revisar os errados" não os traz), embora as revisões deles continuem nas contas de acerto.
+   */
   missed: Set<string>;
   reviews: number;
   good: number;
@@ -307,7 +314,7 @@ function add(acc: Acc, row: SessionRow): void {
   if (GOOD.has(row.result)) acc.good += 1;
   else {
     acc.bad += 1;
-    acc.missed.add(row.card);
+    if (!row.frozen) acc.missed.add(row.card);
   }
 }
 const bucket = <K>(map: Map<K, Acc>, key: K): Acc => {
