@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { AlertTriangle, BarChart3, BookCheck, Check, Layers, CircleSlash, FolderPlus, Image as ImageIcon, Loader2, Pencil, Plus, RotateCcw, StickyNote, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, BookCheck, Check, Layers, CircleSlash, FolderPlus, Image as ImageIcon, Loader2, Pencil, Plus, RotateCcw, StickyNote, Strikethrough, X } from 'lucide-react';
 
 import { useToast } from '../../contexts/ToastContext';
 import { ApiError } from '../../services/api';
 import { questionBankApi } from '../../services/questionBankApi';
 import type { QbHistoryEntry, QbNotebook, QbQuestion } from '../../types';
+import { crossLetter, NO_LETTER_MARKS, pickLetter } from '../../utils/choiceMarks';
 import { blockedReason, breadcrumb, metaParts, questionLabel, statsLine } from '../../utils/questionBank';
 import { CardsFromQuestionsModal } from './CardsFromQuestionsModal';
 import { EditQuestionModal } from './EditQuestionModal';
@@ -112,7 +113,9 @@ export function QuestionBody({ question }: { question: QbQuestion }) {
 
 /**
  * As alternativas de uma questão. Sem `reveal`, escolhe-se uma (`picked`); com `reveal`, mostra o gabarito: a certa
- * em verde e, se a marcada estava errada, ela em vermelho.
+ * em verde e, se a marcada estava errada, ela em vermelho. Com `onCross`, cada alternativa ganha um botão de riscado para
+ * tachar (eliminar) a que o usuário descarta, como numa prova de papel (`crossed` são as tachadas); o gabarito não mostra
+ * as marcas.
  */
 export function Alternatives({
   question,
@@ -120,36 +123,44 @@ export function Alternatives({
   onPick,
   reveal,
   disabled = false,
+  crossed,
+  onCross,
 }: {
   question: QbQuestion;
   picked: string;
   onPick: (letter: string) => void;
   reveal: boolean;
   disabled?: boolean;
+  crossed?: ReadonlySet<string>;
+  onCross?: (letter: string) => void;
 }) {
+  const canCross = !!onCross && !reveal && !disabled;
   return (
     <ul className="mt-5 space-y-2" role="list">
       {question.alternatives.map((alt) => {
         const isPicked = picked === alt.letter;
         const isRight = reveal && question.answer === alt.letter;
         const isWrong = reveal && isPicked && question.answer !== alt.letter;
+        const isCrossed = !reveal && !!crossed?.has(alt.letter);
         let tone = isPicked
           ? 'border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-950/40'
-          : 'border-neutral-200 hover:border-brand-400 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800/50';
+          : isCrossed
+            ? 'border-neutral-200 bg-neutral-50/60 opacity-60 hover:opacity-100 dark:border-neutral-700 dark:bg-neutral-800/30'
+            : 'border-neutral-200 hover:border-brand-400 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800/50';
         if (reveal) {
           if (isRight) tone = 'border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-950/40';
           else if (isWrong) tone = 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-950/40';
           else tone = 'border-neutral-200 opacity-60 dark:border-neutral-700';
         }
         return (
-          <li key={alt.letter}>
+          <li key={alt.letter} className="flex items-start gap-2">
             <button
               type="button"
               disabled={disabled || reveal}
               onClick={() => onPick(alt.letter)}
               aria-pressed={isPicked}
-              aria-label={`Alternativa ${alt.letter}`}
-              className={`flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors disabled:cursor-default ${tone}`}
+              aria-label={`Alternativa ${alt.letter}${isCrossed ? ' (tachada)' : ''}`}
+              className={`flex min-w-0 flex-1 items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors disabled:cursor-default ${tone}`}
             >
               <span
                 className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
@@ -164,8 +175,26 @@ export function Alternatives({
               >
                 {isRight ? <Check size={14} /> : isWrong ? <X size={14} /> : alt.letter}
               </span>
-              <span className="min-w-0 flex-1 whitespace-pre-wrap text-neutral-800 dark:text-neutral-200">{alt.text}</span>
+              <span className={`min-w-0 flex-1 whitespace-pre-wrap text-neutral-800 dark:text-neutral-200 ${isCrossed ? 'line-through decoration-2 decoration-neutral-500' : ''}`}>
+                {alt.text}
+              </span>
             </button>
+            {canCross && (
+              <button
+                type="button"
+                onClick={() => onCross(alt.letter)}
+                aria-pressed={isCrossed}
+                aria-label={isCrossed ? `Destacar a alternativa ${alt.letter}` : `Tachar a alternativa ${alt.letter}`}
+                title={isCrossed ? 'Destacar de novo' : 'Tachar: eliminar esta alternativa'}
+                className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                  isCrossed
+                    ? 'border-neutral-300 bg-neutral-100 text-neutral-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200'
+                    : 'border-transparent text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Strikethrough size={16} />
+              </button>
+            )}
           </li>
         );
       })}
@@ -194,7 +223,9 @@ export function QuestionCard({
   footer?: ReactNode;
 }) {
   const { showToast } = useToast();
-  const [picked, setPicked] = useState('');
+  // A alternativa marcada e as tachadas: só na tela, a resposta só vale quando o usuário aperta "Responder".
+  const [marks, setMarks] = useState(NO_LETTER_MARKS);
+  const picked = marks.picked;
   const [shown, setShown] = useState(!fresh && question.mine !== null && question.answer !== undefined);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
@@ -231,7 +262,7 @@ export function QuestionCard({
 
   function again() {
     setShown(false);
-    setPicked('');
+    setMarks(NO_LETTER_MARKS);
     startedAt.current = Date.now();
   }
 
@@ -252,7 +283,15 @@ export function QuestionCard({
         </button>
       </div>
 
-      <Alternatives question={question} picked={chosen} onPick={setPicked} reveal={reveal} disabled={busy || blocked !== null} />
+      <Alternatives
+        question={question}
+        picked={chosen}
+        onPick={(letter) => setMarks((m) => pickLetter(m, letter, false))}
+        reveal={reveal}
+        disabled={busy || blocked !== null}
+        crossed={marks.crossed}
+        onCross={(letter) => setMarks((m) => crossLetter(m, letter))}
+      />
 
       {blocked && <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{blocked}</p>}
 

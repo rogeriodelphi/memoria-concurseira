@@ -42,3 +42,38 @@ export function toggleCross(marks: ChoiceMarks, index: number): ChoiceMarks {
 export function crossSelected(marks: ChoiceMarks): ChoiceMarks {
   return marks.selected === null ? marks : toggleCross(marks, marks.selected);
 }
+
+// ---------- por letra (banco de questões) ----------
+
+/**
+ * As mesmas marcas, para as alternativas identificadas por letra (A a E), como no banco de questões: a que está marcada
+ * como resposta (`picked`, vazia se nenhuma) e as tachadas. Ficam só na tela: a resposta só vale quando o usuário a envia
+ * (no caderno, ao "Responder"; no simulado, ao finalizar).
+ */
+export interface LetterMarks {
+  picked: string;
+  crossed: ReadonlySet<string>;
+}
+
+export const NO_LETTER_MARKS: LetterMarks = { picked: '', crossed: new Set() };
+
+/**
+ * Marcar uma alternativa como resposta. Com `toggle` (o simulado), tocar de novo na marcada a desmarca; sem ele (a prática),
+ * só troca. Marcar uma tachada a destaca: o usuário mudou de ideia.
+ */
+export function pickLetter(marks: LetterMarks, letter: string, toggle: boolean): LetterMarks {
+  const crossed = new Set(marks.crossed);
+  crossed.delete(letter);
+  return { picked: toggle && marks.picked === letter ? '' : letter, crossed };
+}
+
+/** Tachar (ou destacar) uma alternativa. Tachar a marcada como resposta tira a marca: uma eliminada não pode ser a resposta. */
+export function crossLetter(marks: LetterMarks, letter: string): LetterMarks {
+  const crossed = new Set(marks.crossed);
+  if (crossed.has(letter)) {
+    crossed.delete(letter);
+    return { picked: marks.picked, crossed };
+  }
+  crossed.add(letter);
+  return { picked: marks.picked === letter ? '' : marks.picked, crossed };
+}

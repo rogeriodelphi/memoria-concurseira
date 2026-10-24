@@ -10,6 +10,7 @@ import { useToast } from '../contexts/ToastContext';
 import { ApiError } from '../services/api';
 import { questionBankApi } from '../services/questionBankApi';
 import type { QbAttempt, QbAttemptResult, QbNotebook, QbQuestion } from '../types';
+import { crossLetter, NO_LETTER_MARKS, pickLetter, type LetterMarks } from '../utils/choiceMarks';
 import { clock, filterForNotebook, percent, questionLabel } from '../utils/questionBank';
 import { formatDuration } from '../utils/studyTime';
 import { isPending } from './QuestionNotebook';
@@ -196,7 +197,10 @@ function SimuladoRun({ notebook, questions }: { notebook: QbNotebook; questions:
   const confirm = useConfirm();
   const [phase, setPhase] = useState<Phase>('intro');
   const [index, setIndex] = useState(0);
-  const [picks, setPicks] = useState<Record<string, string>>({});
+  // A resposta marcada e as alternativas tachadas de cada questão. As tachadas só existem na tela (ficam quando o usuário vai e
+  // volta entre as questões e não são enviadas); só a marcada vai ao finalizar.
+  const [marks, setMarks] = useState<Record<string, LetterMarks>>({});
+  const picks = useMemo(() => Object.fromEntries(Object.entries(marks).map(([id, m]) => [id, m.picked])) as Record<string, string>, [marks]);
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<{ attempt: QbAttempt; results: QbAttemptResult[] } | null>(null);
@@ -215,6 +219,11 @@ function SimuladoRun({ notebook, questions }: { notebook: QbNotebook; questions:
   }, [phase]);
 
   const answeredCount = useMemo(() => questions.filter((q) => picks[q.id]).length, [questions, picks]);
+
+  /** Aplica uma mudança às marcas de uma questão (numa atualização só: dois toques seguidos nunca leem um estado velho). */
+  function mark(questionId: string, change: (marks: LetterMarks) => LetterMarks) {
+    setMarks((prev) => ({ ...prev, [questionId]: change(prev[questionId] ?? NO_LETTER_MARKS) }));
+  }
 
   function begin() {
     startedAt.current = Date.now();
@@ -292,10 +301,14 @@ function SimuladoRun({ notebook, questions }: { notebook: QbNotebook; questions:
         <Alternatives
           question={current}
           picked={picks[current.id] ?? ''}
-          onPick={(letter) => setPicks((prev) => ({ ...prev, [current.id]: prev[current.id] === letter ? '' : letter }))}
+          onPick={(letter) => mark(current.id, (m) => pickLetter(m, letter, true))}
           reveal={false}
+          crossed={marks[current.id]?.crossed}
+          onCross={(letter) => mark(current.id, (m) => crossLetter(m, letter))}
         />
-        <p className="mt-3 text-xs text-neutral-400 dark:text-neutral-500">Toque na alternativa escolhida de novo para desmarcá-la.</p>
+        <p className="mt-3 text-xs text-neutral-400 dark:text-neutral-500">
+          Toque na alternativa escolhida de novo para desmarcá-la. O ícone riscado elimina as que você descarta.
+        </p>
       </article>
 
       <div className="mt-4 flex justify-between gap-2">

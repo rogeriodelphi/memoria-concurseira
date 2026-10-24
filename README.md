@@ -423,6 +423,11 @@ nem nas estatísticas dos cartões.
 - **Cadernos e simulados:** **Gerar caderno** guarda as questões do filtro que têm gabarito (até 300);
   **Criar simulado** faz o mesmo, sorteando, e já começa cronometrado, com a correção só no final e o
   histórico no caderno. **Praticar as que errei** refaz as pendentes.
+- **Marcar, tachar e responder:** tocar numa alternativa só a **marca** como a sua resposta, e ela só vale quando você aperta
+  **Responder** (no simulado, quando finaliza); no simulado, tocar de novo na marcada a desmarca. O ícone de **riscado** ao
+  lado de cada alternativa a **tacha** (elimina, como numa prova de papel): o texto fica riscado e esmaecido, e tocar de
+  novo a destaca. Tachar a marcada tira a marca, e marcar uma tachada a destaca. No simulado as tachadas ficam quando você
+  vai e volta entre as questões. Essas marcas existem só na tela: não são gravadas nem enviadas, e o gabarito não as mostra.
 - **Provas** (aba Provas): editar os dados de uma prova ou apagá-la (leva as questões e as suas respostas).
 - **Cartões das questões que você errou** (sem IA): **Criar cartão** (na questão, depois de responder),
   **Cartões das que errei** (na lista, usando o filtro aplicado) e **Criar cartões das que errei** (no

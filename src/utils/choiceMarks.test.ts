@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { crossSelected, NO_MARKS, selectOption, toggleCross, type ChoiceMarks } from './choiceMarks';
+import { crossLetter, crossSelected, NO_LETTER_MARKS, NO_MARKS, pickLetter, selectOption, toggleCross, type ChoiceMarks, type LetterMarks } from './choiceMarks';
 
 const marks = (selected: number | null, ...crossed: number[]): ChoiceMarks => ({ selected, crossed: new Set(crossed) });
 const view = (m: ChoiceMarks) => ({ selected: m.selected, crossed: [...m.crossed].sort() });
@@ -51,4 +51,37 @@ test('as funções não alteram as marcas recebidas', () => {
   toggleCross(original, 0);
   crossSelected(original);
   assert.deepEqual(view(original), { selected: 1, crossed: [2] });
+});
+
+// ---------- por letra (banco de questões) ----------
+
+const letters = (picked: string, ...crossed: string[]): LetterMarks => ({ picked, crossed: new Set(crossed) });
+const letterView = (m: LetterMarks) => ({ picked: m.picked, crossed: [...m.crossed].sort() });
+
+test('por letra: marcar a resposta troca a anterior, e com "toggle" (simulado) tocar de novo a desmarca', () => {
+  assert.equal(pickLetter(NO_LETTER_MARKS, 'B', false).picked, 'B');
+  assert.equal(pickLetter(letters('B'), 'D', false).picked, 'D');
+  assert.equal(pickLetter(letters('B'), 'B', false).picked, 'B', 'na prática, tocar na marcada não a desmarca');
+  assert.equal(pickLetter(letters('B'), 'B', true).picked, '', 'no simulado, desmarca');
+  assert.equal(pickLetter(letters('B'), 'D', true).picked, 'D');
+});
+
+test('por letra: marcar uma alternativa tachada a destaca e mantém as outras tachadas', () => {
+  assert.deepEqual(letterView(pickLetter(letters('', 'A', 'C'), 'A', false)), { picked: 'A', crossed: ['C'] });
+  assert.deepEqual(letterView(pickLetter(letters('B', 'A'), 'C', true)), { picked: 'C', crossed: ['A'] });
+});
+
+test('por letra: tachar tacha, tachar de novo destaca, e tachar a marcada tira a marca', () => {
+  assert.deepEqual(letterView(crossLetter(NO_LETTER_MARKS, 'D')), { picked: '', crossed: ['D'] });
+  assert.deepEqual(letterView(crossLetter(letters('', 'D'), 'D')), { picked: '', crossed: [] });
+  assert.deepEqual(letterView(crossLetter(letters('B'), 'B')), { picked: '', crossed: ['B'] });
+  assert.deepEqual(letterView(crossLetter(letters('B'), 'E')), { picked: 'B', crossed: ['E'] });
+  assert.deepEqual(letterView(crossLetter(letters('B', 'E'), 'E')), { picked: 'B', crossed: [] }, 'destachar não mexe na marca');
+});
+
+test('por letra: as funções não alteram as marcas recebidas', () => {
+  const original = letters('B', 'A');
+  pickLetter(original, 'C', true);
+  crossLetter(original, 'D');
+  assert.deepEqual(letterView(original), { picked: 'B', crossed: ['A'] });
 });
