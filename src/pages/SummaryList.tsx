@@ -130,12 +130,18 @@ export function SummaryList() {
         <ArrowLeft size={16} />
         Voltar
       </Link>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Meus Resumos</h1>
-        <Link to="/resumos/criar" className="btn-primary">
-          <Plus size={16} />
-          Criar Resumo
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/resumos/escrever" className="btn-secondary">
+            <Pencil size={16} />
+            Escrever sem IA
+          </Link>
+          <Link to="/resumos/criar" className="btn-primary">
+            <Plus size={16} />
+            Criar Resumo
+          </Link>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

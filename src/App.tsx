@@ -43,6 +43,7 @@ import { MindMapView } from './pages/MindMapView';
 import { SummaryHub } from './pages/SummaryHub';
 import { SummaryNew } from './pages/SummaryNew';
 import { SummaryList } from './pages/SummaryList';
+import { SummaryWrite } from './pages/SummaryWrite';
 import { BulletPointsHub } from './pages/BulletPointsHub';
 import { BulletPointsNew } from './pages/BulletPointsNew';
 import { BulletPointsList } from './pages/BulletPointsList';
@@ -118,6 +119,7 @@ export default function App() {
                       <Route path="/mapas-mentais/:id" element={<MindMapView />} />
                       <Route path="/resumos" element={<SummaryHub />} />
                       <Route path="/resumos/criar" element={<SummaryNew />} />
+                      <Route path="/resumos/escrever" element={<SummaryWrite />} />
                       <Route path="/resumos/meus" element={<SummaryList />} />
                       <Route path="/bullet-points" element={<BulletPointsHub />} />
                       <Route path="/bullet-points/criar" element={<BulletPointsNew />} />
