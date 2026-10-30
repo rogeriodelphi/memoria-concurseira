@@ -34,6 +34,10 @@ interface RichTextEditorProps {
   placeholder?: string;
   /** Mostra o campo com o mesmo padrão visual que ele terá no cartão. */
   role?: CardTextRole;
+  /** Altura mínima do campo de texto (CSS), para telas em que o texto é o assunto principal. Padrão: duas linhas. */
+  minHeight?: string;
+  /** Altura máxima (CSS): passando dela, o campo rola em vez de crescer a página. */
+  maxHeight?: string;
 }
 
 const SIMPLE_COMMANDS: { command: string; icon: typeof Bold; label: string }[] = [
@@ -191,7 +195,7 @@ function ColorDropdown({
  * fixo de comandos é muito mais simples e leve do que trazer uma biblioteca
  * de editor completa.
  */
-export function RichTextEditor({ value, onChange, placeholder, role }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, placeholder, role, minHeight, maxHeight }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -324,6 +328,7 @@ export function RichTextEditor({ value, onChange, placeholder, role }: RichTextE
         onPaste={handlePaste}
         onClick={handleClick}
         data-placeholder={placeholder}
+        style={minHeight || maxHeight ? { minHeight, maxHeight, overflowY: maxHeight ? 'auto' : undefined } : undefined}
         className={`min-h-[4.5rem] px-3.5 py-2.5 text-sm text-neutral-900 focus:outline-none ${role ? CARD_TEXT_STYLE[role] : ''} dark:text-neutral-100 [&_div]:min-h-[1em] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:cursor-pointer [&_img]:rounded-md empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]`}
       />
     </div>

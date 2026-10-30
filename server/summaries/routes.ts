@@ -48,6 +48,23 @@ summariesRouter.post('/generate', async (req: AuthedRequest, res: Response) => {
   }
 });
 
+// Um resumo escrito ou colado pelo usuário, guardado como está (sem IA). A validação e a limpeza do HTML são as da edição.
+summariesRouter.post('/', (req: AuthedRequest, res: Response) => {
+  const created = prepareSummaryUpdate(req.body);
+  if (!created.ok) {
+    res.status(400).json({ success: false, error: created.error });
+    return;
+  }
+  const { title, content, format } = created.value;
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  db.prepare(
+    'INSERT INTO summaries (id, user_id, title, content, format, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).run(id, req.userId!, title, content, format, now, now);
+  const row = db.prepare('SELECT * FROM summaries WHERE id = ?').get(id) as unknown as SummaryRow;
+  res.status(201).json({ success: true, summary: mapSummary(row) });
+});
+
 summariesRouter.get('/', (req: AuthedRequest, res: Response) => {
   const rows = db
     .prepare('SELECT * FROM summaries WHERE user_id = ? ORDER BY created_at DESC')

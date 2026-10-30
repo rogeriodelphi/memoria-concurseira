@@ -484,6 +484,9 @@ export const summariesApi = {
       method: 'POST',
       body: JSON.stringify({ text, mode }),
     }),
+  // Um resumo escrito (ou colado) pelo usuário, guardado como está, sem passar pela IA.
+  create: (input: { title: string; content: string; format: 'plain' | 'html' }) =>
+    request<{ summary: Summary }>('/summaries', { method: 'POST', body: JSON.stringify(input) }),
   update: (id: string, input: { title: string; content: string; format: 'plain' | 'html' }) =>
     request<{ summary: Summary }>(`/summaries/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   remove: (id: string) => request<{ success: true }>(`/summaries/${id}`, { method: 'DELETE' }),

@@ -278,6 +278,21 @@ novo), sem perder nada.
    vira tag da nota).
 8. No Anki: Arquivo → Importar → selecionar o `.apkg` (ou dar duplo clique nele).
 
+## Resumos
+
+Em **Resumos → Criar Resumo com IA**, o conteúdo é digitado ou colado no mesmo editor de texto rico dos
+cartões (barra de formatação em cima; a colagem mantém negrito, listas e parágrafos, como descrito acima, e
+**Ctrl+Shift+V** cola só o texto). Há dois caminhos para o que está no editor:
+
+- **Gerar Resumo** manda o texto para a IA resumir (de 250 a 64.000 caracteres, no modo Padrão ou Intensivo). A
+  estrutura vai junto, em texto simples: uma linha por parágrafo, `- ` e `1. ` nas listas (com recuo nas de dentro) e
+  `**negrito**`, para a IA saber o que era título e o que era destaque. Cor, realce e imagem não vão para a IA.
+- **Salvar sem IA** guarda o que está no editor, **com a formatação** (e as imagens), como um resumo seu, sem gastar
+  IA. O título é a primeira linha do texto e pode ser trocado depois. O servidor limpa o HTML da mesma forma que nos
+  cartões.
+
+Em **Meus Resumos**, o lápis de cada resumo (da IA ou escrito por você) abre o editor para mudar o título e o texto.
+
 ## Simulados
 
 Listas de cartões para treinar como numa prova, separadas da revisão espaçada:
