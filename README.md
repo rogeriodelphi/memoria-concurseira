@@ -272,6 +272,11 @@ novo), sem perder nada.
    (fica o texto) e imagens de fora não vêm, e uma tabela vira uma linha por linha, com as células
    separadas por " | ". O botão de borracha do editor tira a formatação que não interessar.
    **Ctrl+Shift+V** cola só o texto, sem formatação. Uma imagem copiada continua entrando como imagem.
+   Para agir em vários cartões de uma vez, use **Selecionar** (ao lado da busca): marque os cartões (ou **Selecionar
+   todos**, que pega os que a busca está mostrando) e escolha **Excluir** ou **Copiar/mover para coleção**. A exclusão
+   pede confirmação com a quantidade, avisa se a busca esconde parte dos selecionados e não pode ser desfeita; junto com
+   cada cartão saem o histórico de revisões dele e a presença dele nos simulados, igual à exclusão de um cartão só.
+   Só cartões da sua conta são apagados, e o pedido é tudo ou nada (`POST /api/flashcards/delete-many`, até 5000 por vez).
 6. Estudar direto no app: pergunta → mostrar resposta → marcar Errei/Difícil/Bom/Fácil.
    Cartões marcados como "Errei" voltam para o fim da fila na mesma sessão.
 7. Exportar para Anki (`.apkg`: pergunta → Frente, resposta → Verso, dificuldade

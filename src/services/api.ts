@@ -216,6 +216,12 @@ export const flashcardsApi = {
       body: JSON.stringify(input),
     }),
   remove: (id: string) => request<{ success: true }>(`/flashcards/${id}`, { method: 'DELETE' }),
+  /** Exclui vários de uma vez (só os do próprio usuário). `removed` é quantos saíram de fato. */
+  removeMany: (flashcardIds: string[]) =>
+    request<{ success: true; removed: number }>('/flashcards/delete-many', {
+      method: 'POST',
+      body: JSON.stringify({ flashcardIds }),
+    }),
   /** O "professor": a IA responde a uma pergunta sobre o cartão (sem `ask`, explica o cartão). Nada é gravado. */
   explain: (id: string, input: { ask?: string; history?: { ask: string; answer: string }[] }) =>
     request<{ reply: TutorReply }>(`/flashcards/${id}/explain`, { method: 'POST', body: JSON.stringify(input) }),

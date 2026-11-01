@@ -48,6 +48,7 @@ import { useToast } from '../contexts/ToastContext';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { AddToMockExamButton } from '../components/AddToMockExamButton';
 import { FormattedText } from '../components/FormattedText';
+import { bulkDeletedToast, bulkDeleteMessage } from '../utils/bulkDelete';
 import { toEditorHtml } from '../utils/flashcardEditor';
 import { collectionLabel, freezeMessage, frozenNotice, unfreezeMessage } from '../utils/frozen';
 import type {
@@ -188,6 +189,7 @@ export function CollectionDetail() {
   const [copyMode, setCopyMode] = useState<'copy' | 'move'>('copy');
   const [copying, setCopying] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [deletingSelected, setDeletingSelected] = useState(false);
 
   const [showNewCardModal, setShowNewCardModal] = useState(false);
   const [newCardQuestion, setNewCardQuestion] = useState('');
@@ -478,6 +480,29 @@ export function CollectionDetail() {
       setCopyError(err instanceof ApiError ? err.message : 'Não foi possível copiar os flashcards.');
     } finally {
       setCopying(false);
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0 || deletingSelected) return;
+    // Selecionados que a busca esconde agora: a exclusão vale para eles também, e a confirmação avisa.
+    const visible = new Set(filteredFlashcards.map((fc) => fc.id));
+    const hidden = [...selectedIds].filter((fcId) => !visible.has(fcId)).length;
+    const ok = await confirm({ message: bulkDeleteMessage(selectedIds.size, hidden), danger: true });
+    if (!ok) return;
+    const ids = [...selectedIds];
+    setDeletingSelected(true);
+    try {
+      const { removed } = await flashcardsApi.removeMany(ids);
+      const gone = new Set(ids);
+      setFlashcards((prev) => prev.filter((f) => !gone.has(f.id)));
+      showToast(bulkDeletedToast(removed));
+      exitSelectionMode();
+      if (id) collectionsApi.stats(id).then(setStats).catch(() => {});
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Não foi possível excluir os flashcards.', 'error');
+    } finally {
+      setDeletingSelected(false);
     }
   }
 
@@ -1152,14 +1177,23 @@ export function CollectionDetail() {
                   </button>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-secondary" onClick={exitSelectionMode}>
                   Cancelar
                 </button>
                 <button
                   type="button"
+                  className="btn-secondary text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  disabled={selectedIds.size === 0 || deletingSelected}
+                  onClick={handleDeleteSelected}
+                >
+                  <Trash2 size={16} />
+                  {deletingSelected ? 'Excluindo...' : 'Excluir'}
+                </button>
+                <button
+                  type="button"
                   className="btn-primary"
-                  disabled={selectedIds.size === 0}
+                  disabled={selectedIds.size === 0 || deletingSelected}
                   onClick={openCopyModal}
                 >
                   <Copy size={16} />

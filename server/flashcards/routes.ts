@@ -16,6 +16,7 @@ import { loadMissedCards, parseMissedQuery } from '../stats/missed';
 import { loadOverdueCards } from '../stats/reviewDebt';
 import { selectDueCards } from '../studyplan/store';
 import { explainFlashcard } from '../tutor/explain';
+import { deleteOwnedFlashcards, prepareBulkDelete } from './bulkDelete';
 import { recordStudy, undoStudy } from './study';
 
 /** Quantas coleções cabem numa fila de "estudar a disciplina inteira". */
@@ -397,6 +398,21 @@ flashcardsRouter.get('/duplicates', (req: AuthedRequest, res: Response) => {
     groups: duplicateGroups,
     totalDuplicates: duplicateGroups.reduce((sum, group) => sum + group.flashcards.length - 1, 0),
   });
+});
+
+// Exclui vários cartões de uma vez (o "Selecionar" da coleção). Só apaga cartões do próprio usuário.
+flashcardsRouter.post('/delete-many', (req: AuthedRequest, res: Response) => {
+  const prepared = prepareBulkDelete(req.body);
+  if (!prepared.ok) {
+    res.status(prepared.status).json({ success: false, error: prepared.error });
+    return;
+  }
+  const removed = deleteOwnedFlashcards(db, req.userId!, prepared.value);
+  if (removed === 0) {
+    res.status(404).json({ success: false, error: 'Flashcards não encontrados.' });
+    return;
+  }
+  res.json({ success: true, removed });
 });
 
 flashcardsRouter.delete('/:id', (req: AuthedRequest, res: Response) => {
