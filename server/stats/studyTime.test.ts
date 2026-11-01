@@ -208,6 +208,20 @@ test('limites do Pomodoro contam como dentro; um Pomodoro de ontem à noite cobr
   assert.equal(r.totals.pomodoroSec, 1500);
 });
 
+test('um lançamento manual (meio-dia, início = fim) soma o tempo dele e não esconde as revisões de cartão do dia', () => {
+  const db = build({
+    ...BASE,
+    sessions: [
+      { card: 'f1', when: at(1, 12, 0, 30), ms: 30_000 }, // meio-dia e meio: com uma janela de 90 min, estaria "dentro"
+      { card: 'f1', when: at(1, 12, 40), ms: 30_000 },
+    ],
+    tasks: [{ discipline: 'Português', sec: 5400, start: at(1, 12), end: at(1, 12) }],
+  });
+  const r = loadStudyTime(db, 'u1', NOW, query());
+  assert.deepEqual([r.totals.pomodoroSec, r.totals.cardSec, r.totals.totalSec, r.totals.overlapSec], [5400, 60, 5460, 0]);
+  assert.equal(r.byName.find((n) => n.label === 'Português')!.pomodoroSec, 5400, 'o lançamento entra na disciplina que o usuário digitou');
+});
+
 // ---------- período e filtros ----------
 
 test('período: revisões pelo horário da revisão e Pomodoros pelo horário em que começaram', () => {

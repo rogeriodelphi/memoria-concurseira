@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Play, Square } from 'lucide-react';
+import { BarChart3, CalendarPlus, Play, Square } from 'lucide-react';
 
 import { usePomodoro, type SimplesPhase } from '../contexts/PomodoroContext';
 import { pomodoroApi } from '../services/api';
@@ -81,7 +81,7 @@ export function Pomodoro() {
             Escolha entre o Pomodoro simples ou o Super pomodoro e acompanhe sua produtividade em tempo real.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 sm:gap-4">
           <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
             <input
               type="checkbox"
@@ -91,6 +91,11 @@ export function Pomodoro() {
             />
             Ativar aviso sonoro
           </label>
+          {/* Um estudo que ficou sem registro: abre as estatísticas já com o formulário de lançamento. */}
+          <Link to="/pomodoro/estatisticas?lancar=1" className="btn-secondary">
+            <CalendarPlus size={16} />
+            Lançar tempo
+          </Link>
           <Link to="/pomodoro/estatisticas" className="btn-secondary">
             <BarChart3 size={16} />
             Minhas estatísticas

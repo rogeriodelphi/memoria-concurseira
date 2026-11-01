@@ -427,7 +427,7 @@ export const aiReviewApi = {
 
 export const pomodoroApi = {
   logTask: (input: {
-    mode: PomodoroMode;
+    mode: Exclude<PomodoroMode, 'manual'>;
     phase: string;
     discipline: string;
     subject: string;
@@ -435,6 +435,9 @@ export const pomodoroApi = {
     startedAt: string;
     endedAt: string;
   }) => request<{ task: PomodoroTask }>('/pomodoro/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  // Um estudo que ficou sem registro: a data (AAAA-MM-DD) e os minutos estudados, lançados depois.
+  logManual: (input: { date: string; minutes: number; discipline: string; subject: string }) =>
+    request<{ task: PomodoroTask }>('/pomodoro/manual', { method: 'POST', body: JSON.stringify(input) }),
   listTasks: (from: string, to: string) =>
     request<{ tasks: PomodoroTask[] }>(`/pomodoro/tasks?from=${from}&to=${to}`),
   removeTask: (id: string) => request<{ success: true }>(`/pomodoro/tasks/${id}`, { method: 'DELETE' }),

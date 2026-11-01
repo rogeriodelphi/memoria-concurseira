@@ -704,6 +704,25 @@ documento, baixar uma prova), que você marca como feitas.
 - Uma tabela nova, `todo_items` (uma linha por lembrete; entra na exportação da conta e some junto com o usuário), e as rotas
   `GET/POST /api/todos`, `PATCH/DELETE /api/todos/:id` e `DELETE /api/todos` (limpar os feitos).
 
+## Pomodoro: lançar tempo estudado
+
+Um estudo que ficou sem registro no Pomodoro (esquecimento, ou estudo longe do computador) pode ser lançado depois,
+com a data e o tempo. O botão **Lançar tempo** fica em **Minhas estatísticas** e também na tela do Pomodoro
+(que abre as estatísticas já com o formulário):
+
+- **Data** (de hoje para trás; não vale o futuro nem antes de 2000), **horas e minutos** (de 1 minuto a 24 horas;
+  "90" minutos vale 1h30) e, se quiser, **disciplina e assunto** (com as mesmas sugestões do Pomodoro; digitar o
+  nome de uma disciplina do edital ou de uma coleção liga o tempo a ela no "Tempo de estudo").
+- O lançamento é uma linha da mesma tabela das tarefas do cronômetro (`pomodoro_tasks`, com `mode = manual`), então
+  aparece em **Minhas estatísticas** (tempo total, contagem "Tempo lançado", gráfico por dia, lista "Minhas
+  tarefas", onde também pode ser excluído) e no **Tempo de estudo** do Meu desempenho, e entra na exportação da conta.
+  Se a data cair fora do período que está na tela, o período cresce até ela.
+- Não se sabe a hora do estudo: o registro fica ao **meio-dia** do dia escolhido, com início e fim iguais. Assim ele
+  cai no dia certo e **não esconde** nenhuma revisão de cartão do dia (o "Tempo de estudo" só descarta revisões feitas
+  dentro de uma tarefa do cronômetro). Se o estudo esquecido era justamente revisar cartões, o tempo deles aparece
+  uma vez como cartões e outra no lançamento.
+- Para corrigir um lançamento errado, exclua-o em **Minhas tarefas** e lance de novo.
+
 ## Meu desempenho
 
 No menu lateral, **Meu desempenho** (`/desempenho`) mostra o que você estudou num período, por

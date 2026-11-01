@@ -516,7 +516,8 @@ export interface GenerationOptions {
   focus: string;
 }
 
-export type PomodoroMode = 'simples' | 'super';
+/** `manual` é um tempo lançado depois pelo usuário (sem cronômetro); os outros dois vêm do cronômetro. */
+export type PomodoroMode = 'simples' | 'super' | 'manual';
 
 export interface PomodoroTask {
   id: string;

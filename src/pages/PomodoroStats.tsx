@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, BarChart3, Clock, ListChecks, Trash2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, BarChart3, CalendarPlus, Clock, ListChecks, Plus, Trash2 } from 'lucide-react';
 
+import { ManualTimeForm } from '../components/pomodoro/ManualTimeForm';
+import { useToast } from '../contexts/ToastContext';
 import { pomodoroApi } from '../services/api';
 import type { PomodoroTask } from '../types';
+import { formatDateKey, rangeIncluding } from '../utils/pomodoroManual';
 
 type Tab = 'geral' | 'tarefas';
 
@@ -31,7 +34,7 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-const MODE_LABEL: Record<string, string> = { simples: 'Pomodoro simples', super: 'Super pomodoro' };
+const MODE_LABEL: Record<string, string> = { simples: 'Pomodoro simples', super: 'Super pomodoro', manual: 'Tempo lançado' };
 const PHASE_LABEL: Record<string, string> = { producao: 'Produção', manual: 'Tarefa manual' };
 
 function DailyChart({ tasks, from, to }: { tasks: PomodoroTask[]; from: string; to: string }) {
@@ -81,6 +84,14 @@ export function PomodoroStats() {
   const [{ from, to }, setRange] = useState(defaultRange);
   const [tasks, setTasks] = useState<PomodoroTask[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  // "Lançar tempo estudado": o botão da tela do Pomodoro abre esta página já com o formulário (?lancar=1).
+  const [searchParams] = useSearchParams();
+  const [showForm, setShowForm] = useState(searchParams.get('lancar') === '1');
+  const [suggestions, setSuggestions] = useState<{ disciplines: string[]; subjects: string[] }>({ disciplines: [], subjects: [] });
+  // Sobe a cada lançamento, para recarregar a lista mesmo quando o período não mudou.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setTasks(null);
@@ -88,15 +99,33 @@ export function PomodoroStats() {
       .listTasks(from, to)
       .then(({ tasks }) => setTasks(tasks))
       .catch(() => setError('Não foi possível carregar as estatísticas.'));
-  }, [from, to]);
+  }, [from, to, reloadKey]);
+
+  // As sugestões de Disciplina e Assunto só são buscadas quando o formulário é aberto pela primeira vez.
+  useEffect(() => {
+    if (!showForm) return;
+    pomodoroApi
+      .suggestions()
+      .then(setSuggestions)
+      .catch(() => {});
+  }, [showForm]);
 
   const totals = useMemo(() => {
     if (!tasks) return null;
     const totalSec = tasks.reduce((sum, t) => sum + t.durationSec, 0);
     const simplesCount = tasks.filter((t) => t.mode === 'simples').length;
     const superCount = tasks.filter((t) => t.mode === 'super').length;
-    return { totalSec, count: tasks.length, simplesCount, superCount };
+    const manualCount = tasks.filter((t) => t.mode === 'manual').length;
+    return { totalSec, count: tasks.length, simplesCount, superCount, manualCount };
   }, [tasks]);
+
+  function handleManualSaved(date: string) {
+    // Se a data lançada estiver fora do período mostrado, o período cresce para contê-la: sem isso o lançamento não apareceria.
+    setRange((r) => rangeIncluding(r, date));
+    setReloadKey((k) => k + 1);
+    setShowForm(false);
+    showToast(`Tempo lançado em ${formatDateKey(date)}.`);
+  }
 
   async function handleRemove(id: string) {
     try {
@@ -116,10 +145,24 @@ export function PomodoroStats() {
         <ArrowLeft size={16} />
         Pomodoro de estudos
       </Link>
-      <h1 className="mb-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">Minhas estatísticas</h1>
-      <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">
-        Acompanhe seu tempo de estudo registrado no Pomodoro.
-      </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="mb-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">Minhas estatísticas</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Acompanhe seu tempo de estudo registrado no Pomodoro.
+          </p>
+        </div>
+        {!showForm && (
+          <button type="button" onClick={() => setShowForm(true)} className="btn-primary shrink-0">
+            <Plus size={16} />
+            Lançar tempo
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <ManualTimeForm suggestions={suggestions} onSaved={handleManualSaved} onCancel={() => setShowForm(false)} />
+      )}
 
       <div className="mb-4 flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
         <button
@@ -173,12 +216,13 @@ export function PomodoroStats() {
           <BarChart3 size={28} className="mb-2 text-neutral-300 dark:text-neutral-600" />
           <p className="font-semibold text-neutral-800 dark:text-neutral-200">Sem dados no período</p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Você ainda não registrou tarefas de Pomodoro no intervalo selecionado.
+            Você ainda não registrou tarefas de Pomodoro no intervalo selecionado. Esqueceu de registrar um estudo? Use
+            &quot;Lançar tempo&quot;.
           </p>
         </div>
       ) : tab === 'geral' ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <div className="card flex items-center gap-3 p-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400">
                 <Clock size={18} />
@@ -207,6 +251,10 @@ export function PomodoroStats() {
               <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{totals!.superCount}</p>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">Super pomodoro</p>
             </div>
+            <div className="card p-4">
+              <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{totals!.manualCount}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Tempo lançado</p>
+            </div>
           </div>
 
           <DailyChart tasks={tasks} from={from} to={to} />
@@ -229,12 +277,18 @@ export function PomodoroStats() {
                   key={t.id}
                   className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
                 >
-                  <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">{formatDateTime(t.startedAt)}</td>
+                  {/* Um tempo lançado não tem hora (fica ao meio-dia do dia escolhido): só a data. */}
+                  <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">
+                    {t.mode === 'manual' ? formatDateKey(t.startedAt.slice(0, 10)) : formatDateTime(t.startedAt)}
+                  </td>
                   <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
+                    {t.mode === 'manual' && <CalendarPlus size={13} className="mr-1 inline text-neutral-400" />}
                     {MODE_LABEL[t.mode] ?? t.mode}
-                    <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
-                      ({PHASE_LABEL[t.phase] ?? t.phase})
-                    </span>
+                    {t.mode !== 'manual' && (
+                      <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
+                        ({PHASE_LABEL[t.phase] ?? t.phase})
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
                     {t.discipline || '—'}

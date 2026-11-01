@@ -5,6 +5,7 @@ import express, { type Response } from 'express';
 import { db } from '../db';
 import { requireAuth, type AuthedRequest } from '../auth/middleware';
 import { mapPomodoroTask, type PomodoroTaskRow } from '../mappers';
+import { insertManualTask, prepareManualTask } from './manual';
 import { pomodoroSuggestions } from './suggestions';
 
 export const pomodoroRouter = express.Router();
@@ -60,6 +61,19 @@ pomodoroRouter.post('/tasks', (req: AuthedRequest, res: Response) => {
     row.created_at,
   );
 
+  res.status(201).json({ success: true, task: mapPomodoroTask(row as unknown as PomodoroTaskRow) });
+});
+
+// Um estudo que ficou sem registro: o usuário lança a data e o tempo depois. Grava na mesma tabela do cronômetro, então
+// aparece nas estatísticas do Pomodoro e no "Tempo de estudo" do Meu desempenho. Ver ./manual.
+pomodoroRouter.post('/manual', (req: AuthedRequest, res: Response) => {
+  const now = new Date();
+  const prepared = prepareManualTask(req.body, now);
+  if (!prepared.ok) {
+    res.status(prepared.status).json({ success: false, error: prepared.error });
+    return;
+  }
+  const row = insertManualTask(db, req.userId!, prepared.value, now);
   res.status(201).json({ success: true, task: mapPomodoroTask(row as unknown as PomodoroTaskRow) });
 });
 
