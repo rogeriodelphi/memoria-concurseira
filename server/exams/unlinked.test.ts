@@ -73,6 +73,69 @@ test('sem nenhum forte, os prováveis aparecem até o limite, do mais parecido a
   assert.ok(suggestions.every((s, i) => i === 0 || suggestions[i - 1].score >= s.score));
 });
 
+// ---------- o assunto da coleção desfaz o empate da disciplina toda ----------
+
+const REDES = 'Redes de Computadores e Sistemas Distribuídos';
+const redesTopics = ['Arquiteturas de rede', 'Topologias', 'Equipamentos de conexão e transmissão', 'QOS', 'Modelo OSI da ISO', 'Arquitetura e protocolos TCP/IP', 'Noções básicas de IPv6', 'Cabeamento estruturado'].map(
+  (title, i) => topic(`r${i}`, `${REDES}: ${title}`, { hasMaterial: i === 0 || i === 1 || i === 3 || i === 5 }),
+);
+
+test('o nome dá 0,80 a toda a disciplina e o assunto certo também: o assunto, que traz o tópico inteiro, desempata (forte)', () => {
+  const c = coll('c1', REDES, 'Fundamentos de redes: Modelo OSI da ISO', 17);
+  const { suggestions, tied } = suggestTopics(c, redesTopics);
+  assert.equal(tied, 0);
+  assert.deepEqual(suggestions.map((s) => [s.title, s.strong, s.score, s.linked]), [[`${REDES}: Modelo OSI da ISO`, true, 1, false]]);
+
+  const equipamentos = suggestTopics(coll('c2', REDES, 'Fundamentos de redes: Equipamentos de conexão e transmissão', 22), redesTopics);
+  assert.deepEqual(equipamentos.suggestions.map((s) => [s.title, s.strong]), [[`${REDES}: Equipamentos de conexão e transmissão`, true]]);
+});
+
+test('o desempate vale quando o assunto traz só parte do tópico: "provável", e o tópico que já tem coleção vem marcado', () => {
+  const c = coll('c1', REDES, 'Fundamentos de redes: Arquitetura TCP/IP', 29);
+  const { suggestions, tied } = suggestTopics(c, redesTopics);
+  assert.equal(tied, 0);
+  assert.deepEqual(suggestions.map((s) => [s.title, s.strong, s.linked]), [[`${REDES}: Arquitetura e protocolos TCP/IP`, false, true]]);
+  assert.equal(suggestions[0].score, 0.8, 'não passa do que o nome já dava: não vira "quase igual"');
+});
+
+test('uma palavra solta em comum não desempata: "Conceito" não prova que a coleção é o tópico "Conceito e objetivos"', () => {
+  const gerencia = ['Conceito e objetivos', 'Abertura e definição do escopo', 'Planejamento de um projeto', 'Diagrama de Rede', 'Caminho Crítico', 'Folgas'].map((title, i) =>
+    topic(`g${i}`, `Gerência de projetos: ${title}`),
+  );
+  const c = coll('c1', 'Gerência de Projetos', 'Fundamentos: Conceito de gerência de projetos', 27);
+  assert.deepEqual(suggestTopics(c, gerencia), { suggestions: [], tied: 6 });
+});
+
+test('o assunto genérico ("Variadas") ou sem relação com os tópicos não desempata: continua empate', () => {
+  assert.deepEqual(suggestTopics(coll('c1', REDES, 'Variadas'), redesTopics), { suggestions: [], tied: redesTopics.length });
+  assert.deepEqual(suggestTopics(coll('c2', REDES, 'Fundamentos de redes: Assunto que o edital não tem'), redesTopics), { suggestions: [], tied: redesTopics.length });
+  assert.deepEqual(suggestTopics(coll('c3', REDES, ''), redesTopics), { suggestions: [], tied: redesTopics.length });
+});
+
+test('se o assunto aponta para mais de três tópicos igualmente, continua empate (seria sorteio)', () => {
+  const four = ['Camada A', 'Camada B', 'Camada C', 'Camada D'].map((title, i) => topic(`x${i}`, `${REDES}: ${title}`));
+  const c = coll('c1', REDES, 'Camada');
+  // "camada" é o único token específico de cada um e está no assunto: os quatro têm a mesma nota
+  assert.deepEqual(suggestTopics(c, four), { suggestions: [], tied: 4 });
+  // com três, não é empate acima do limite: entram todos, como sempre foi
+  assert.equal(suggestTopics(c, four.slice(0, 3)).suggestions.length, 3);
+});
+
+test('sem empate nada muda: a sugestão forte de sempre continua a mesma', () => {
+  const c = coll('c1', 'Segurança da Informação', 'MFA (Autenticação Multifator)');
+  assert.deepEqual(suggestTopics(c, [topic('t1', 'MFA'), topic('t2', 'SSO')]).suggestions.map((s) => [s.topicId, s.score]), [['t1', 1]]);
+});
+
+test('na lista do painel, a coleção desempatada passa a vir entre as com sugestão (antes ia para o fim, sem nenhuma)', () => {
+  const { unlinked } = buildUnlinked({
+    collections: [coll('grande', 'Língua Portuguesa', 'Acentuação Gráfica', 157), coll('osi', REDES, 'Fundamentos de redes: Modelo OSI da ISO', 17)],
+    topics: [...redesTopics, topic('o', 'Ortografia oficial', { discipline: 'Língua Portuguesa' })],
+    linkedCollectionIds: new Set(),
+    ignoredIds: new Set(),
+  });
+  assert.deepEqual(unlinked.map((c) => [c.id, c.suggestions.length > 0, c.tied]), [['osi', true, 0], ['grande', false, 0]]);
+});
+
 test('sem parecido por palavras (Acentuação Gráfica x Ortografia oficial) não há sugestão: fica para o usuário escolher', () => {
   const c = coll('c1', 'Língua Portuguesa', 'Acentuação Gráfica', 157);
   assert.deepEqual(suggestTopics(c, [topic('t1', 'Ortografia oficial'), topic('t2', 'Compreensão de textos')]), { suggestions: [], tied: 0 });

@@ -9,7 +9,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 
-import { MIN_SCORE, STRONG_SCORE, suggestCollections } from './suggest';
+import { MIN_SCORE, STRONG_SCORE, suggestCollections, tokenize } from './suggest';
 
 export interface TopicRef {
   id: string;
@@ -45,7 +45,8 @@ export interface UnlinkedCollection extends CollectionRef {
   /**
    * Quantos tópicos empatam no topo, quando são mais que `MAX_SUGGESTIONS`: a coleção trata da disciplina toda ("Redes de
    * Computadores" casa com todo tópico "Redes de Computadores: ..."), e escolher três deles seria sorteio. Sem sugestões,
-   * a tela pede para o usuário escolher. 0 quando não há esse empate.
+   * a tela pede para o usuário escolher. 0 quando não há esse empate, ou quando o assunto da coleção o desfez
+   * (`breakTie`).
    */
   tied: number;
 }
@@ -54,6 +55,37 @@ export interface UnlinkedCollection extends CollectionRef {
 export const MAX_SUGGESTIONS = 3;
 
 const EPSILON = 1e-9;
+
+/**
+ * Desempata os tópicos que empatam no topo. O nome da coleção ("Redes de Computadores e Sistemas Distribuídos") dá a mesma
+ * nota a todos os tópicos da disciplina, e o assunto certo pode cair exatamente nessa nota ("Modelo OSI da ISO" também dá
+ * 0,80): o empate fica sem sugestão nenhuma, embora o assunto da coleção seja, palavra por palavra, o tópico.
+ *
+ * O que distingue um tópico dos demais é o que o título dele tem e o NOME da coleção não tem. Vale quanto disso aparece
+ * no ASSUNTO da coleção. Só desempata quando um tópico (ou até `MAX_SUGGESTIONS`) se destaca com ao menos `MIN_SCORE`;
+ * senão continua empate, e o usuário escolhe. Uma palavra solta em comum não basta quando o tópico tem outras (a regra
+ * da comparação principal): "Conceito" não prova que a coleção é o tópico "Conceito e objetivos".
+ *
+ * Só é chamada quando há empate, que antes terminava sem sugestão: nada que já era sugerido muda.
+ */
+function breakTie(collection: Pick<CollectionRef, 'name' | 'subject'>, tied: { topic: TopicRef; score: number }[]): TopicSuggestion[] | null {
+  const name = tokenize(collection.name);
+  const subject = tokenize(collection.subject);
+  const ranked = tied.map(({ topic, score }) => {
+    const specific = [...tokenize(topic.title)].filter((token) => !name.has(token));
+    const shared = specific.filter((token) => subject.has(token)).length;
+    const lone = shared === 1 && specific.length > 1;
+    return { topic, score, specificity: specific.length === 0 || shared === 0 || lone ? 0 : shared / specific.length };
+  });
+  const best = Math.max(...ranked.map((entry) => entry.specificity));
+  if (best < MIN_SCORE) return null;
+  const winners = ranked.filter((entry) => best - entry.specificity < EPSILON);
+  if (winners.length > MAX_SUGGESTIONS) return null;
+  return winners.map(({ topic, score, specificity }) => {
+    const final = Math.max(score, specificity);
+    return { topicId: topic.id, title: topic.title, discipline: topic.discipline, score: final, strong: final >= STRONG_SCORE, linked: topic.hasMaterial };
+  });
+}
 
 /** Os tópicos que combinam com a coleção, do mais parecido ao menos (empate: a ordem do edital). */
 export function suggestTopics(collection: Pick<CollectionRef, 'id' | 'name' | 'subject'>, topics: readonly TopicRef[]): { suggestions: TopicSuggestion[]; tied: number } {
@@ -64,8 +96,11 @@ export function suggestTopics(collection: Pick<CollectionRef, 'id' | 'name' | 's
   if (scored.length === 0) return { suggestions: [], tied: 0 };
 
   const top = scored[0].score;
-  const tied = scored.filter((entry) => top - entry.score < EPSILON).length;
-  if (tied > MAX_SUGGESTIONS) return { suggestions: [], tied };
+  const atTop = scored.filter((entry) => top - entry.score < EPSILON);
+  if (atTop.length > MAX_SUGGESTIONS) {
+    const resolved = breakTie(collection, atTop);
+    return resolved ? { suggestions: resolved, tied: 0 } : { suggestions: [], tied: atTop.length };
+  }
 
   // Quando o assunto da coleção é praticamente o tópico, os parecidos só pelo nome (a disciplina toda) são ruído.
   const candidates = top >= STRONG_SCORE ? scored.filter((entry) => entry.score >= STRONG_SCORE) : scored;

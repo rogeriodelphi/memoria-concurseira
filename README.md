@@ -607,6 +607,13 @@ tópicos"):
 - **Coleção que cobre a disciplina inteira:** se ela casa com mais de 3 tópicos empatados (por exemplo "Redes de
   Computadores" com todos os tópicos "Redes de Computadores e Sistemas Distribuídos: ..."), o painel não escolhe três
   ao acaso: diz com quantos casa e pede para você escolher.
+- **O assunto desempata:** o nome da coleção ("Redes de Computadores e Sistemas Distribuídos") dá a mesma nota a todos
+  os tópicos da disciplina, e uma coleção com assunto "Fundamentos de redes: Modelo OSI da ISO" empatava com os outros 7.
+  Agora, no empate, vale o que distingue o tópico dos demais (o que o título dele tem e o nome da coleção não tem)
+  e quanto disso aparece no **assunto** da coleção: se um tópico (ou até 3) se destaca, ele é sugerido ("quase igual"
+  quando o assunto traz o tópico inteiro, "provável" quando traz parte). Uma palavra solta em comum ("Conceito") não
+  basta, e assunto genérico ("Variadas") ou sem relação continua empate. Só os casos que antes ficavam sem sugestão
+  mudam; o que já era sugerido continua igual.
 - **Escolher à mão:** "Escolher o tópico..." abre a lista de tópicos do edital por disciplina, com busca quando a
   lista é longa (sem acento nem caixa, todas as palavras). É o caminho para o que não casa por palavras, como "Acentuação
   Gráfica" e o tópico "Ortografia oficial".
