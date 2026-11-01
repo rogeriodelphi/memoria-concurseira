@@ -37,6 +37,28 @@ function formatDateTime(iso: string): string {
 const MODE_LABEL: Record<string, string> = { simples: 'Pomodoro simples', super: 'Super pomodoro', manual: 'Tempo lançado' };
 const PHASE_LABEL: Record<string, string> = { producao: 'Produção', manual: 'Tarefa manual' };
 
+// Um tempo lançado não tem hora (fica ao meio-dia do dia escolhido): só a data.
+function taskWhen(t: PomodoroTask): string {
+  return t.mode === 'manual' ? formatDateKey(t.startedAt.slice(0, 10)) : formatDateTime(t.startedAt);
+}
+
+function taskWhat(t: PomodoroTask): string {
+  return `${t.discipline || '—'}${t.subject ? ` · ${t.subject}` : ''}`;
+}
+
+function RemoveButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-lg p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:text-neutral-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+      title="Excluir"
+    >
+      <Trash2 size={14} />
+    </button>
+  );
+}
+
 function DailyChart({ tasks, from, to }: { tasks: PomodoroTask[]; from: string; to: string }) {
   const days: string[] = [];
   const start = new Date(`${from}T00:00:00`);
@@ -260,56 +282,63 @@ export function PomodoroStats() {
           <DailyChart tasks={tasks} from={from} to={to} />
         </div>
       ) : (
-        <div className="card overflow-hidden p-0">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-100 bg-neutral-50/60 text-xs uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/60 dark:text-neutral-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium">Modo</th>
-                <th className="px-4 py-3 font-medium">Disciplina / Assunto</th>
-                <th className="px-4 py-3 font-medium">Duração</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((t) => (
-                <tr
-                  key={t.id}
-                  className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
-                >
-                  {/* Um tempo lançado não tem hora (fica ao meio-dia do dia escolhido): só a data. */}
-                  <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">
-                    {t.mode === 'manual' ? formatDateKey(t.startedAt.slice(0, 10)) : formatDateTime(t.startedAt)}
-                  </td>
-                  <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
-                    {t.mode === 'manual' && <CalendarPlus size={13} className="mr-1 inline text-neutral-400" />}
-                    {MODE_LABEL[t.mode] ?? t.mode}
-                    {t.mode !== 'manual' && (
-                      <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
-                        ({PHASE_LABEL[t.phase] ?? t.phase})
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
-                    {t.discipline || '—'}
-                    {t.subject ? ` · ${t.subject}` : ''}
-                  </td>
-                  <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">{formatDuration(t.durationSec)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(t.id)}
-                      className="rounded-lg p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:text-neutral-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                      title="Excluir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
+        <>
+          {/* Abaixo de 1024px (celular, ou tablet com a barra lateral) a tabela não cabe e a lixeira ficava escondida à
+              direita: cada tarefa vira uma linha de lista. */}
+          <ul className="card divide-y divide-neutral-100 p-0 dark:divide-neutral-800 lg:hidden">
+            {tasks.map((t) => (
+              <li key={t.id} className="flex items-start gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm text-neutral-800 dark:text-neutral-200">{taskWhat(t)}</p>
+                  <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    {taskWhen(t)} · {MODE_LABEL[t.mode] ?? t.mode}
+                    {t.mode !== 'manual' && ` (${PHASE_LABEL[t.phase] ?? t.phase})`} · {formatDuration(t.durationSec)}
+                  </p>
+                </div>
+                <RemoveButton onClick={() => handleRemove(t.id)} />
+              </li>
+            ))}
+          </ul>
+
+          {/* A rolagem é só uma rede de segurança: a partir de 1024px a tabela cabe. */}
+          <div className="card hidden overflow-x-auto p-0 lg:block">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-neutral-100 bg-neutral-50/60 text-xs uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/60 dark:text-neutral-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Data</th>
+                  <th className="px-4 py-3 font-medium">Modo</th>
+                  <th className="px-4 py-3 font-medium">Disciplina / Assunto</th>
+                  <th className="px-4 py-3 font-medium">Duração</th>
+                  <th className="px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {tasks.map((t) => (
+                  <tr
+                    key={t.id}
+                    className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
+                  >
+                    <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">{taskWhen(t)}</td>
+                    <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
+                      {t.mode === 'manual' && <CalendarPlus size={13} className="mr-1 inline text-neutral-400" />}
+                      {MODE_LABEL[t.mode] ?? t.mode}
+                      {t.mode !== 'manual' && (
+                        <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
+                          ({PHASE_LABEL[t.phase] ?? t.phase})
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">{taskWhat(t)}</td>
+                    <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">{formatDuration(t.durationSec)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <RemoveButton onClick={() => handleRemove(t.id)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
