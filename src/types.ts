@@ -58,7 +58,7 @@ export interface CollectionDetail {
   updatedAt: string;
 }
 
-export type DocumentSourceType = 'file' | 'topic' | 'text' | 'youtube' | 'anki';
+export type DocumentSourceType = 'file' | 'topic' | 'text' | 'youtube' | 'anki' | 'markdown';
 
 export interface DocumentItem {
   id: string;
@@ -577,6 +577,8 @@ export interface BulletPoints {
 }
 
 export interface AnkiImportPreview {
+  /** De onde vieram os cartões: um pacote do Anki ou um arquivo Markdown de arrastar e soltar. */
+  source: 'apkg' | 'markdown';
   suggestedName: string;
   totalNotes: number;
   importable: number;
@@ -587,6 +589,9 @@ export interface AnkiImportPreview {
   /** Notas reconhecidas como arrastar e soltar. */
   matchConverted: number;
   images: { embedded: number; skipped: number };
+  /** Seções do arquivo Markdown que não viraram cartão (só os primeiros motivos vêm em `rejected`). */
+  rejectedTotal: number;
+  rejected: { title: string; reason: string }[];
   duplicateSamples: { question: string; existsIn: string | null }[];
   sample: { question: string; answer: string }[];
 }

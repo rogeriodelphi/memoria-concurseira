@@ -307,6 +307,15 @@ bandeja e cada uma vai para o termo certo.
 - **Importar do Anki:** uma nota cujo segundo campo tem uma linha `termo::descrição` em **todas** as linhas (de 2 a 12, termos
   diferentes) entra como arrastar e soltar, com o primeiro campo como título; a prévia da importação diz quantas foram
   reconhecidas. Qualquer dúvida e a nota entra como cartão comum, como sempre entrou.
+- **Importar de um arquivo `.md`:** a mesma tela (**Coleções → Importar cartões**) aceita um arquivo Markdown (`.md`,
+  `.markdown` ou `.txt`, até 2 MB) no formato que a IA devolve quando se pede cartões de arrastar e soltar: um título
+  `## 1. Assunto` por cartão (o "1." é descartado), uma linha opcional `Dificuldade: Fácil|Médio|Difícil` (sem ela, Médio) e
+  uma tabela `| Termo | Descrição |` (a linha de cima é só o cabeçalho). O `# Arrastar e soltar: Tema` do início sugere o nome
+  da coleção. Vale o destino de sempre (coleção nova ou existente) e a mesma regra de repetidos (resposta igual a de um cartão
+  que você já tem, nas suas coleções ou dentro do arquivo). As regras do cartão são as de criar à mão (2 a 12 pares, termos
+  diferentes, 300 caracteres por parte); uma seção que não serve não derruba o arquivo: fica de fora e a prévia lista o
+  título e o motivo. Barra dentro do texto se escreve `\|`, e `::` dentro de um termo vira `:`. O documento da coleção fica com
+  o nome do arquivo (`source_type = 'markdown'`).
 - **O que não faz:** não entra em simulado (a múltipla escolha parte de pergunta e resposta): o botão de simulado some do
   cartão, e o "simulado de uma disciplina" o deixa de fora. Nas sanguessugas não há "Reescrever" (edite na coleção), e
   "Quebrar" cria cartões comuns.

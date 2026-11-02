@@ -552,7 +552,7 @@ export function Collections() {
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
           <Link to="/importar-anki" className="btn-secondary">
             <Upload size={16} />
-            Importar do Anki
+            Importar cartões
           </Link>
           <Link to="/colecoes/nova" className="btn-primary">
             <Plus size={16} />

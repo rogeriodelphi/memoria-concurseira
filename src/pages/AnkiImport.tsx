@@ -8,6 +8,16 @@ import type { AnkiImportPreview, AnkiImportResult, CollectionSummary } from '../
 
 type Destination = 'new' | 'existing';
 
+const MARKDOWN_EXAMPLE = `# Arrastar e soltar: Redes de computadores
+
+## 1. Protocolos de roteamento
+Dificuldade: Médio
+
+| Termo | Descrição |
+|---|---|
+| OSPF | Estado de enlace, usado dentro de um sistema autônomo |
+| BGP | Roteamento entre sistemas autônomos na Internet |`;
+
 function plural(n: number, singular: string, pluralForm: string): string {
   return `${n.toLocaleString('pt-BR')} ${n === 1 ? singular : pluralForm}`;
 }
@@ -58,8 +68,8 @@ export function AnkiImport() {
 
   async function pickFile(picked: File | null) {
     if (!picked) return;
-    if (!/\.apkg$/i.test(picked.name)) {
-      setError('Formato não suportado. Envie um arquivo .apkg do Anki.');
+    if (!/\.(apkg|md|markdown|txt)$/i.test(picked.name)) {
+      setError('Formato não suportado. Envie um arquivo .apkg do Anki ou um arquivo .md de arrastar e soltar.');
       return;
     }
     setFile(picked);
@@ -118,6 +128,7 @@ export function AnkiImport() {
   }
 
   const duplicatesTotal = preview ? preview.duplicatesExisting + preview.duplicatesInFile : 0;
+  const fromMarkdown = preview?.source === 'markdown';
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -128,10 +139,11 @@ export function AnkiImport() {
         <ArrowLeft size={16} />
         Coleções
       </Link>
-      <h1 className="mb-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">Importar do Anki</h1>
+      <h1 className="mb-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">Importar cartões</h1>
       <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">
-        Envie um arquivo <span className="font-medium">.apkg</span>. Cartões repetidos — com a mesma resposta de um
-        cartão que você já tem — nunca são importados.
+        Envie um arquivo <span className="font-medium">.apkg</span> do Anki ou um arquivo <span className="font-medium">.md</span> de
+        cartões de arrastar e soltar. Cartões repetidos — com a mesma resposta de um cartão que você já tem — nunca são
+        importados.
       </p>
 
       <div className="card space-y-6 p-6">
@@ -151,9 +163,9 @@ export function AnkiImport() {
           >
             <UploadCloud className="text-brand-500" size={28} />
             <label className="cursor-pointer text-sm">
-              <span className="font-semibold text-brand-600 hover:text-brand-700">Selecionar arquivo .apkg</span>
+              <span className="font-semibold text-brand-600 hover:text-brand-700">Selecionar arquivo .apkg ou .md</span>
               <span className="text-neutral-500 dark:text-neutral-400"> ou arraste aqui</span>
-              <input type="file" accept=".apkg" className="hidden" onChange={handleFileInput} />
+              <input type="file" accept=".apkg,.md,.markdown,.txt" className="hidden" onChange={handleFileInput} />
             </label>
             <p className="text-xs text-neutral-400 dark:text-neutral-500">
               No Anki: Arquivo → Exportar → formato "Pacote de baralho do Anki (*.apkg)"
@@ -183,6 +195,22 @@ export function AnkiImport() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
+        {!file && (
+          <details className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-700">
+            <summary className="cursor-pointer text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Como é o arquivo .md de arrastar e soltar?
+            </summary>
+            <div className="mt-2 space-y-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <p>
+                Um título <span className="font-mono">##</span> por cartão e uma tabela de duas colunas (de 2 a 12 linhas, termos
+                diferentes). A linha <span className="font-mono">Dificuldade:</span> é opcional (Fácil, Médio ou Difícil), e o{' '}
+                <span className="font-mono">#</span> do início sugere o nome da coleção.
+              </p>
+              <pre className="overflow-x-auto rounded-md bg-neutral-50 p-3 font-mono text-[11px] leading-relaxed text-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300">{MARKDOWN_EXAMPLE}</pre>
+            </div>
+          </details>
+        )}
+
         {preview && (
           <>
             <div>
@@ -201,8 +229,8 @@ export function AnkiImport() {
                   className="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                 />
                 <StatTile
-                  label="Vazios (ignorados)"
-                  value={preview.empty}
+                  label={fromMarkdown ? 'Com problema (ignorados)' : 'Vazios (ignorados)'}
+                  value={fromMarkdown ? preview.rejectedTotal : preview.empty}
                   className="bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
                 />
               </div>
@@ -237,8 +265,37 @@ export function AnkiImport() {
                     .
                   </li>
                 )}
-                <li>Áudios e o agendamento de revisão do Anki não são importados — os cartões entram como novos.</li>
+                {fromMarkdown ? (
+                  <li>
+                    Cada título do arquivo vira um cartão de arrastar e soltar, com a dificuldade que o arquivo indica (sem ela, Médio).
+                    Os cartões entram como novos.
+                  </li>
+                ) : (
+                  <li>Áudios e o agendamento de revisão do Anki não são importados — os cartões entram como novos.</li>
+                )}
               </ul>
+
+              {preview.rejectedTotal > 0 && (
+                <details className="mt-4 rounded-lg border border-amber-200 px-3 py-2 dark:border-amber-900/60" open>
+                  <summary className="cursor-pointer text-sm font-medium text-amber-700 dark:text-amber-300">
+                    {plural(preview.rejectedTotal, 'cartão do arquivo não pôde ser lido', 'cartões do arquivo não puderam ser lidos')} e
+                    ficam de fora
+                  </summary>
+                  <ul className="mt-2 space-y-2">
+                    {preview.rejected.map((r, i) => (
+                      <li key={i} className="text-xs">
+                        <p className="text-neutral-800 dark:text-neutral-200">{r.title}</p>
+                        <p className="text-neutral-500 dark:text-neutral-400">{r.reason}</p>
+                      </li>
+                    ))}
+                    {preview.rejectedTotal > preview.rejected.length && (
+                      <li className="text-xs text-neutral-400 dark:text-neutral-500">
+                        …e mais {(preview.rejectedTotal - preview.rejected.length).toLocaleString('pt-BR')}.
+                      </li>
+                    )}
+                  </ul>
+                </details>
+              )}
 
               {preview.duplicateSamples.length > 0 && (
                 <details className="mt-4 rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-700">
