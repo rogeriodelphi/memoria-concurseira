@@ -15,7 +15,7 @@ function newDb(): DatabaseSync {
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL);
     CREATE TABLE flashcards (
       id TEXT PRIMARY KEY, collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-      question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain'
+      question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain', kind TEXT NOT NULL DEFAULT 'basic'
     );
     CREATE TABLE exams (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL);
     CREATE TABLE exam_disciplines (id TEXT PRIMARY KEY, exam_id TEXT NOT NULL REFERENCES exams(id) ON DELETE CASCADE, name TEXT NOT NULL);
@@ -67,6 +67,22 @@ test('cria o simulado com os cartões das coleções ligadas, sem duplicar os de
   assert.equal(result.mockExam.cardCount, 3);
   const detail = value(getMockExamDetail(db, 'u1', result.mockExam.id));
   assert.deepEqual(detail.cards.map((c) => c.id), ['f1', 'f2', 'f3'], 'por coleção, na ordem dos cartões');
+});
+
+test('cartões de arrastar e soltar das coleções ligadas ficam de fora do simulado', () => {
+  const db = newDb();
+  db.exec(`INSERT INTO flashcards (id, collection_id, question, answer, kind) VALUES ('m1', 'c1', 'Protocolos', 'OSPF::a\nBGP::b', 'match')`);
+  const result = value(mockExamFromDiscipline(db, 'u1', 'e1', 'd1'));
+  assert.equal(result.added, 3, 'só os três comuns');
+  const detail = value(getMockExamDetail(db, 'u1', result.mockExam.id));
+  assert.deepEqual(detail.cards.map((c) => c.id), ['f1', 'f2', 'f3']);
+});
+
+test('uma disciplina cujas coleções só têm cartões de arrastar e soltar não gera simulado', () => {
+  const db = newDb();
+  db.exec(`UPDATE flashcards SET kind = 'match' WHERE collection_id IN ('c1', 'c2')`);
+  failure(mockExamFromDiscipline(db, 'u1', 'e1', 'd1'), 400, /Nenhuma coleção com cartões/);
+  assert.equal(listMockExams(db, 'u1').length, 0);
 });
 
 test('chamar de novo atualiza o mesmo simulado: só entram os cartões novos', () => {

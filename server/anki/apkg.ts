@@ -7,6 +7,7 @@ import zlib from 'node:zlib';
 
 import JSZip from 'jszip';
 
+import { matchFromAnki } from '../flashcards/matchCard';
 import { sanitizeFlashcardHtml } from '../sanitizeHtml';
 
 export class ApkgError extends Error {}
@@ -14,6 +15,8 @@ export class ApkgError extends Error {}
 export interface ApkgCard {
   question: string;
   answer: string;
+  /** 'match' = nota de arrastar e soltar (título + linhas "termo::descrição"), guardada em texto simples. Sem isto, é um cartão comum em HTML. */
+  kind?: 'match';
 }
 
 export interface ParsedApkg {
@@ -21,6 +24,8 @@ export interface ParsedApkg {
   totalNotes: number;
   empty: number;
   clozeConverted: number;
+  /** Quantas notas foram reconhecidas como arrastar e soltar. */
+  matchConverted: number;
   images: { embedded: number; skipped: number };
 }
 
@@ -381,12 +386,22 @@ export async function parseApkg(buffer: Buffer): Promise<ParsedApkg> {
   const cards: ApkgCard[] = [];
   let empty = 0;
   let clozeConverted = 0;
+  let matchConverted = 0;
 
   for (const flds of notes) {
     const fields = flds.split('\x1f');
     const front = fields[0] ?? '';
     const back = fields[1] ?? '';
     const isCloze = HAS_CLOZE.test(front);
+
+    // O modelo de arrastar e soltar (campos "question" e "items", este com uma linha "termo::descrição" por par) vira um
+    // cartão de pares; qualquer dúvida e a nota entra como cartão comum, como sempre entrou.
+    const match = isCloze ? null : matchFromAnki(front, back);
+    if (match) {
+      matchConverted++;
+      cards.push({ ...match, kind: 'match' });
+      continue;
+    }
 
     let questionRaw = front;
     let answerRaw = back;
@@ -410,6 +425,7 @@ export async function parseApkg(buffer: Buffer): Promise<ParsedApkg> {
     totalNotes: notes.length,
     empty,
     clozeConverted,
+    matchConverted,
     images: { embedded: ctx.embedded, skipped: ctx.skipped },
   };
 }

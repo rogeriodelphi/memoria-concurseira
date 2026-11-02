@@ -25,6 +25,7 @@ import type {
   ExamDraft,
   ExamSummary,
   Flashcard,
+  FlashcardKind,
   GenerationOptions,
   LeechList,
   LeechSuggestion,
@@ -202,7 +203,8 @@ export const transcribeApi = {
 };
 
 export const flashcardsApi = {
-  create: (collectionId: string, input: { question: string; answer: string; difficulty: string }) =>
+  /** `kind: 'match'` cria um cartão de arrastar e soltar (a resposta traz os pares "termo::descrição", um por linha). */
+  create: (collectionId: string, input: { question: string; answer: string; difficulty: string; kind?: FlashcardKind }) =>
     request<{ flashcard: Flashcard }>('/flashcards', {
       method: 'POST',
       body: JSON.stringify({ collectionId, ...input }),

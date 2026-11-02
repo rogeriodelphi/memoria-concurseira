@@ -283,6 +283,34 @@ novo), sem perder nada.
    vira tag da nota).
 8. No Anki: Arquivo → Importar → selecionar o `.apkg` (ou dar duplo clique nele).
 
+## Cartão de arrastar e soltar
+
+Para conteúdo de associação (protocolo ↔ descrição, camada ↔ função, sigla ↔ significado) o cartão pode ser do tipo
+**Arrastar e soltar**: um título e de 2 a 12 pares termo/descrição. No estudo, as descrições aparecem embaralhadas numa
+bandeja e cada uma vai para o termo certo.
+
+- **Criar:** na página da coleção, **Novo cartão → Arrastar e soltar**: título e uma linha por par (termo e descrição, até
+  300 caracteres cada; termos diferentes entre si). **Adicionar par** e a lixeira mexem nas linhas. O lápis do cartão (na
+  coleção ou na tela de estudo) edita título e pares.
+- **Estudar:** arraste a descrição até o termo, ou, no celular, **toque na descrição e depois no termo**. Tocar numa
+  descrição já colocada a devolve à bandeja. **Conferir** (ou Enter) mostra certo e errado em cada termo, com a descrição
+  certa onde errou; sem colocar nada, o botão vira **Mostrar resposta**. O app **sugere** a nota (tudo certo: Bom; um erro:
+  Difícil; dois ou mais: Errei, e termo vazio conta como erro) e a destaca, mas quem avalia é você, com os quatro botões de
+  sempre. Descrições idênticas em pares diferentes são intercambiáveis. Funciona em todas as filas (coleção, revisão global,
+  atrasados, disciplina, erros, Reta final), porque todas usam a mesma tela de revisão.
+- **Como é guardado:** uma coluna nova `kind` no cartão (`basic` por padrão, `match` neste tipo; os cartões que já existiam
+  continuam comuns). O título fica em `question` e os pares em `answer`, em texto simples, uma linha `termo::descrição` por
+  par (o mesmo formato do Anki). Por isso o resto do app trata o cartão como um cartão comum com resposta legível: copiar e
+  mover mantêm o tipo, a lista da coleção mostra "termo → descrição", o modo mãos livres lê "termo: descrição", o PDF e a
+  exportação para o Anki saem como cartão comum (no Anki ele não arrasta; ao voltar para cá, vira arrastar e soltar de novo).
+  O servidor valida título e pares ao criar e ao editar; um cartão de pares nunca fica com uma resposta que não sirva.
+- **Importar do Anki:** uma nota cujo segundo campo tem uma linha `termo::descrição` em **todas** as linhas (de 2 a 12, termos
+  diferentes) entra como arrastar e soltar, com o primeiro campo como título; a prévia da importação diz quantas foram
+  reconhecidas. Qualquer dúvida e a nota entra como cartão comum, como sempre entrou.
+- **O que não faz:** não entra em simulado (a múltipla escolha parte de pergunta e resposta): o botão de simulado some do
+  cartão, e o "simulado de uma disciplina" o deixa de fora. Nas sanguessugas não há "Reescrever" (edite na coleção), e
+  "Quebrar" cria cartões comuns.
+
 ## Resumos
 
 Em **Resumos → Criar Resumo sem IA** o resumo é escrito (ou colado) por você, num campo de título e no mesmo

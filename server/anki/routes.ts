@@ -142,6 +142,7 @@ ankiImportRouter.post('/preview', upload.single('file'), async (req: AuthedReque
       duplicatesInFile: classified.duplicatesInFile,
       empty: parsed.empty,
       clozeConverted: parsed.clozeConverted,
+      matchConverted: parsed.matchConverted,
       images: parsed.images,
       duplicateSamples: classified.duplicateSamples,
       sample: classified.importable.slice(0, 3).map((card) => ({
@@ -209,10 +210,22 @@ ankiImportRouter.post('/import', upload.single('file'), async (req: AuthedReques
       ).run(documentId, target.id, decodeFilename(file.originalname), file.size, 'completed', 'anki', now);
 
       const insert = db.prepare(
-        'INSERT INTO flashcards (id, collection_id, document_id, question, answer, format, difficulty, source_page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)',
+        'INSERT INTO flashcards (id, collection_id, document_id, question, answer, format, difficulty, kind, source_page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)',
       );
       for (const card of classified.importable) {
-        insert.run(crypto.randomUUID(), target.id, documentId, card.question, card.answer, 'html', 'medio', now);
+        // Arrastar e soltar é texto simples (título + pares); o resto continua entrando como HTML sanitizado.
+        const isMatch = card.kind === 'match';
+        insert.run(
+          crypto.randomUUID(),
+          target.id,
+          documentId,
+          card.question,
+          card.answer,
+          isMatch ? 'plain' : 'html',
+          'medio',
+          isMatch ? 'match' : 'basic',
+          now,
+        );
       }
       db.prepare('UPDATE collections SET updated_at = ? WHERE id = ?').run(now, target.id);
       db.exec('COMMIT');

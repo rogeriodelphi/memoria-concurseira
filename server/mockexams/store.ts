@@ -257,19 +257,26 @@ export function addCards(
     return fail(400, `Escolha no máximo ${MAX_CARDS_PER_REQUEST} cartões por vez.`);
   }
 
+  // `kind`: um cartão de arrastar e soltar não tem como virar uma questão de múltipla escolha, então não entra no simulado.
   const owned = db.prepare(
-    `SELECT f.id FROM flashcards f JOIN collections c ON c.id = f.collection_id WHERE f.id = ? AND c.user_id = ?`,
+    `SELECT f.id, f.kind FROM flashcards f JOIN collections c ON c.id = f.collection_id WHERE f.id = ? AND c.user_id = ?`,
   );
   const insert = db.prepare('INSERT OR IGNORE INTO mock_exam_cards (mock_exam_id, flashcard_id, added_at) VALUES (?, ?, ?)');
   const now = new Date().toISOString();
   let added = 0;
   let alreadyInside = 0;
   let found = 0;
+  let matchCards = 0;
 
   db.exec('BEGIN');
   try {
     for (const flashcardId of new Set(flashcardIds as string[])) {
-      if (!owned.get(flashcardId, userId)) continue;
+      const card = owned.get(flashcardId, userId) as { id: string; kind: string } | undefined;
+      if (!card) continue;
+      if (card.kind === 'match') {
+        matchCards++;
+        continue;
+      }
       found++;
       const changes = Number(insert.run(id, flashcardId, now).changes);
       if (changes > 0) added++;
@@ -281,6 +288,7 @@ export function addCards(
     db.exec('ROLLBACK');
     throw err;
   }
+  if (found === 0 && matchCards > 0) return fail(400, 'Cartões de arrastar e soltar não entram em simulado.');
   if (found === 0) return fail(404, 'Cartão não encontrado.');
   return ok({ added, alreadyInside });
 }

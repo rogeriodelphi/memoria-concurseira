@@ -16,7 +16,7 @@ function newDb(): { db: DatabaseSync; examId: string } {
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL);
     CREATE TABLE flashcards (
       id TEXT PRIMARY KEY, collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-      question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain'
+      question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain', kind TEXT NOT NULL DEFAULT 'basic'
     );
     INSERT INTO users VALUES ('u1'), ('u2');
     INSERT INTO collections VALUES ('c1', 'u1', 'Redes'), ('c3', 'u2', 'Do outro');

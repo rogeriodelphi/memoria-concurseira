@@ -48,8 +48,11 @@ import { useToast } from '../contexts/ToastContext';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { AddToMockExamButton } from '../components/AddToMockExamButton';
 import { FormattedText } from '../components/FormattedText';
+import { MatchPairsList } from '../components/MatchCardBoard';
+import { MatchCardEditor } from '../components/MatchCardEditor';
 import { bulkDeletedToast, bulkDeleteMessage } from '../utils/bulkDelete';
 import { toEditorHtml } from '../utils/flashcardEditor';
+import { blankRows, matchPairsOf, rowsFromAnswer, rowsToAnswer, type MatchPair } from '../utils/matchCard';
 import { collectionLabel, freezeMessage, frozenNotice, unfreezeMessage } from '../utils/frozen';
 import type {
   CollectionDetail as CollectionDetailType,
@@ -197,6 +200,12 @@ export function CollectionDetail() {
   const [newCardDifficulty, setNewCardDifficulty] = useState<Difficulty>('medio');
   const [savingNewCard, setSavingNewCard] = useState(false);
   const [newCardError, setNewCardError] = useState<string | null>(null);
+  // Cartão de arrastar e soltar: no "Novo cartão" (tipo, título e linhas de pares) e na edição de um cartão da lista.
+  const [newCardKind, setNewCardKind] = useState<'basic' | 'match'>('basic');
+  const [newMatchTitle, setNewMatchTitle] = useState('');
+  const [newMatchRows, setNewMatchRows] = useState<MatchPair[]>(blankRows);
+  const [editMatchTitle, setEditMatchTitle] = useState('');
+  const [editMatchRows, setEditMatchRows] = useState<MatchPair[]>(blankRows);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -395,20 +404,28 @@ export function CollectionDetail() {
     setEditingId(fc.id);
     setEditQuestion(toEditorHtml(fc.question, fc.format));
     setEditAnswer(toEditorHtml(fc.answer, fc.format));
+    setEditMatchTitle(fc.question);
+    setEditMatchRows(rowsFromAnswer(fc.answer));
   }
 
   async function saveEdit(fcId: string) {
+    const isMatch = flashcards.find((f) => f.id === fcId)?.kind === 'match';
     try {
-      const { flashcard } = await flashcardsApi.update(fcId, {
-        question: editQuestion,
-        answer: editAnswer,
-        format: 'html',
-      });
+      const { flashcard } = await flashcardsApi.update(
+        fcId,
+        isMatch
+          ? { question: editMatchTitle, answer: rowsToAnswer(editMatchRows), format: 'plain' }
+          : { question: editQuestion, answer: editAnswer, format: 'html' },
+      );
       setFlashcards((prev) => prev.map((f) => (f.id === fcId ? flashcard : f)));
       setEditingId(null);
       showToast('Flashcard atualizado.');
-    } catch {
-      showToast('Não foi possível salvar as alterações.', 'error');
+    } catch (err) {
+      // O servidor diz o que falta num cartão de arrastar e soltar (poucos pares, termo repetido...).
+      showToast(
+        isMatch && err instanceof ApiError ? err.message : 'Não foi possível salvar as alterações.',
+        'error',
+      );
     }
   }
 
@@ -510,25 +527,33 @@ export function CollectionDetail() {
     setNewCardQuestion('');
     setNewCardAnswer('');
     setNewCardDifficulty('medio');
+    setNewCardKind('basic');
+    setNewMatchTitle('');
+    setNewMatchRows(blankRows());
     setNewCardError(null);
     setShowNewCardModal(true);
   }
 
   async function handleCreateCard() {
     if (!id) return;
-    const questionText = newCardQuestion.replace(/<[^>]+>/g, '').trim();
-    const answerText = newCardAnswer.replace(/<[^>]+>/g, '').trim();
-    if (!questionText || !answerText) {
-      setNewCardError('Preencha a pergunta e a resposta.');
-      return;
+    const isMatch = newCardKind === 'match';
+    // Arrastar e soltar: o servidor confere título e pares e responde com a mensagem do que falta.
+    if (!isMatch) {
+      const questionText = newCardQuestion.replace(/<[^>]+>/g, '').trim();
+      const answerText = newCardAnswer.replace(/<[^>]+>/g, '').trim();
+      if (!questionText || !answerText) {
+        setNewCardError('Preencha a pergunta e a resposta.');
+        return;
+      }
     }
     setSavingNewCard(true);
     setNewCardError(null);
     try {
       await flashcardsApi.create(id, {
-        question: newCardQuestion,
-        answer: newCardAnswer,
+        question: isMatch ? newMatchTitle : newCardQuestion,
+        answer: isMatch ? rowsToAnswer(newMatchRows) : newCardAnswer,
         difficulty: newCardDifficulty,
+        kind: newCardKind,
       });
       setShowNewCardModal(false);
       load();
@@ -1220,14 +1245,25 @@ export function CollectionDetail() {
               <div key={fc.id} className="card p-5">
                 {isEditing ? (
                   <div className="space-y-3">
-                    <div>
-                      <label className="label-field">Pergunta</label>
-                      <RichTextEditor value={editQuestion} onChange={setEditQuestion} role="question" />
-                    </div>
-                    <div>
-                      <label className="label-field">Resposta</label>
-                      <RichTextEditor value={editAnswer} onChange={setEditAnswer} role="answer" />
-                    </div>
+                    {fc.kind === 'match' ? (
+                      <MatchCardEditor
+                        title={editMatchTitle}
+                        rows={editMatchRows}
+                        onTitleChange={setEditMatchTitle}
+                        onRowsChange={setEditMatchRows}
+                      />
+                    ) : (
+                      <>
+                        <div>
+                          <label className="label-field">Pergunta</label>
+                          <RichTextEditor value={editQuestion} onChange={setEditQuestion} role="question" />
+                        </div>
+                        <div>
+                          <label className="label-field">Resposta</label>
+                          <RichTextEditor value={editAnswer} onChange={setEditAnswer} role="answer" />
+                        </div>
+                      </>
+                    )}
                     <div className="flex gap-2">
                       <button className="btn-primary" onClick={() => saveEdit(fc.id)}>
                         Salvar
@@ -1256,6 +1292,11 @@ export function CollectionDetail() {
                         {fc.sourcePage && (
                           <span className="text-xs text-neutral-400 dark:text-neutral-500">pág. {fc.sourcePage}</span>
                         )}
+                        {fc.kind === 'match' && (
+                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                            Arrastar e soltar
+                          </span>
+                        )}
                       </div>
                       <FormattedText
                         value={fc.question}
@@ -1263,21 +1304,26 @@ export function CollectionDetail() {
                         role="question"
                         className="text-neutral-900 dark:text-neutral-100"
                       />
-                      {isRevealed && (
-                        <FormattedText
-                          value={fc.answer}
-                          format={fc.format}
-                          role="answer"
-                          className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
-                        />
-                      )}
+                      {isRevealed &&
+                        (matchPairsOf(fc) ? (
+                          <MatchPairsList pairs={matchPairsOf(fc)!} className="mt-2 text-sm text-neutral-600 dark:text-neutral-400" />
+                        ) : (
+                          <FormattedText
+                            value={fc.answer}
+                            format={fc.format}
+                            role="answer"
+                            className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
+                          />
+                        ))}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      <AddToMockExamButton
-                        flashcardId={fc.id}
-                        size={16}
-                        className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
-                      />
+                      {fc.kind !== 'match' && (
+                        <AddToMockExamButton
+                          flashcardId={fc.id}
+                          size={16}
+                          className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+                        />
+                      )}
                       <button
                         onClick={() => toggleFavorite(fc)}
                         className={`rounded-lg p-2 transition-colors ${
@@ -1406,17 +1452,52 @@ export function CollectionDetail() {
 
       {showNewCardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="card w-full max-w-lg space-y-4 p-6">
+          <div className="card max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto p-6 sm:max-w-2xl">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Novo cartão</h2>
 
-            <div>
-              <label className="label-field">Pergunta</label>
-              <RichTextEditor value={newCardQuestion} onChange={setNewCardQuestion} role="question" />
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+              {(
+                [
+                  ['basic', 'Pergunta e resposta'],
+                  ['match', 'Arrastar e soltar'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setNewCardKind(value)}
+                  aria-pressed={newCardKind === value}
+                  className={`rounded-md py-1.5 text-sm font-medium transition-colors ${
+                    newCardKind === value
+                      ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
+                      : 'text-neutral-500 dark:text-neutral-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="label-field">Resposta</label>
-              <RichTextEditor value={newCardAnswer} onChange={setNewCardAnswer} role="answer" />
-            </div>
+
+            {newCardKind === 'match' ? (
+              <MatchCardEditor
+                title={newMatchTitle}
+                rows={newMatchRows}
+                onTitleChange={setNewMatchTitle}
+                onRowsChange={setNewMatchRows}
+                disabled={savingNewCard}
+              />
+            ) : (
+              <>
+                <div>
+                  <label className="label-field">Pergunta</label>
+                  <RichTextEditor value={newCardQuestion} onChange={setNewCardQuestion} role="question" />
+                </div>
+                <div>
+                  <label className="label-field">Resposta</label>
+                  <RichTextEditor value={newCardAnswer} onChange={setNewCardAnswer} role="answer" />
+                </div>
+              </>
+            )}
             <div>
               <label className="label-field">Dificuldade</label>
               <select

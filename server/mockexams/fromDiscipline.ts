@@ -56,7 +56,7 @@ export function mockExamFromDiscipline(
          JOIN exam_topic_collections l ON l.topic_id = t.id
          JOIN collections c ON c.id = l.collection_id AND c.user_id = ?
          JOIN flashcards f ON f.collection_id = c.id
-         WHERE t.discipline_id = ?
+         WHERE t.discipline_id = ? AND f.kind != 'match'
          ORDER BY c.name COLLATE NOCASE, f.rowid`,
       )
       .all(userId, disciplineId) as unknown as { id: string }[]

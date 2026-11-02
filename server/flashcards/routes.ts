@@ -17,6 +17,7 @@ import { loadOverdueCards } from '../stats/reviewDebt';
 import { selectDueCards } from '../studyplan/store';
 import { explainFlashcard } from '../tutor/explain';
 import { deleteOwnedFlashcards, prepareBulkDelete } from './bulkDelete';
+import { MATCH_KIND, prepareMatchCard } from './matchCard';
 import { recordStudy, undoStudy } from './study';
 
 /** Quantas coleções cabem numa fila de "estudar a disciplina inteira". */
@@ -37,7 +38,7 @@ function loadOwnedFlashcard(userId: string, flashcardId: string): FlashcardRow |
 }
 
 flashcardsRouter.post('/',(req: AuthedRequest, res: Response) => {
-  const { collectionId, question, answer, difficulty } = req.body ?? {};
+  const { collectionId, question, answer, difficulty, kind } = req.body ?? {};
   if (typeof collectionId !== 'string') {
     res.status(400).json({ success: false, error: 'Coleção inválida.' });
     return;
@@ -51,11 +52,25 @@ flashcardsRouter.post('/',(req: AuthedRequest, res: Response) => {
     return;
   }
 
-  const sanitizedQuestion = typeof question === 'string' ? sanitizeFlashcardHtml(question.trim()) : '';
-  const sanitizedAnswer = typeof answer === 'string' ? sanitizeFlashcardHtml(answer.trim()) : '';
-  if (!sanitizedQuestion.replace(/<[^>]+>/g, '').trim() || !sanitizedAnswer.replace(/<[^>]+>/g, '').trim()) {
-    res.status(400).json({ success: false, error: 'Preencha a pergunta e a resposta.' });
-    return;
+  // Arrastar e soltar: título + pares, em texto simples (nada de HTML). Qualquer outro valor de `kind` é um cartão comum.
+  const isMatch = kind === MATCH_KIND;
+  let sanitizedQuestion: string;
+  let sanitizedAnswer: string;
+  if (isMatch) {
+    const prepared = prepareMatchCard(question, answer);
+    if (!prepared.ok) {
+      res.status(prepared.status).json({ success: false, error: prepared.error });
+      return;
+    }
+    sanitizedQuestion = prepared.value.question;
+    sanitizedAnswer = prepared.value.answer;
+  } else {
+    sanitizedQuestion = typeof question === 'string' ? sanitizeFlashcardHtml(question.trim()) : '';
+    sanitizedAnswer = typeof answer === 'string' ? sanitizeFlashcardHtml(answer.trim()) : '';
+    if (!sanitizedQuestion.replace(/<[^>]+>/g, '').trim() || !sanitizedAnswer.replace(/<[^>]+>/g, '').trim()) {
+      res.status(400).json({ success: false, error: 'Preencha a pergunta e a resposta.' });
+      return;
+    }
   }
 
   const nextDifficulty =
@@ -83,8 +98,18 @@ flashcardsRouter.post('/',(req: AuthedRequest, res: Response) => {
 
   const flashcardId = crypto.randomUUID();
   db.prepare(
-    'INSERT INTO flashcards (id, collection_id, document_id, question, answer, format, difficulty, source_page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)',
-  ).run(flashcardId, collection.id, documentId, sanitizedQuestion, sanitizedAnswer, 'html', nextDifficulty, now);
+    'INSERT INTO flashcards (id, collection_id, document_id, question, answer, format, difficulty, kind, source_page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)',
+  ).run(
+    flashcardId,
+    collection.id,
+    documentId,
+    sanitizedQuestion,
+    sanitizedAnswer,
+    isMatch ? 'plain' : 'html',
+    nextDifficulty,
+    isMatch ? MATCH_KIND : 'basic',
+    now,
+  );
 
   db.prepare('UPDATE collections SET updated_at = ? WHERE id = ?').run(now, collection.id);
 
@@ -100,11 +125,22 @@ flashcardsRouter.put('/:id', (req: AuthedRequest, res: Response) => {
   }
 
   const { question, answer, format, difficulty, favorite } = req.body ?? {};
-  const nextFormat: string = format === 'html' || format === 'plain' ? format : existing.format;
+  const isMatch = existing.kind === MATCH_KIND;
+  // Um cartão de arrastar e soltar é sempre texto simples, e o que for gravado tem de continuar sendo um conjunto de
+  // pares válido: um título ou uma resposta que não sirva (a reescrita de uma sanguessuga, por exemplo) é recusado.
+  const nextFormat: string = isMatch ? 'plain' : format === 'html' || format === 'plain' ? format : existing.format;
 
   let nextQuestion = typeof question === 'string' && question.trim() ? question.trim() : existing.question;
   let nextAnswer = typeof answer === 'string' && answer.trim() ? answer.trim() : existing.answer;
-  if (nextFormat === 'html') {
+  if (isMatch) {
+    const prepared = prepareMatchCard(nextQuestion, nextAnswer);
+    if (!prepared.ok) {
+      res.status(prepared.status).json({ success: false, error: prepared.error });
+      return;
+    }
+    nextQuestion = prepared.value.question;
+    nextAnswer = prepared.value.answer;
+  } else if (nextFormat === 'html') {
     // Sanitiza sempre que o formato é html — tanto quando o campo mudou
     // agora quanto quando só está sendo mantido de uma edição anterior,
     // porque conteúdo antigo não passou por essa allow-list.
@@ -230,7 +266,7 @@ flashcardsRouter.post('/copy', (req: AuthedRequest, res: Response) => {
     // document_id fica NULL na cópia: o documento de origem pertence à
     // coleção original, não faz sentido linkar um flashcard de outra
     // coleção a ele.
-    'INSERT INTO flashcards (id, collection_id, document_id, question, answer, format, difficulty, source_page, created_at) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO flashcards (id, collection_id, document_id, question, answer, format, difficulty, kind, source_page, created_at) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)',
   );
   const move = db.prepare('UPDATE flashcards SET collection_id = ?, document_id = NULL WHERE id = ?');
 
@@ -259,6 +295,7 @@ flashcardsRouter.post('/copy', (req: AuthedRequest, res: Response) => {
         source.answer,
         source.format,
         source.difficulty,
+        source.kind === MATCH_KIND ? MATCH_KIND : 'basic',
         source.source_page,
         now,
       );

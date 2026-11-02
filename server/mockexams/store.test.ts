@@ -26,7 +26,7 @@ function newDb(): DatabaseSync {
     CREATE TABLE collections (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL);
     CREATE TABLE flashcards (
       id TEXT PRIMARY KEY, collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-      question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain'
+      question TEXT NOT NULL, answer TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'plain', kind TEXT NOT NULL DEFAULT 'basic'
     );
     INSERT INTO users VALUES ('u1'), ('u2');
     INSERT INTO collections VALUES ('c1', 'u1', 'Redes'), ('c2', 'u1', 'Direito'), ('c3', 'u2', 'Do outro');
@@ -155,6 +155,19 @@ test('adicionar: ignora cartões de outro usuário; se nenhum é válido, é "n�
   failure(addCards(db, 'u1', a.id, ['x1']), 404, /Cartão/);
   failure(addCards(db, 'u1', a.id, ['fantasma']), 404);
   assert.equal(count(db, 'mock_exam_cards'), 1);
+});
+
+test('adicionar: cartão de arrastar e soltar não entra (não vira múltipla escolha); os comuns do mesmo pedido entram', () => {
+  const db = newDb();
+  db.exec(`INSERT INTO flashcards (id, collection_id, question, answer, kind) VALUES ('m1', 'c1', 'Protocolos', 'OSPF::a\nBGP::b', 'match')`);
+  const a = value(createMockExam(db, 'u1', 'Redes'));
+
+  failure(addCards(db, 'u1', a.id, ['m1']), 400, /arrastar e soltar/);
+  assert.equal(count(db, 'mock_exam_cards'), 0);
+
+  assert.deepEqual(value(addCards(db, 'u1', a.id, ['f1', 'm1'])), { added: 1, alreadyInside: 0 });
+  assert.equal(count(db, 'mock_exam_cards'), 1);
+  assert.equal((db.prepare('SELECT flashcard_id AS id FROM mock_exam_cards').get() as { id: string }).id, 'f1');
 });
 
 test('adicionar: entrada inválida e lista alheia são recusadas', () => {

@@ -223,6 +223,12 @@ export function AnkiImport() {
                     a lacuna vira "[...]" na pergunta e a frase completa fica na resposta.
                   </li>
                 )}
+                {preview.matchConverted > 0 && (
+                  <li>
+                    {plural(preview.matchConverted, 'cartão de arrastar e soltar reconhecido', 'cartões de arrastar e soltar reconhecidos')}:
+                    entram como cartões de pares (a pergunta é o título e cada linha "termo::descrição" vira um par).
+                  </li>
+                )}
                 {preview.images.embedded + preview.images.skipped > 0 && (
                   <li>
                     Imagens: {preview.images.embedded.toLocaleString('pt-BR')} incluídas nos cartões

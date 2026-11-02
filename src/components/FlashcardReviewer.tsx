@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, MessageCircleQuestion, Pencil, Star, Volume2, VolumeX } from 'lucide-react';
 
 import { AddToMockExamButton } from './AddToMockExamButton';
 import { FormattedText } from './FormattedText';
+import { MatchCardBoard } from './MatchCardBoard';
+import { MatchCardEditor } from './MatchCardEditor';
 import { RichTextEditor } from './RichTextEditor';
 import { TutorModal } from './TutorModal';
 import { useStudySettings } from '../contexts/StudySettingsContext';
@@ -10,6 +12,18 @@ import { useSpeech } from '../hooks/useSpeech';
 import { useStudyShortcuts } from '../hooks/useStudyShortcuts';
 import { ApiError, flashcardsApi } from '../services/api';
 import { editorHasContent, toEditorHtml } from '../utils/flashcardEditor';
+import {
+  emptyPlacement,
+  gradePlacement,
+  matchPairsOf,
+  rowsFromAnswer,
+  rowsToAnswer,
+  spokenMatchAnswer,
+  suggestedRating,
+  trayOrder,
+  type MatchPair,
+  type Placement,
+} from '../utils/matchCard';
 import { stripHtmlForSpeech } from '../utils/speech';
 import type { Flashcard, StudyResult } from '../types';
 
@@ -88,6 +102,27 @@ export function FlashcardReviewer({
   // desligados (1 a 4 avaliariam o cartão por trás dela).
   const [tutorOpen, setTutorOpen] = useState(false);
 
+  // Cartão de arrastar e soltar: os pares (null se o cartão é comum, ou se os pares não servem: aí estuda-se como comum), a
+  // ordem da bandeja e onde o usuário pôs cada descrição. O que foi posto fica preso ao cartão (`id`): ao trocar de cartão
+  // o estado anterior não vale mais, e a bandeja é sorteada de novo.
+  const matchPairs = useMemo(() => matchPairsOf(current), [current.id, current.kind, current.answer]);
+  const pairCount = matchPairs?.length ?? 0;
+  const matchOrder = useMemo(() => trayOrder(pairCount), [current.id, pairCount]);
+  const [matchState, setMatchState] = useState<{ id: string; placement: Placement } | null>(null);
+  const placement: Placement =
+    matchState && matchState.id === current.id && matchState.placement.length === pairCount
+      ? matchState.placement
+      : emptyPlacement(pairCount);
+  const matchGrade = matchPairs && revealed ? gradePlacement(matchPairs, placement) : null;
+  const suggested = matchGrade ? suggestedRating(matchGrade.wrong) : null;
+  // O que se ouve como resposta: nos pares, "termo: descrição", sem os dois-pontos duplos.
+  const answerSpeech = matchPairs
+    ? { text: spokenMatchAnswer(matchPairs), format: 'plain' as const }
+    : { text: current.answer, format: current.format };
+  // A edição de um cartão de arrastar e soltar (título e linhas de pares) no lugar dos editores de texto.
+  const [matchTitle, setMatchTitle] = useState('');
+  const [matchRows, setMatchRows] = useState<MatchPair[]>([]);
+
   // Quando o cartão atual apareceu, pra medir o tempo até a avaliação. O tempo
   // gasto editando o cartão (ou conversando com o professor) não é estudo, então é descontado ao sair.
   const shownAtRef = useRef(Date.now());
@@ -121,7 +156,7 @@ export function FlashcardReviewer({
   // próximo — a primeira vez que o Gemini gera a voz leva alguns segundos.
   useEffect(() => {
     if (!autoPlaySpeech) return;
-    prefetch(stripHtmlForSpeech(current.answer, current.format));
+    prefetch(stripHtmlForSpeech(answerSpeech.text, answerSpeech.format));
     if (upcoming) prefetch(stripHtmlForSpeech(upcoming.question, upcoming.format));
   }, [current.id, upcoming?.id, autoPlaySpeech]);
 
@@ -134,7 +169,7 @@ export function FlashcardReviewer({
   // Modo automático: lê a resposta assim que ela é revelada.
   useEffect(() => {
     if (!autoPlaySpeech || !revealed) return;
-    speak(current.answer, current.format, 'answer');
+    speak(answerSpeech.text, answerSpeech.format, 'answer');
   }, [revealed, autoPlaySpeech]);
 
   // Atalhos de teclado: Enter mostra a resposta, 1 a 4 avaliam, ← volta, → pula. Desligados com
@@ -158,6 +193,8 @@ export function FlashcardReviewer({
     stopSpeech();
     setEditQuestion(toEditorHtml(current.question, current.format));
     setEditAnswer(toEditorHtml(current.answer, current.format));
+    setMatchTitle(current.question);
+    setMatchRows(rowsFromAnswer(current.answer));
     setEditError(null);
     editStartedAtRef.current = Date.now();
     setEditing(true);
@@ -177,6 +214,25 @@ export function FlashcardReviewer({
   }
 
   async function saveEditing() {
+    // Arrastar e soltar: título e pares; o servidor confere tudo e responde com a mensagem do que falta.
+    if (current.kind === 'match') {
+      setSaving(true);
+      setEditError(null);
+      try {
+        const { flashcard } = await flashcardsApi.update(current.id, {
+          question: matchTitle,
+          answer: rowsToAnswer(matchRows),
+          format: 'plain',
+        });
+        onUpdated?.(flashcard);
+        stopEditing();
+      } catch (err) {
+        setEditError(err instanceof ApiError ? err.message : 'Não foi possível salvar as alterações.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     // O editor devolve HTML mesmo "vazio" (<br>), e o servidor ignora em
     // silêncio um campo em branco — por isso a checagem é feita aqui, pra o
     // usuário não achar que salvou algo que não foi salvo.
@@ -209,14 +265,26 @@ export function FlashcardReviewer({
             {originLabel}
           </p>
         )}
-        <div>
-          <label className="label-field">Pergunta</label>
-          <RichTextEditor value={editQuestion} onChange={setEditQuestion} role="question" />
-        </div>
-        <div>
-          <label className="label-field">Resposta</label>
-          <RichTextEditor value={editAnswer} onChange={setEditAnswer} role="answer" />
-        </div>
+        {current.kind === 'match' ? (
+          <MatchCardEditor
+            title={matchTitle}
+            rows={matchRows}
+            onTitleChange={setMatchTitle}
+            onRowsChange={setMatchRows}
+            disabled={saving}
+          />
+        ) : (
+          <>
+            <div>
+              <label className="label-field">Pergunta</label>
+              <RichTextEditor value={editQuestion} onChange={setEditQuestion} role="question" />
+            </div>
+            <div>
+              <label className="label-field">Resposta</label>
+              <RichTextEditor value={editAnswer} onChange={setEditAnswer} role="answer" />
+            </div>
+          </>
+        )}
         {editError && <p className="text-sm text-red-600">{editError}</p>}
         <div className="flex gap-2">
           <button type="button" className="btn-primary" onClick={saveEditing} disabled={saving}>
@@ -243,10 +311,13 @@ export function FlashcardReviewer({
         >
           <MessageCircleQuestion size={17} />
         </button>
-        <AddToMockExamButton
-          flashcardId={current.id}
-          className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
-        />
+        {/* Um cartão de arrastar e soltar não vira questão de simulado (a múltipla escolha parte de pergunta e resposta). */}
+        {current.kind !== 'match' && (
+          <AddToMockExamButton
+            flashcardId={current.id}
+            className="tap-area text-neutral-400 transition-colors hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
+          />
+        )}
         {onUpdated && (
           <button
             type="button"
@@ -301,19 +372,36 @@ export function FlashcardReviewer({
             {loading === 'question' ? 'Preparando voz...' : speaking === 'question' ? 'Parar' : 'Ouvir pergunta'}
           </button>
         )}
+        {matchPairs && (
+          <div className="mt-6 w-full">
+            <MatchCardBoard
+              pairs={matchPairs}
+              order={matchOrder}
+              placement={placement}
+              onChange={(next) => setMatchState({ id: current.id, placement: next })}
+              checked={revealed}
+            />
+          </div>
+        )}
         {revealed && (
           <>
-            <div className="my-6 h-px w-full bg-neutral-100 dark:bg-neutral-800" />
-            <FormattedText
-              value={current.answer}
-              format={current.format}
-              role="answer"
-              className="text-neutral-600 dark:text-neutral-400"
-            />
+            {matchPairs ? (
+              <div className="my-4" />
+            ) : (
+              <>
+                <div className="my-6 h-px w-full bg-neutral-100 dark:bg-neutral-800" />
+                <FormattedText
+                  value={current.answer}
+                  format={current.format}
+                  role="answer"
+                  className="text-neutral-600 dark:text-neutral-400"
+                />
+              </>
+            )}
             {canSpeak && (
               <button
                 type="button"
-                onClick={() => toggleSpeak(current.answer, current.format, 'answer')}
+                onClick={() => toggleSpeak(answerSpeech.text, answerSpeech.format, 'answer')}
                 className="tap-area mt-2 flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-brand-600 dark:text-neutral-500 dark:hover:text-brand-400"
               >
                 {loading === 'answer' ? (
@@ -332,24 +420,33 @@ export function FlashcardReviewer({
 
       {!revealed ? (
         <button onClick={onReveal} className="btn-primary mt-6 w-full">
-          Mostrar resposta
+          {matchPairs && placement.some((d) => d !== null) ? 'Conferir' : 'Mostrar resposta'}
           <kbd className="ml-2 hidden rounded bg-white/20 px-1.5 py-0.5 font-sans text-xs font-medium sm:inline">
             Enter
           </kbd>
         </button>
       ) : (
-        <div className="mt-6 grid grid-cols-4 gap-2">
-          {RESULT_BUTTONS.map((btn) => (
-            <button
-              key={btn.result}
-              onClick={() => rate(btn.result)}
-              disabled={busy}
-              className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${btn.className}`}
-            >
-              {btn.label}
-            </button>
-          ))}
-        </div>
+        <>
+          {matchGrade && (
+            <p className="mt-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
+              {pairCount - matchGrade.wrong} de {pairCount} certos. A nota sugerida está destacada; a escolha é sua.
+            </p>
+          )}
+          <div className={`${matchGrade ? 'mt-2' : 'mt-6'} grid grid-cols-4 gap-2`}>
+            {RESULT_BUTTONS.map((btn) => (
+              <button
+                key={btn.result}
+                onClick={() => rate(btn.result)}
+                disabled={busy}
+                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${btn.className} ${
+                  suggested === btn.result ? 'ring-2 ring-current ring-offset-2 dark:ring-offset-neutral-900' : ''
+                }`}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

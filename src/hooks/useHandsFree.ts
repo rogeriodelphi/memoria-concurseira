@@ -12,6 +12,7 @@ import {
   type HandsFreePhase,
   type PlaybackIo,
 } from '../utils/handsFree';
+import { matchPairsOf, spokenMatchAnswer } from '../utils/matchCard';
 import { stripHtmlForSpeech } from '../utils/speech';
 import { useSpeech } from './useSpeech';
 
@@ -42,13 +43,17 @@ export function useHandsFree(cards: DueFlashcard[]) {
   positionRef.current = position;
   const tokenRef = useRef<CancelToken | null>(null);
 
-  // O texto que a voz lê: o cartão sem marcação (os de imagem ficam sem texto e são pulados).
+  // O texto que a voz lê: o cartão sem marcação (os de imagem ficam sem texto e são pulados). Num cartão de arrastar e
+  // soltar a resposta são os pares, lidos como "termo: descrição" (e não com os dois-pontos duplos).
   const texts = useMemo(
     () =>
-      cards.map((card) => ({
-        question: stripHtmlForSpeech(card.question, card.format),
-        answer: stripHtmlForSpeech(card.answer, card.format),
-      })),
+      cards.map((card) => {
+        const pairs = matchPairsOf(card);
+        return {
+          question: stripHtmlForSpeech(card.question, card.format),
+          answer: pairs ? spokenMatchAnswer(pairs) : stripHtmlForSpeech(card.answer, card.format),
+        };
+      }),
     [cards],
   );
 

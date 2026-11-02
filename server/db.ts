@@ -248,6 +248,13 @@ if (!flashcardsColumnsForFavorite.some((c) => c.name === 'favorite')) {
   db.exec('ALTER TABLE flashcards ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
 }
 
+// Tipo do cartão: 'basic' (pergunta e resposta, o de sempre) ou 'match' (arrastar e soltar: a pergunta é o título e a
+// resposta guarda os pares "termo::descrição", um por linha, em texto simples). Os cartões que já existem ficam 'basic'.
+const flashcardsColumnsForKind = db.prepare('PRAGMA table_info(flashcards)').all() as unknown as { name: string }[];
+if (!flashcardsColumnsForKind.some((c) => c.name === 'kind')) {
+  db.exec("ALTER TABLE flashcards ADD COLUMN kind TEXT NOT NULL DEFAULT 'basic'");
+}
+
 // Tempo gasto em cada revisão, em ms (do cartão aparecer até a avaliação).
 // NULL nas revisões anteriores a esta coluna — o painel estima essas pelo
 // intervalo até a revisão anterior, então não precisa de backfill.

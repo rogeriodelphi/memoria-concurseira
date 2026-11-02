@@ -3,8 +3,10 @@ import { ChevronDown, ChevronUp, Clock, Loader2, Pencil, RotateCcw, Scissors } f
 
 import type { Leech } from '../../types';
 import { leechHeadline, snoozedLabel, SNOOZE_OPTIONS, type SnoozeDays } from '../../utils/leeches';
+import { matchPairsOf } from '../../utils/matchCard';
 import { plural } from '../../utils/performance';
 import { FormattedText } from '../FormattedText';
+import { MatchPairsList } from '../MatchCardBoard';
 import { ResultDots } from './ResultDots';
 
 /** Um cartão sanguessuga e o que dá para fazer com ele: reescrever, quebrar, adiar a revisão, recomeçar a contagem. */
@@ -59,7 +61,11 @@ export function LeechItem({
         />
         {open && (
           <div className="mt-2 border-t border-neutral-100 pt-2 dark:border-neutral-800">
-            <FormattedText value={flashcard.answer} format={flashcard.format} role="answer" className="text-sm text-neutral-700 dark:text-neutral-300" />
+            {matchPairsOf(flashcard) ? (
+              <MatchPairsList pairs={matchPairsOf(flashcard)!} className="text-sm text-neutral-700 dark:text-neutral-300" />
+            ) : (
+              <FormattedText value={flashcard.answer} format={flashcard.format} role="answer" className="text-sm text-neutral-700 dark:text-neutral-300" />
+            )}
           </div>
         )}
         <button
@@ -74,10 +80,13 @@ export function LeechItem({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" className="btn-primary !py-1.5 text-xs" disabled={busy} onClick={onRewrite} title="Edita a pergunta e a resposta e permite criar um macete">
-          <Pencil size={14} />
-          Reescrever
-        </button>
+        {/* Um cartão de arrastar e soltar se edita na página da coleção (título e pares); aqui só dá para quebrar, adiar ou recomeçar. */}
+        {flashcard.kind !== 'match' && (
+          <button type="button" className="btn-primary !py-1.5 text-xs" disabled={busy} onClick={onRewrite} title="Edita a pergunta e a resposta e permite criar um macete">
+            <Pencil size={14} />
+            Reescrever
+          </button>
+        )}
         <button type="button" className="btn-secondary !py-1.5 text-xs" disabled={busy} onClick={onSplit} title="Separa o cartão em cartões menores, de uma ideia só">
           <Scissors size={14} />
           Quebrar

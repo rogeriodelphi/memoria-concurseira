@@ -87,7 +87,11 @@ export interface Flashcard {
   createdAt: string;
   dueAt: string | null;
   favorite: boolean;
+  /** 'match' = arrastar e soltar (a pergunta é o título e a resposta guarda os pares "termo::descrição"); ausente vale 'basic'. */
+  kind?: FlashcardKind;
 }
+
+export type FlashcardKind = 'basic' | 'match';
 
 export interface DueFlashcard extends Flashcard {
   collectionName: string;
@@ -580,6 +584,8 @@ export interface AnkiImportPreview {
   duplicatesInFile: number;
   empty: number;
   clozeConverted: number;
+  /** Notas reconhecidas como arrastar e soltar. */
+  matchConverted: number;
   images: { embedded: number; skipped: number };
   duplicateSamples: { question: string; existsIn: string | null }[];
   sample: { question: string; answer: string }[];

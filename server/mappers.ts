@@ -25,6 +25,8 @@ export interface FlashcardRow {
   repetitions: number;
   due_at: string | null;
   favorite: number;
+  /** 'basic' ou 'match' (arrastar e soltar). Linhas de consultas que não trazem a coluna valem como 'basic'. */
+  kind?: string;
 }
 
 export function mapDocument(row: DocumentRow) {
@@ -54,6 +56,7 @@ export function mapFlashcard(row: FlashcardRow) {
     createdAt: row.created_at,
     dueAt: row.due_at,
     favorite: !!row.favorite,
+    kind: row.kind === 'match' ? ('match' as const) : ('basic' as const),
   };
 }
 
